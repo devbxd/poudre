@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Poudre Beauty — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/tabler-icons.min.css">
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-brand">
+      <div class="login-logo">💄</div>
+      <h1>Poudre Beauty</h1>
+      <p>Management Dashboard</p>
+    </div>
+    <div class="form-field">
+      <label>Username</label>
+      <input type="text" id="login-user" placeholder="Enter username" autocomplete="username"/>
+    </div>
+    <div class="form-field">
+      <label>Password</label>
+      <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password"/>
+    </div>
+    <button class="btn-login" id="btn-login">Sign In</button>
+    <div class="login-error hidden" id="login-error"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app-screen" class="hidden">
+  <div class="app-layout">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <span class="brand-emoji">💄</span>
+        <div>
+          <div class="brand-name">Poudre Beauty</div>
+          <div class="brand-sub">Dashboard</div>
+        </div>
+      </div>
+      <nav>
+        <div class="nav-item active" data-page="dashboard"><i class="ti ti-layout-dashboard"></i><span>Dashboard</span></div>
+        <div class="nav-sep">Inventory</div>
+        <div class="nav-item" data-page="products"><i class="ti ti-box"></i><span>Products</span></div>
+        <div class="nav-item" data-page="import"><i class="ti ti-file-import"></i><span>Import CSV</span></div>
+        <div class="nav-sep">Sales</div>
+        <div class="nav-item" data-page="cashier"><i class="ti ti-barcode"></i><span>Cashier (POS)</span></div>
+        <div class="nav-item" data-page="orders"><i class="ti ti-shopping-bag"></i><span>Orders</span></div>
+        <div class="nav-sep">Analytics</div>
+        <div class="nav-item" data-page="reports"><i class="ti ti-chart-bar"></i><span>Reports</span></div>
+        <div class="nav-sep">System</div>
+        <div class="nav-item" data-page="settings"><i class="ti ti-settings"></i><span>Settings</span></div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-pill">
+          <div class="user-avatar" id="user-avatar">A</div>
+          <div class="user-info">
+            <div class="user-name" id="user-name-display">Admin</div>
+            <div class="user-role" id="user-role-display">Administrator</div>
+          </div>
+          <button class="logout-btn" id="btn-logout" title="Logout"><i class="ti ti-logout"></i></button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main-content" id="main-content">
+      <div class="loading-page"><i class="ti ti-loader spin"></i></div>
+    </main>
+
+  </div>
+</div>
+
+<!-- MODAL PRODUCT -->
+<div class="modal-bg hidden" id="modal-product">
+  <div class="modal-box" style="max-width:600px">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-product-title">New Product</span>
+      <button class="modal-close" onclick="closeModal('modal-product')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-product-id"/>
+      <div class="modal-grid2">
+        <div class="form-group full"><label class="form-label">Product Name *</label><input class="form-input" id="p-name" placeholder="Product name"/></div>
+        <div class="form-group"><label class="form-label">SKU</label><input class="form-input" id="p-sku" placeholder="e.g. SKU001"/></div>
+        <div class="form-group"><label class="form-label">Barcode</label><input class="form-input" id="p-barcode" placeholder="Scan or type barcode"/></div>
+        <div class="form-group"><label class="form-label">Category</label><input class="form-input" id="p-category" placeholder="e.g. Makeup > Face"/></div>
+        <div class="form-group"><label class="form-label">Brand</label><input class="form-input" id="p-brand" placeholder="e.g. K Stars"/></div>
+        <div class="form-group"><label class="form-label">Regular Price ($)</label><input class="form-input" type="number" id="p-price" placeholder="0.00"/></div>
+        <div class="form-group"><label class="form-label">Sale Price ($)</label><input class="form-input" type="number" id="p-sale-price" placeholder="0.00"/></div>
+        <div class="form-group"><label class="form-label">Stock</label><input class="form-input" type="number" id="p-stock" placeholder="0"/></div>
+        <div class="form-group"><label class="form-label">Low Stock Alert</label><input class="form-input" type="number" id="p-low-stock" placeholder="5"/></div>
+        <div class="form-group full"><label class="form-label">Image URL</label><input class="form-input" id="p-image" placeholder="https://..."/></div>
+        <div class="form-group full"><label class="form-label">Description</label><textarea class="form-input" id="p-desc" rows="2"></textarea></div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('modal-product')">Cancel</button>
+      <button class="btn-save" id="btn-save-product">Save Product</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast hidden" id="toast"></div>
+
+<script src="/js/app.js"></script>
+</body>
+</html>
