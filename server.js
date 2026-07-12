@@ -469,7 +469,7 @@ app.get('/api/products/variations', async (req, res) => {
 app.get('/api/shop/products', async (req, res) => {
   try {
     const { search, category, limit, offset, max_price } = req.query;
-    let sql = "SELECT pr.*, COALESCE((SELECT MIN(v.price) FROM products v WHERE v.parent_sku = pr.sku AND v.price > 0), pr.price) as min_price FROM products pr WHERE pr.active=true AND pr.product_type IN ('simple','variable')";
+    let sql = "SELECT pr.*, COALESCE((SELECT MIN(v.price) FROM products v WHERE v.parent_sku = pr.sku AND v.price > 0), pr.price) as min_price FROM products pr WHERE pr.active=true AND pr.product_type IN ('simple','variable') AND (pr.product_type = 'variable' OR pr.price > 0 OR pr.sale_price > 0) AND (pr.product_type = 'variable' OR pr.price > 0 OR pr.sale_price > 0) AND (pr.product_type = 'variable' OR pr.price > 0 OR pr.sale_price > 0) AND (pr.product_type = 'variable' OR pr.price > 0 OR pr.sale_price > 0)";
     const params = [];
     if (search) { sql += ' AND (pr.name ILIKE ? OR pr.sku ILIKE ? OR pr.barcode ILIKE ?)'; params.push('%'+search+'%','%'+search+'%','%'+search+'%'); }
     if (category && category !== 'all') { sql += ' AND pr.category ILIKE ?'; params.push('%'+category+'%'); }

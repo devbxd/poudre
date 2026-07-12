@@ -103,7 +103,7 @@ async function renderProducts(products, containerId, append = false) {
   const variableIds = products.filter(p => p.product_type === 'variable').map(p => p.sku);
   
   const html = products.map(p => {
-    const price = p.sale_price && p.sale_price > 0 ? p.sale_price : (p.price > 0 ? p.price : null);
+    const price = p.sale_price && p.sale_price > 0 ? p.sale_price : (p.price > 0 ? p.price : p.min_price > 0 ? p.min_price : 0);
     const oldPrice = p.sale_price && p.sale_price > 0 && p.price > p.sale_price ? p.price : null;
     const discount = oldPrice ? Math.round((1 - price/oldPrice) * 100) : null;
     
