@@ -17,7 +17,12 @@
     <button onclick="closeMobileMenu()">✕</button>
   </div>
   <div>
-    <div class="mobile-cat" onclick="mobileCat('Watches')">WATCHES</div>
+    <div class="mobile-cat" onclick="toggleMobileSub('mob-watches')">WATCHES <span>›</span></div>
+<div class="mobile-sub" id="mob-watches">
+  <a onclick="mobileCat('Watches > Men')">Men</a>
+  <a onclick="mobileCat('Watches > Women')">Women</a>
+  <a onclick="mobileCat('Authentic Bracelets')">Authentic Bracelets</a>
+</div>
     <div class="mobile-cat" onclick="toggleMobileSub('mob-perfumes')">PERFUMES <span>›</span></div>
     <div class="mobile-sub" id="mob-perfumes">
       <a onclick="mobileCat('Perfumes > Men')">Men</a>
@@ -64,9 +69,16 @@
       <a onclick="mobileCat('Body Splashes')">Body Splashes</a>
       <a onclick="mobileCat('Body Lotions')">Body Lotions</a>
       <a onclick="mobileCat('Body Oil')">Body Oil</a>
+      <a onclick="mobileCat('Body Scrubs & Bath Salts')">Body Scrubs & Bath Salts</a>
+      <a onclick="mobileCat('Candles & Reed Diffusers')">Candles & Reed Diffusers</a>
       <a onclick="mobileCat('Shower Gel')">Shower Gel</a>
-      <a onclick="mobileCat('Deodorant/Deostick')">Deodorant</a>
+      <div class="mobile-cat" style="padding:11px 2rem;font-size:13px;text-transform:none;border-bottom:1px solid #f0f0f0" onclick="toggleMobileSub('mob-deo')">Deodorant/Deostick <span>›</span></div>
+      <div class="mobile-sub-sub" id="mob-deo">
+        <a onclick="mobileCat('Deodorant > Men')">Men</a>
+        <a onclick="mobileCat('Deodorant > Women')">Women</a>
+      </div>
       <a onclick="mobileCat('Underwear/Lingerie')">Underwear/Lingerie</a>
+      <a onclick="mobileCat('Bath & Body > Gift Sets')">Gift Sets</a>
     </div>
     <div class="mobile-cat" onclick="toggleMobileSub('mob-skin')">SKIN CARE <span>›</span></div>
     <div class="mobile-sub" id="mob-skin">
