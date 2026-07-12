@@ -153,7 +153,7 @@ async function showProductPage(p, type, sku) {
   document.getElementById('page-product').innerHTML = `
     <div class="container" style="padding:2rem 0">
       <div class="breadcrumb" style="display:flex;align-items:center;gap:8px">
-  <button onclick="history.back()" style="background:none;border:none;cursor:pointer;font-size:13px;color:#888;display:flex;align-items:center;gap:4px">← Back</button>
+ <button onclick="showPage('shop')" style="background:none;border:none;cursor:pointer;font-size:13px;color:#888;display:flex;align-items:center;gap:4px;padding:8px 0;min-height:44px">← Back</button>
   <span style="color:#ccc">|</span>
   Home › Products › ${p.category?.split('>').pop()?.trim() || 'Shop'} › ${p.name}
 </div>
@@ -238,12 +238,8 @@ function buySelectedVariant() {
 }
 
 async function quickAddToCart(id, type, sku) {
-  if (type === 'variable') {
-    showVariantModal(id, sku);
-  } else {
-    const p = await apiFetch(`/api/products/${id}`);
-    addToCart(p);
-  }
+  const p = await apiFetch(`/api/products/${id}`);
+  await showProductPage(p, type, sku);
 }
 
 async function showVariantModal(productId, sku) {
