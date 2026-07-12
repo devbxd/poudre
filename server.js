@@ -174,7 +174,7 @@ app.get('/api/products/search', async (req, res) => {
 app.get('/api/products', async (req, res) => {
   try {
     const { search, category, brand, low_stock } = req.query;
-    let q = "SELECT * FROM products WHERE active=true AND product_type IN ('simple','variable')"; const p = [];
+    let q = "SELECT * FROM products WHERE active=true AND product_type IN ('simple','variable') AND (price > 0 OR sale_price > 0 OR product_type = 'variable')"; const p = [];
     if (search) { q += ' AND (name ILIKE ? OR sku ILIKE ? OR barcode ILIKE ? OR variant_name ILIKE ?)'; p.push('%'+search+'%','%'+search+'%','%'+search+'%','%'+search+'%'); }
     if (category) { q += ' AND category=?'; p.push(category); }
     if (brand) { q += ' AND brand=?'; p.push(brand); }
