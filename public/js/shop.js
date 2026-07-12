@@ -169,23 +169,21 @@ async function showProductPage(p, type, sku) {
             ${oldPrice ? `<span style="font-size:1.1rem;color:#888;text-decoration:line-through">$${Number(oldPrice).toFixed(2)}</span>` : ''}
             ${discount ? `<span style="background:#fdecea;color:#e74c3c;padding:3px 10px;border-radius:20px;font-size:13px;font-weight:600">-${discount}%</span>` : ''}
           </div>
-          ${variations.length ? `
+       ${variations.length ? `
             <div style="margin-bottom:1.5rem">
               <div style="font-size:13px;font-weight:600;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em">Choose Variant</div>
               <div style="display:flex;flex-direction:column;gap:8px" id="variant-list">
                 ${variations.map(v => `
-                  <div onclick="selectVariant(${JSON.stringify(v).replace(/"/g,'&quot;')})" 
+                  <div onclick="selectVariant(this, ${JSON.stringify(v).replace(/"/g,'&quot;')})" 
                        class="variant-row"
-                       style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border:1.5px solid #eee;cursor:pointer;border-radius:4px;transition:all 0.15s"
-                       onmouseover="this.style.borderColor='#1a1a1a'"
-                       onmouseout="this.style.borderColor=this.classList.contains('selected')?'#1a1a1a':'#eee'">
+                       style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border:1.5px solid #eee;cursor:pointer;border-radius:4px;transition:all 0.15s;-webkit-tap-highlight-color:transparent">
                     <span style="font-size:14px;font-weight:500">${v.variant_name||v.name}</span>
                     <span style="font-size:14px;font-weight:600">$${Number(v.sale_price||v.price).toFixed(2)}</span>
                   </div>`).join('')}
               </div>
             </div>` : ''}
           <button onclick="${variations.length ? 'addSelectedVariant()' : `addToCart(${JSON.stringify(p).replace(/"/g,'&quot;')})`}" 
-                  style="width:100%;padding:14px;border:1.5px solid #1a1a1a;background:white;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;margin-bottom:10px;transition:all 0.2s"
+                  style="width:100%;padding:16px;border:1.5px solid #1a1a1a;background:white;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;margin-bottom:10px;transition:all 0.2s;-webkit-tap-highlight-color:transparent"
                   onmouseover="this.style.background='#f5f4f2'"
                   onmouseout="this.style.background='white'">
             ADD TO CART
@@ -216,14 +214,16 @@ function getDeliveryDate() {
   return `${d1.toLocaleDateString('en-US',{month:'short',day:'numeric'})} – ${d2.toLocaleDateString('en-US',{month:'short',day:'numeric'})}`;
 }
 
-function selectVariant(v) {
+function selectVariant(el, v) {
   window._selectedVariant = v;
   document.querySelectorAll('.variant-row').forEach(r => {
     r.style.borderColor = '#eee';
+    r.style.background = 'white';
     r.classList.remove('selected');
   });
-  event.currentTarget.style.borderColor = '#1a1a1a';
-  event.currentTarget.classList.add('selected');
+  el.style.borderColor = '#1a1a1a';
+  el.style.background = '#f5f4f2';
+  el.classList.add('selected');
 }
 
 function addSelectedVariant() {
