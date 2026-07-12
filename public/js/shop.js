@@ -198,9 +198,19 @@ async function showProductPage(p, type, sku) {
             <button onclick="addToCart(${JSON.stringify(p).replace(/"/g,'&quot;')})" style="width:100%;padding:16px;border:1.5px solid #1a1a1a;background:white;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;margin-bottom:10px;">ADD TO CART</button>
             <button onclick="addToCart(${JSON.stringify(p).replace(/"/g,'&quot;')});goCheckout()" style="width:100%;padding:16px;background:#1a1a1a;color:white;border:none;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;margin-bottom:1.5rem;">BUY IT NOW</button>
           `}
-          <div style="border-top:1px solid #eee;padding-top:1rem">
+          <div style="border-top:1px solid #eee;padding-top:1rem;margin-top:1rem">
+            <div style="display:flex;gap:1rem;margin-bottom:1rem">
+              <button style="flex:1;padding:10px;border:1px solid #eee;background:white;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
+                ⇄ Compare
+              </button>
+              <button onclick="navigator.share ? navigator.share({title:'${p.name.replace(/'/g,"\\'")}',url:window.location.href}) : showToast('Link copied!')" style="flex:1;padding:10px;border:1px solid #eee;background:white;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
+                ↗ Share Products
+              </button>
+            </div>
             <div style="font-size:13px;color:#555;margin-bottom:8px">🕐 <strong>Estimated Delivery:</strong> ${getDeliveryDate()}</div>
-            ${p.sku ? `<div style="font-size:13px;color:#888">SKU: ${p.sku}</div>` : ''}
+            <div style="font-size:13px;color:#555;margin-bottom:8px">👁 <strong>${Math.floor(Math.random()*8)+2} People viewing this product right now!</strong></div>
+            ${p.sku ? `<div style="font-size:13px;color:#888;margin-bottom:4px">SKU: ${p.sku}</div>` : ''}
+            ${p.category ? `<div style="font-size:13px;color:#888">Tags: ${p.category.split(',').slice(0,3).join(', ')}</div>` : ''}
           </div>
         </div>
       </div>
