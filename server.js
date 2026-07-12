@@ -466,18 +466,17 @@ app.get('/api/products/variations', async (req, res) => {
 });
 
 
-
-// SHOP API
 app.get('/api/shop/products', async (req, res) => {
   try {
     const { search, category, limit, offset, max_price } = req.query;
-    let q = "SELECT * FROM products WHERE active=true AND product_type IN ('simple','variable') AND (price > 0 OR sale_price > 0 OR EXISTS (SELECT 1 FROM products v WHERE v.parent_sku = products.sku AND v.price > 0))"; const p = [];
-    if (search) { q += ' AND (name ILIKE ? OR sku ILIKE ? OR barcode ILIKE ?)'; p.push('%'+search+'%','%'+search+'%','%'+search+'%'); }
-    if (category && category !== 'all') { q += ' AND category ILIKE ?'; p.push('%'+category+'%'); }
-    if (max_price) { q += ' AND (sale_price <= ? OR (sale_price = 0 AND price <= ?))'; p.push(max_price, max_price); }
-    q += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
-    p.push(parseInt(limit)||24, parseInt(offset)||0);
-    res.json(await query(q, p));
+    let sql = "SELECT pr.*, COALESCE((SELECT MIN(v.price) FROM products v WHERE v.parent_sku = pr.sku AND v.price > 0), pr.price) as min_price FROM products pr WHERE pr.active=true AND pr.product_type IN ('simple','variable')";
+    const params = [];
+    if (search) { sql += ' AND (pr.name ILIKE ? OR pr.sku ILIKE ? OR pr.barcode ILIKE ?)'; params.push('%'+search+'%','%'+search+'%','%'+search+'%'); }
+    if (category && category !== 'all') { sql += ' AND pr.category ILIKE ?'; params.push('%'+category+'%'); }
+    if (max_price) { sql += ' AND (pr.sale_price <= ? OR (pr.sale_price = 0 AND pr.price <= ?))'; params.push(max_price, max_price); }
+    sql += ' ORDER BY pr.created_at DESC LIMIT ? OFFSET ?';
+    params.push(parseInt(limit)||24, parseInt(offset)||0);
+    res.json(await query(sql, params));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
