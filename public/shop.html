@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Poudre Beauty</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/shop.css">
+<link rel="icon" type="image/jpeg" href="https://poudrebeauty.com/wp-content/uploads/2025/01/favicon.png"/>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="top-bar">
+  <div class="top-bar-inner marquee-wrap">
+    <span>🏪 Store Pickup Available &nbsp;|&nbsp; 💰 Save 10% with code <strong>Poudre10</strong> &nbsp;|&nbsp; 🚚 Free Delivery to Chekka, Hereh and Anfeh &nbsp;|&nbsp; 🎁 Free Delivery Above $100 &nbsp;|&nbsp; 🏪 Store Pickup Available &nbsp;|&nbsp; 💰 Save 10% with code <strong>Poudre10</strong> &nbsp;|&nbsp; 🚚 Free Delivery to Chekka, Hereh and Anfeh &nbsp;|&nbsp; 🎁 Free Delivery Above $100</span>
+  </div>
+</div>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-inner">
+    <div class="header-logo">
+      <a href="/shop"><img src="https://poudrebeauty.com/wp-content/uploads/2025/02/WhatsApp-Image-2025-02-04-at-11.23.31-AM.jpeg" alt="Poudre Beauty" class="logo-img"/></a>
+    </div>
+    <nav class="main-nav" id="main-nav">
+      <a href="/shop?cat=Watches" class="nav-link">Watches</a>
+      <a href="/shop?cat=Perfumes" class="nav-link">Perfumes</a>
+      <a href="/shop?cat=Makeup" class="nav-link">Makeup</a>
+      <a href="/shop?cat=Bath+%26+Body" class="nav-link">Bath & Body</a>
+      <a href="/shop?cat=Skin+Care" class="nav-link">Skin Care</a>
+      <a href="/shop?cat=Sun+Care%2FTanning" class="nav-link">Sun Care</a>
+      <a href="/shop?cat=Hair+Care" class="nav-link">Hair Care</a>
+      <a href="/shop?cat=Nail+Care+%26+Colors" class="nav-link">Nail Care</a>
+      <a href="/shop?cat=Brushes+%26+Tools" class="nav-link">Brushes</a>
+      <a href="/shop?cat=Electricals" class="nav-link">Electricals</a>
+      <a href="/shop?cat=Summer+Mode" class="nav-link">Summer Mode</a>
+    </nav>
+    <div class="header-actions">
+      <button class="action-btn" onclick="showWishlistPage()" style="position:relative">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+  <span class="cart-count" id="wishlist-count" style="background:#e74c3c">0</span>
+</button><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></button>
+      <button class="action-btn cart-btn" onclick="toggleCart()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+        <span class="cart-count" id="cart-count">0</span>
+      </button>
+      <button class="menu-btn" onclick="toggleMobileMenu()">☰</button>
+    </div>
+  </div>
+  <!-- SEARCH BAR -->
+  <div class="search-bar hidden" id="search-bar">
+    <div class="search-inner">
+      <input type="text" id="search-input" placeholder="Search products..." oninput="handleSearch(this.value)"/>
+      <button onclick="toggleSearch()">✕</button>
+    </div>
+  </div>
+</header>
+
+<!-- MAIN -->
+<main id="main">
+
+  <!-- HOME PAGE -->
+  <div id="page-home">
+    <!-- HERO -->
+    <section class="hero">
+      <div class="hero-content">
+        <p class="hero-sub">New Collection</p>
+        <h1 class="hero-title">Everything you need<br/>to prepare the look</h1>
+        <a href="/shop?cat=Makeup" class="hero-btn" onclick="showCategory('Makeup');return false;">Shop Now</a>
+      </div>
+      <div class="hero-img">
+        
+      </div>
+    </section>
+
+    <!-- CATEGORIES -->
+    <section class="categories-section">
+      <div class="container">
+        <div class="categories-grid">
+          <div class="cat-card" onclick="showCategory('Makeup')">
+            <img src="https://poudrebeauty.com/wp-content/uploads/2025/01/Untitled-design-24.png" alt="Makeup"/>
+            <span>Makeup</span>
+          </div>
+          <div class="cat-card" onclick="showCategory('Hair Care')">
+            <img src="https://poudrebeauty.com/wp-content/uploads/2025/01/Untitled-design-28.png" alt="Hair Care"/>
+            <span>Hair Care</span>
+          </div>
+          <div class="cat-card" onclick="showCategory('Perfumes')">
+            <img src="https://poudrebeauty.com/wp-content/uploads/2025/01/Untitled-design-25.png" alt="Perfumes"/>
+            <span>Perfumes</span>
+          </div>
+          <div class="cat-card" onclick="showCategory('Skin Care')">
+            <img src="https://poudrebeauty.com/wp-content/uploads/2025/01/Untitled-design-26.png" alt="Skin Care"/>
+            <span>Skin Care</span>
+          </div>
+          <div class="cat-card" onclick="showCategory('Bath & Body')">
+            <img src="https://poudrebeauty.com/wp-content/uploads/2025/01/Untitled-design-27.png" alt="Bath & Body"/>
+            <span>Bath & Body</span>
+          </div>
+          <div class="cat-card" onclick="showCategory('Watches')">
+            <img src="https://poudrebeauty.com/wp-content/uploads/2025/01/Untitled-design-29.png" alt="Watches"/>
+            <span>Watches</span>
+          </div>
+          <div class="cat-card" onclick="showCategory('Electricals')">
+            <img src="https://poudrebeauty.com/wp-content/uploads/2025/01/Untitled-design-30.png" alt="Electricals"/>
+            <span>Electricals</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- NEW ARRIVALS -->
+    <section class="products-section">
+      <div class="container">
+        <div class="section-header">
+          <h2 class="section-title">New Arrivals</h2>
+          <a href="/shop?cat=all" onclick="showCategory('all');return false;" class="view-all">View All →</a>
+        </div>
+        <div class="products-grid" id="home-products"></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- SHOP PAGE -->
+  <div id="page-shop" class="hidden">
+    <div class="shop-layout container">
+      <aside class="shop-sidebar">
+        <div class="sidebar-section">
+          <h3>Categories</h3>
+          <div id="sidebar-cats"></div>
+        </div>
+        <div class="sidebar-section">
+          <h3>Price Range</h3>
+          <div class="price-filter">
+            <input type="range" id="price-max" min="0" max="500" value="500" oninput="filterByPrice(this.value)"/>
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:#888;margin-top:4px">
+              <span>$0</span><span id="price-max-label">$500</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+      <div class="shop-main">
+        <div class="shop-header">
+          <h2 id="shop-title">All Products</h2>
+          <div class="shop-controls">
+            <span id="shop-count" style="color:#888;font-size:14px"></span>
+            <select class="sort-select" onchange="sortProducts(this.value)">
+              <option value="default">Default</option>
+              <option value="price-asc">Price: Low to High</option>
+              <option value="price-desc">Price: High to Low</option>
+              <option value="name">Name A-Z</option>
+            </select>
+          </div>
+        </div>
+        <div class="products-grid" id="shop-products"></div>
+        <div id="shop-loading" style="text-align:center;padding:2rem;display:none">
+          <div class="spinner"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SEARCH RESULTS -->
+  <div id="page-search" class="hidden">
+    <div class="container" style="padding:2rem 0">
+      <h2 id="search-title">Search Results</h2>
+      <div class="products-grid" id="search-products" style="margin-top:1.5rem"></div>
+    </div>
+  </div>
+
+  <!-- CHECKOUT PAGE -->
+  <div id="page-checkout" class="hidden">
+    <div class="checkout-layout container">
+      <div class="checkout-form">
+        <h2 class="checkout-title">Checkout</h2>
+        <div class="checkout-breadcrumb">Home › Products › Checkout</div>
+        
+        <div class="form-section">
+          <h3>Contact Information</h3>
+          <input type="email" class="checkout-input" id="co-email" placeholder="Email address"/>
+        </div>
+
+        <div class="form-section">
+          <h3>Delivery</h3>
+          <div class="delivery-tabs">
+            <button class="delivery-tab active" onclick="setDelivery('ship', this)">🚚 Ship</button>
+            <button class="delivery-tab" onclick="setDelivery('pickup', this)">🏪 Pickup</button>
+          </div>
+        </div>
+
+        <div id="shipping-section" class="form-section">
+          <h3>Shipping Address</h3>
+          <select class="checkout-input" id="co-country">
+            <option value="Lebanon">Lebanon</option>
+            <option value="Kuwait">Kuwait</option>
+            <option value="UAE">UAE</option>
+            <option value="Saudi Arabia">Saudi Arabia</option>
+            <option value="Other">Other</option>
+          </select>
+          <div class="input-row">
+            <input type="text" class="checkout-input" id="co-first" placeholder="First name"/>
+            <input type="text" class="checkout-input" id="co-last" placeholder="Last name"/>
+          </div>
+          <input type="text" class="checkout-input" id="co-address" placeholder="Address"/>
+          <div class="input-row">
+            <input type="text" class="checkout-input" id="co-city" placeholder="City"/>
+            <input type="text" class="checkout-input" id="co-postal" placeholder="Postal code (optional)"/>
+          </div>
+          <input type="tel" class="checkout-input" id="co-phone" placeholder="Phone"/>
+        </div>
+
+        <div class="form-section">
+          <h3>Shipping Options</h3>
+          <div class="shipping-options" id="shipping-options">
+            <label class="shipping-option">
+              <input type="radio" name="shipping" value="free" checked onchange="updateTotal()"/>
+              <span>Free shipping</span>
+              <span class="shipping-price">FREE</span>
+            </label>
+            <label class="shipping-option">
+              <input type="radio" name="shipping" value="4" onchange="updateTotal()"/>
+              <span>Delivery</span>
+              <span class="shipping-price">$4.00</span>
+            </label>
+            <label class="shipping-option">
+              <input type="radio" name="shipping" value="free2" onchange="updateTotal()"/>
+              <span>Free shipping to Anfeh, Chekka & Hereh</span>
+              <span class="shipping-price">FREE</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h3>Payment Options</h3>
+          <label class="shipping-option active-payment">
+            <input type="radio" name="payment" value="cod" checked/>
+            <div>
+              <div style="font-weight:600">Cash on delivery Or Via Whish account</div>
+              <div style="font-size:13px;color:#888;margin-top:4px">Cash upon delivery or Via Whish Account to 71 493 066</div>
+            </div>
+          </label>
+        </div>
+
+        <div class="form-section">
+          <label class="note-label">
+            <input type="checkbox" id="add-note-cb" onchange="toggleNote()"/> Add a note to your order
+          </label>
+          <textarea class="checkout-input hidden" id="co-note" placeholder="Order notes..." rows="3"></textarea>
+        </div>
+
+        <p style="font-size:12px;color:#888;margin-bottom:1rem">By proceeding with your purchase you agree to our Terms and Conditions and Privacy Policy</p>
+
+        <button class="place-order-btn" onclick="placeOrder()">Place Order</button>
+      </div>
+
+      <div class="order-summary">
+        <h3>Order summary</h3>
+        <div id="summary-items"></div>
+        <div class="summary-totals">
+          <div class="summary-row"><span>Subtotal</span><span id="summary-subtotal">$0.00</span></div>
+          <div class="summary-row"><span>Delivery</span><span id="summary-delivery">Free</span></div>
+          <div class="summary-row total"><span>Total</span><span id="summary-total">$0.00</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ORDER SUCCESS -->
+  <div id="page-success" class="hidden">
+    <div class="container" style="text-align:center;padding:5rem 1rem">
+      <div style="font-size:4rem;margin-bottom:1rem">🎉</div>
+      <h2 style="font-size:2rem;margin-bottom:1rem">Order Placed Successfully!</h2>
+      <p style="color:#888;margin-bottom:2rem">Thank you for your order. We will contact you shortly to confirm delivery.</p>
+      <a href="/shop" onclick="showPage('home');return false;" class="hero-btn">Continue Shopping</a>
+    </div>
+  </div>
+
+</main>
+
+<!-- CART DRAWER -->
+<div class="cart-overlay hidden" id="cart-overlay" onclick="toggleCart()"></div>
+<div class="cart-drawer hidden" id="cart-drawer">
+  <div class="cart-header">
+    <h3>Shopping Cart</h3>
+    <button onclick="toggleCart()">✕</button>
+  </div>
+  <div class="cart-items" id="cart-items-drawer"></div>
+  <div class="cart-footer">
+    <div class="cart-total-row"><span>Total</span><span id="cart-total-drawer">$0.00</span></div>
+    <button class="checkout-cart-btn" onclick="goCheckout()">Proceed to Checkout</button>
+  </div>
+</div>
+
+
+<!-- CONTACT PAGE -->
+<div id="page-contact" class="hidden">
+  <div class="container" style="padding:3rem 0;max-width:600px">
+    <h2 style="font-family:'Cormorant Garamond',serif;font-size:2.5rem;font-weight:400;margin-bottom:0.5rem">Contact Us</h2>
+    <p style="color:#888;margin-bottom:2rem">We'd love to hear from you. Send us a message!</p>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <input type="text" class="checkout-input" id="ct-name" placeholder="Your Name"/>
+      <input type="email" class="checkout-input" id="ct-email" placeholder="Email Address"/>
+      <input type="tel" class="checkout-input" id="ct-phone" placeholder="Phone Number"/>
+      <textarea class="checkout-input" id="ct-msg" rows="5" placeholder="Your message..."></textarea>
+      <button onclick="sendContact()" style="padding:14px;background:#1a1a1a;color:white;border:none;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;border-radius:4px">Send Message</button>
+    </div>
+    <div style="margin-top:2rem;padding-top:2rem;border-top:1px solid #eee">
+      <div style="font-size:14px;color:#555;margin-bottom:8px">📍 Store location: Chekka, Lebanon</div>
+      <div style="font-size:14px;color:#555;margin-bottom:8px">📞 71 493 066</div>
+      <div style="font-size:14px;color:#555">📸 <a href="https://instagram.com/poudrebeauty" target="_blank" style="color:#1a1a1a">@poudrebeauty</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- WISHLIST PAGE -->
+<div id="page-wishlist" class="hidden">
+  <div class="container" style="padding:2rem 0">
+    <h2 style="font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:400;margin-bottom:1.5rem">My Wishlist</h2>
+    <div class="products-grid" id="wishlist-products"></div>
+  </div>
+</div>
+
+<!-- PRODUCT PAGE -->
+<div id="page-product" class="hidden"></div>
+
+
+
+<!-- ABOUT PAGE -->
+<div id="page-about" class="hidden">
+  <div class="container" style="padding:3rem 0;max-width:800px">
+    <h2 style="font-family:'Cormorant Garamond',serif;font-size:2.5rem;font-weight:400;margin-bottom:1rem">About Us</h2>
+    <div style="width:60px;height:2px;background:#1a1a1a;margin-bottom:2rem"></div>
+    <p style="font-size:15px;line-height:1.8;color:#555;margin-bottom:1.5rem">
+      Welcome to <strong>Poudre Beauty</strong> — your destination for premium cosmetics, perfumes, skincare, and beauty accessories in Lebanon.
+    </p>
+    <p style="font-size:15px;line-height:1.8;color:#555;margin-bottom:1.5rem">
+      We believe that beauty should be accessible to everyone. That's why we carefully curate the best international brands and bring them directly to you at the best prices.
+    </p>
+    <p style="font-size:15px;line-height:1.8;color:#555;margin-bottom:2rem">
+      From makeup to hair care, from perfumes to electricals — we have everything you need to look and feel your best.
+    </p>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:2rem;margin-top:2rem">
+      <div style="text-align:center;padding:2rem;background:#f5f4f2">
+        <div style="font-size:2rem;margin-bottom:8px">💄</div>
+        <div style="font-weight:600;margin-bottom:4px">Premium Brands</div>
+        <div style="font-size:13px;color:#888">International quality products</div>
+      </div>
+      <div style="text-align:center;padding:2rem;background:#f5f4f2">
+        <div style="font-size:2rem;margin-bottom:8px">🚚</div>
+        <div style="font-weight:600;margin-bottom:4px">Fast Delivery</div>
+        <div style="font-size:13px;color:#888">Free delivery above $100</div>
+      </div>
+      <div style="text-align:center;padding:2rem;background:#f5f4f2">
+        <div style="font-size:2rem;margin-bottom:8px">⭐</div>
+        <div style="font-weight:600;margin-bottom:4px">Best Prices</div>
+        <div style="font-size:13px;color:#888">Save 10% with Poudre10</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TERMS PAGE -->
+<div id="page-terms" class="hidden">
+  <div class="container" style="padding:3rem 0;max-width:800px">
+    <h2 style="font-family:'Cormorant Garamond',serif;font-size:2.5rem;font-weight:400;margin-bottom:1rem">Terms & Conditions</h2>
+    <div style="width:60px;height:2px;background:#1a1a1a;margin-bottom:2rem"></div>
+    
+    <h3 style="font-size:16px;font-weight:600;margin-bottom:8px">1. Orders & Payment</h3>
+    <p style="font-size:14px;line-height:1.8;color:#555;margin-bottom:1.5rem">All orders are subject to availability. Payment is accepted via cash on delivery or Whish account. Prices are in USD.</p>
+    
+    <h3 style="font-size:16px;font-weight:600;margin-bottom:8px">2. Delivery</h3>
+    <p style="font-size:14px;line-height:1.8;color:#555;margin-bottom:1.5rem">Free delivery to Chekka, Hereh and Anfeh. Free delivery on orders above $100. Standard delivery fee of $4 applies to other areas.</p>
+    
+    <h3 style="font-size:16px;font-weight:600;margin-bottom:8px">3. Returns & Exchanges</h3>
+    <p style="font-size:14px;line-height:1.8;color:#555;margin-bottom:1.5rem">Products can be returned within 7 days of purchase if unused and in original packaging. Contact us to initiate a return.</p>
+    
+    <h3 style="font-size:16px;font-weight:600;margin-bottom:8px">4. Privacy</h3>
+    <p style="font-size:14px;line-height:1.8;color:#555;margin-bottom:1.5rem">Your personal information is used solely for order processing and will not be shared with third parties.</p>
+    
+    <h3 style="font-size:16px;font-weight:600;margin-bottom:8px">5. Contact</h3>
+    <p style="font-size:14px;line-height:1.8;color:#555">For any questions, contact us at <strong>71 493 066</strong> or visit our store in Chekka, Lebanon.</p>
+  </div>
+</div>
+
+
+
+
+
+
+
+
+
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-links">
+      <a href="#" onclick="showPage('contact');return false;">Contact us</a>
+      <a href="#" onclick="showPage('about');return false;">About Us</a>
+      <a href="#" onclick="showPage('terms');return false;">Terms & Conditions</a>
+    </div>
+    <p class="footer-copy">© 2026 Poudre Beauty. All Rights Reserved</p>
+  </div>
+</footer>
+
+<!-- TOAST -->
+<div class="toast hidden" id="toast"></div>
+
+<script src="/js/shop.js"></script>
+</body>
+</html>

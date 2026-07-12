@@ -155,10 +155,21 @@ app.post('/api/settings', auth, async (req, res) => {
 });
 
 // PRODUCTS
+app.get('/api/products/search', async (req, res) => {
+  try {
+    const { q: search } = req.query;
+    if (!search) return res.json([]);
+    const results = await query(
+      "SELECT * FROM products WHERE active=true AND product_type IN ('simple','variable') AND (name ILIKE ? OR sku ILIKE ? OR barcode ILIKE ?) ORDER BY name LIMIT 50",
+      ['%'+search+'%','%'+search+'%','%'+search+'%']
+    );
+    res.json(results);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
 app.get('/api/products', async (req, res) => {
   try {
     const { search, category, brand, low_stock } = req.query;
-    let q = "SELECT * FROM products WHERE active=true AND product_type IN ('simple','variable','variation')"; const p = [];
+    let q = "SELECT * FROM products WHERE active=true AND product_type IN ('simple','variable')"; const p = [];
     if (search) { q += ' AND (name ILIKE ? OR sku ILIKE ? OR barcode ILIKE ? OR variant_name ILIKE ?)'; p.push('%'+search+'%','%'+search+'%','%'+search+'%','%'+search+'%'); }
     if (category) { q += ' AND category=?'; p.push(category); }
     if (brand) { q += ' AND brand=?'; p.push(brand); }
@@ -168,6 +179,21 @@ app.get('/api/products', async (req, res) => {
     res.json(await query(q, p));
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
+
+  app.get('/api/products', async (req, res) => {
+  try {
+    const { search, category, brand, low_stock } = req.query;
+    let q = "SELECT * FROM products WHERE active=true AND product_type IN ('simple','variable')"; const p = [];
+    if (search) { q += ' AND (name ILIKE ? OR sku ILIKE ? OR barcode ILIKE ? OR variant_name ILIKE ?)'; p.push('%'+search+'%','%'+search+'%','%'+search+'%','%'+search+'%'); }
+    if (category) { q += ' AND category=?'; p.push(category); }
+    if (brand) { q += ' AND brand=?'; p.push(brand); }
+    if (low_stock === 'true') { q += ' AND stock <= low_stock_alert'; }
+    q += ' ORDER BY name LIMIT 50 OFFSET ?';
+    p.push(parseInt(req.query.offset)||0);
+    res.json(await query(q, p));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/api/products/scan/:barcode', async (req, res) => {
   try {
     const p = await queryOne('SELECT * FROM products WHERE barcode=? OR sku=?', [req.params.barcode, req.params.barcode]);
@@ -257,7 +283,8 @@ app.post('/api/products/import-csv', auth, upload.single('file'), async (req, re
         const category = r['Categories'] || '';
         const brand = r['Brands'] || '';
         const image_url = (r['Images'] || '').split(',')[0].trim();
-        const parent_sku = r['Parent'] || null;
+        let parent_sku = r['Parent'] || null;
+if (parent_sku && parent_sku.startsWith('id:')) parent_sku = parent_sku.replace('id:', '');
 
         // Build attributes from Attribute columns
         const attributes = {};
@@ -329,6 +356,29 @@ app.get('/api/orders/:id', auth, async (req, res) => {
     res.json({ ...order, items });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 app.post('/api/orders', async (req, res) => {
   try {
     const { order_num, customer_name, customer_email, customer_phone, type, status, items, discount, notes } = req.body;
@@ -344,6 +394,7 @@ app.post('/api/orders', async (req, res) => {
         await run('UPDATE products SET stock=stock-? WHERE id=? AND stock>0', [parseInt(item.quantity), item.product_id]);
       }
     }
+    
     res.json({ id: r.id, order_num });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -408,6 +459,51 @@ app.get('/api/products/variations', async (req, res) => {
     res.json(await query("SELECT * FROM products WHERE product_type IN ('variation','variation, downloadable') AND active=true ORDER BY name"));
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
+
+
+
+// SHOP API
+app.get('/api/shop/products', async (req, res) => {
+  try {
+    const { search, category, limit, offset, max_price } = req.query;
+    let q = "SELECT * FROM products WHERE active=true AND product_type IN ('simple','variable')"; const p = [];
+    if (search) { q += ' AND (name ILIKE ? OR sku ILIKE ? OR barcode ILIKE ?)'; p.push('%'+search+'%','%'+search+'%','%'+search+'%'); }
+    if (category && category !== 'all') { q += ' AND category ILIKE ?'; p.push('%'+category+'%'); }
+    if (max_price) { q += ' AND (sale_price <= ? OR (sale_price = 0 AND price <= ?))'; p.push(max_price, max_price); }
+    q += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+    p.push(parseInt(limit)||24, parseInt(offset)||0);
+    res.json(await query(q, p));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/shop/variations/:sku', async (req, res) => {
+  try {
+    const vars = await query("SELECT * FROM products WHERE parent_sku=? AND product_type IN ('variation','variation, downloadable') AND active=true ORDER BY variant_name", [req.params.sku]);
+    res.json(vars);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.get('/api/shop/wishlist', async (req, res) => {
+  try {
+    const ids = (req.query.ids || '').split(',').map(Number).filter(Boolean);
+    if (!ids.length) return res.json([]);
+    const placeholders = ids.map((_, i) => `$${i+1}`).join(',');
+    const { rows } = await pool.query(`SELECT * FROM products WHERE id IN (${placeholders})`, ids);
+    res.json(rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.get('/shop', (req, res) => res.sendFile(path.join(__dirname, 'public', 'shop.html')));
+
+
+app.delete('/api/orders/:id', auth, async (req, res) => {
+  try {
+    await run('DELETE FROM order_items WHERE order_id=?', [req.params.id]);
+    await run('DELETE FROM orders WHERE id=?', [req.params.id]);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+
+
 app.get('/{*path}', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 initDB().then(() => {

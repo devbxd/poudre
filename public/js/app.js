@@ -219,7 +219,7 @@ function renderProductRows(products) {
   if (!products.length) return '<tr class="empty-row"><td colspan="7">No products found</td></tr>';
   
   // Group by parent_sku
-  const parents = products;
+  const parents = products.filter(p => p.product_type !== 'variation');
   const variations = window._variations || [];
   
   // Map variations by parent_sku
@@ -451,6 +451,7 @@ function loadCashier() {
       </div>
     </div>`;
 
+  api('GET', '/api/products/variations').then(vars => { window._variations = vars; });
   loadPosProducts();
   loadPosFilters();
 
@@ -461,12 +462,12 @@ function loadCashier() {
     scanTimeout = setTimeout(async () => {
       const val = scanInput.value.trim();
       if (!val) { loadPosProducts(); return; }
+      // Try barcode scan first
       const r = await api('GET', `/api/products/scan/${encodeURIComponent(val)}`);
-      if (r.id) { addToCart(r); scanInput.value = ''; loadPosProducts(); }
-      else {
-        const filtered = (window._posProducts||[]).filter(p => p.name.toLowerCase().includes(val.toLowerCase()) || (p.sku||'').toLowerCase().includes(val.toLowerCase()));
-        renderPosGrid(filtered);
-      }
+      if (r.id) { addToCart(r); scanInput.value = ''; loadPosProducts(); return; }
+      // Search by name
+      const products = await api('GET', `/api/products/search?q=${encodeURIComponent(val)}`);
+      renderPosGrid(products);
     }, 300);
   });
 }
@@ -494,13 +495,36 @@ function renderPosGrid(products) {
   const grid = document.getElementById('pos-grid');
   if (!grid) return;
   if (!products.length) { grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text3);padding:2rem">No products found</div>'; return; }
-  grid.innerHTML = products.slice(0, 100).map(p => `
-    <div class="product-card-pos" onclick="addToCart(${JSON.stringify(p).replace(/"/g,'&quot;')})">
-      ${p.image_url ? `<img src="${p.image_url}" onerror="this.style.display='none'"/>` : '<div style="font-size:2rem;margin-bottom:8px">💄</div>'}
-      <div class="name">${p.name}</div>
-      <div class="price">$${Number(p.sale_price||p.price).toFixed(2)}</div>
-      <div class="stock-info">Stock: ${p.stock}</div>
-    </div>`).join('');
+  
+  const allVars = window._variations || [];
+  
+  grid.innerHTML = products.slice(0, 100).map(p => {
+    const vars = allVars.filter(v => String(v.parent_sku) === String(p.sku));
+    const hasVars = p.product_type === 'variable' && vars.length > 0;
+    const displayPrice = hasVars ? vars.find(v => v.price > 0)?.price || 0 : (p.sale_price || p.price);
+    
+    return `
+      <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px;cursor:pointer;transition:all 0.15s">
+        ${p.image_url ? `<img src="${p.image_url}" style="width:100%;height:80px;object-fit:cover;border-radius:8px;margin-bottom:8px" onerror="this.style.display='none'"/>` : '<div style="font-size:2rem;text-align:center;margin-bottom:8px">💄</div>'}
+        <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:4px;line-height:1.3">${p.name}</div>
+        <div style="font-size:13px;font-weight:700;color:var(--primary-dark);margin-bottom:6px">$${Number(displayPrice).toFixed(2)}</div>
+        ${hasVars ? `
+          <div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;border-top:1px solid var(--border);padding-top:6px">
+            ${vars.map(v => `
+              <div onclick="addToCart(${JSON.stringify(v).replace(/"/g,'&quot;')})" 
+                   style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:var(--bg);border-radius:6px;cursor:pointer;font-size:11px"
+                   onmouseover="this.style.background='var(--primary-light)'"
+                   onmouseout="this.style.background='var(--bg)'">
+                <span style="font-weight:500;color:var(--text)">${v.variant_name||v.name}</span>
+                <span style="font-weight:700;color:var(--primary-dark)">$${Number(v.sale_price||v.price).toFixed(2)}</span>
+              </div>`).join('')}
+          </div>` : `
+          <div onclick="addToCart(${JSON.stringify(p).replace(/"/g,'&quot;')})" 
+               style="padding:6px;background:var(--primary);color:white;border-radius:6px;text-align:center;font-size:12px;font-weight:600;cursor:pointer">
+            Add to Cart
+          </div>`}
+      </div>`;
+  }).join('');
 }
 
 function addToCart(product) {
@@ -641,11 +665,38 @@ function printReceipt() {
     </body></html>`);
   win.document.close();
 }
-
 // ─── ORDERS ───
 async function loadOrders() {
   const today = new Date().toISOString().split('T')[0];
   const orders = await api('GET', `/api/orders?from=${today}&to=${today}`);
+  if (window._ordersRefresh) clearInterval(window._ordersRefresh);
+  window._ordersRefresh = setInterval(async () => { 
+    if(true) {
+      const today2 = new Date().toISOString().split('T')[0];
+      const from = document.getElementById('orders-from')?.value || today2;
+      const to = document.getElementById('orders-to')?.value || today2;
+      const orders = await api('GET', `/api/orders?from=${from}&to=${to}`);
+      const tbody = document.querySelector('table tbody');
+      if (tbody) {
+        const currentCount = tbody.querySelectorAll('tr:not(.empty-row)').length;
+        if (orders.length !== currentCount) {
+          if (orders.length > currentCount) toast('🛒 New order received!', 'success');
+          tbody.innerHTML = orders.length ? orders.map(o => `
+            <tr>
+              <td style="font-weight:600;color:var(--primary-dark);cursor:pointer" onclick="viewOrder(${o.id})">${o.order_num}</td>
+              <td>${o.customer_name||'Walk-in'}</td>
+              <td><span class="badge ${o.type==='in-store'?'badge-green':'badge-blue'}">${o.type}</span></td>
+              <td style="color:var(--text3)">—</td>
+              <td style="font-weight:600">$${Number(o.total).toFixed(2)}</td>
+              <td><span class="badge ${o.status==='completed'?'badge-green':o.status==='pending'?'badge-orange':'badge-gray'}">${o.status}</span></td>
+              <td style="color:var(--text3);font-size:12px">${new Date(o.created_at).toLocaleString()}</td>
+            </tr>`).join('') : '<tr class="empty-row"><td colspan="7">No orders yet</td></tr>';
+          const subtitle = document.querySelector('.page-subtitle');
+          if (subtitle) subtitle.textContent = `${orders.length} orders`;
+        }
+      }
+    }
+  }, 3000);
   const main = document.getElementById('main-content');
   main.innerHTML = `
     <div class="page-header">
@@ -655,6 +706,7 @@ async function loadOrders() {
         <span style="color:var(--text3)">to</span>
         <input type="date" id="orders-to" class="form-input" value="${today}" style="width:150px"/>
         <button class="btn btn-primary" onclick="filterOrders()">Filter</button>
+        <button class="btn btn-secondary" onclick="filterOrders()"><i class="ti ti-refresh"></i> Refresh</button>
       </div>
     </div>
     <div class="page-body">
@@ -665,7 +717,7 @@ async function loadOrders() {
           <tbody>
             ${orders.length ? orders.map(o => `
               <tr>
-                <td style="font-weight:600;color:var(--primary-dark)">${o.order_num}</td>
+                <td style="font-weight:600;color:var(--primary-dark);cursor:pointer" onclick="viewOrder(${o.id})">${o.order_num}</td>
                 <td>${o.customer_name||'Walk-in'}</td>
                 <td><span class="badge ${o.type==='in-store'?'badge-green':'badge-blue'}">${o.type}</span></td>
                 <td style="color:var(--text3)">—</td>
@@ -679,6 +731,8 @@ async function loadOrders() {
       </div>
     </div>`;
 }
+
+
 
 // ─── REPORTS ───
 async function loadReports() {
@@ -726,6 +780,98 @@ async function loadReports() {
     </div>`;
 }
 
+
+
+
+
+
+
+
+async function viewOrder(id) {
+  const o = await api('GET', `/api/orders/${id}`);
+  const modal = document.createElement('div');
+  modal.className = 'modal-bg';
+  modal.innerHTML = `
+    <div class="modal-box" style="max-width:550px">
+      <div class="modal-header">
+        <span class="modal-title">Order ${o.order_num}</span>
+        <button class="modal-close" onclick="this.closest('.modal-bg').remove()"><i class="ti ti-x"></i></button>
+      </div>
+      <div class="modal-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1.5rem">
+          <div>
+            <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:4px">Customer</div>
+            <div style="font-size:14px;font-weight:600">${o.customer_name||'—'}</div>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:4px">Phone</div>
+            <div style="font-size:14px">${o.customer_phone||'—'}</div>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:4px">Email</div>
+            <div style="font-size:14px">${o.customer_email||'—'}</div>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:4px">Status</div>
+            <span class="badge ${o.status==='completed'?'badge-green':o.status==='pending'?'badge-orange':'badge-gray'}">${o.status}</span>
+          </div>
+          <div class="full" style="grid-column:1/-1">
+            <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:4px">Address / Notes</div>
+            <div style="font-size:14px;color:var(--text2)">${o.notes||'—'}</div>
+          </div>
+        </div>
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:8px">Items</div>
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr style="background:var(--surface2)">
+            <th style="padding:8px;text-align:left;font-size:11px;color:var(--text3)">Product</th>
+            <th style="padding:8px;text-align:center;font-size:11px;color:var(--text3)">Qty</th>
+            <th style="padding:8px;text-align:right;font-size:11px;color:var(--text3)">Price</th>
+          </tr></thead>
+          <tbody>
+            ${(o.items||[]).map(i => `
+              <tr style="border-bottom:1px solid var(--border)">
+                <td style="padding:8px;font-size:13px">${i.product_name}</td>
+                <td style="padding:8px;text-align:center;font-size:13px">${i.quantity}</td>
+                <td style="padding:8px;text-align:right;font-size:13px;font-weight:600">$${(i.price*i.quantity).toFixed(2)}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+        <div style="display:flex;justify-content:space-between;padding:12px 8px;font-weight:700;font-size:15px;border-top:2px solid var(--border);margin-top:8px">
+          <span>TOTAL</span>
+          <span>$${Number(o.total).toFixed(2)}</span>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="this.closest('.modal-bg').remove()">Close</button>
+        ${o.status !== 'completed' ? `
+  <button class="btn-danger" onclick="declineOrder(${o.id})">✕ Decline</button>
+  <button class="btn-save" onclick="completeOrder(${o.id})">✓ Mark as Completed</button>` : ''}
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+
+
+
+
+async function declineOrder(id) {
+  if (!confirm('Decline and delete this order?')) return;
+  await api('DELETE', `/api/orders/${id}`);
+  document.querySelectorAll('.modal-bg').forEach(m => m.remove());
+  toast('Order declined', 'error');
+  filterOrders();
+}
+
+
+
+
+
+
+
+
+
+
 // ─── SETTINGS ───
 async function loadSettings() {
   const s = await api('GET', '/api/settings');
@@ -771,15 +917,92 @@ async function saveSettings() {
 
 
 
-
 async function filterOrders() {
-  const from = document.getElementById('orders-from').value;
-  const to = document.getElementById('orders-to').value;
+  const from = document.getElementById('orders-from')?.value || new Date().toISOString().split('T')[0];
+  const to = document.getElementById('orders-to')?.value || new Date().toISOString().split('T')[0];
   const orders = await api('GET', `/api/orders?from=${from}&to=${to}`);
-  const tbody = document.querySelector('#orders-table tbody');
-  if (tbody) tbody.innerHTML = renderOrderRows(orders);
-  document.querySelector('.page-subtitle').textContent = `${orders.length} orders`;
+  
+  const tbody = document.querySelector('table tbody');
+  if (tbody) {
+    tbody.innerHTML = orders.length ? orders.map(o => `
+      <tr>
+        <td style="font-weight:600;color:var(--primary-dark);cursor:pointer" onclick="viewOrder(${o.id})">${o.order_num}</td>
+        <td>${o.customer_name||'Walk-in'}</td>
+        <td><span class="badge ${o.type==='in-store'?'badge-green':'badge-blue'}">${o.type}</span></td>
+        <td style="color:var(--text3)">—</td>
+        <td style="font-weight:600">$${Number(o.total).toFixed(2)}</td>
+        <td><span class="badge ${o.status==='completed'?'badge-green':o.status==='pending'?'badge-orange':'badge-gray'}">${o.status}</span></td>
+        <td style="color:var(--text3);font-size:12px">${new Date(o.created_at).toLocaleString()}</td>
+      </tr>`).join('') : '<tr class="empty-row"><td colspan="7">No orders yet</td></tr>';
+  }
+  
+  const subtitle = document.querySelector('.page-subtitle');
+  if (subtitle) subtitle.textContent = `${orders.length} orders`;
 }
+
+
+
+async function showVariantPicker(productId) {
+  const variations = (window._posProducts||[]).filter(p => p.parent_sku == productId || String(p.parent_sku) === String(productId));
+  
+  // Also check from _variations
+  const allVars = (window._variations||[]).filter(v => String(v.parent_sku) === String(productId));
+  const vars = allVars.length ? allVars : variations;
+  
+  if (!vars.length) { toast('No variants available', 'error'); return; }
+  
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;padding:1rem';
+  modal.innerHTML = `
+    <div style="background:white;border-radius:16px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,0.3);overflow:hidden">
+      <div style="padding:1.25rem 1.5rem;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:15px;font-weight:700">Choose Variant</span>
+        <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#888">×</button>
+      </div>
+      <div style="padding:1rem;max-height:400px;overflow-y:auto">
+        ${vars.map(v => `
+          <div onclick="addToCart(${JSON.stringify(v).replace(/"/g,'&quot;')});this.closest('[style*=fixed]').remove()" 
+               style="display:flex;align-items:center;justify-content:space-between;padding:12px;border:1.5px solid #eee;border-radius:10px;margin-bottom:8px;cursor:pointer;transition:all 0.15s"
+               onmouseover="this.style.borderColor='#c8a882';this.style.background='#fdf8f3'"
+               onmouseout="this.style.borderColor='#eee';this.style.background='white'">
+            <div>
+              <div style="font-size:13px;font-weight:600;color:#1a1a1a">${v.variant_name||v.name}</div>
+              <div style="font-size:11px;color:#888;margin-top:2px">SKU: ${v.sku||'—'} · Stock: ${v.stock}</div>
+            </div>
+            <div style="font-size:14px;font-weight:700;color:#c8a882">$${Number(v.sale_price||v.price).toFixed(2)}</div>
+          </div>`).join('')}
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+async function handlePosClick(id, type, product) {
+  if (type === 'variable') {
+    showVariantPicker(id);
+  } else {
+    addToCart(product);
+  }
+}
+
+
+
+
+
+
+async function completeOrder(id) {
+  const r = await api('PATCH', `/api/orders/${id}/status`, { status: 'completed' });
+  if (r.success) { 
+    toast('Order completed!', 'success'); 
+    document.querySelectorAll('.modal-bg').forEach(m => m.remove());
+    filterOrders(); 
+  }
+  else toast('Error', 'error');
+}
+
+
+
+
+
 
 
 
