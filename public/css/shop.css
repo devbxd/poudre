@@ -33,7 +33,7 @@ body { font-family: var(--font-sans); background: var(--bg); color: var(--black)
 .logo-img { height: 50px; width: auto; object-fit: contain; }
 .main-nav { display: flex; gap: 0; flex-wrap: wrap; justify-content: center; }
 .nav-link { text-decoration: none; color: var(--black); font-size: 12px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; padding: 8px 10px; transition: color 0.2s; white-space: nowrap; }
-.nav-dropdown:has(.dropdown-menu) > .nav-link::after { content: ' ▾'; font-size: 10px; }
+.nav-dropdown > .nav-link::after { content: ' ▾'; font-size: 10px; }
 .nav-link:hover { color: var(--accent); }
 .header-actions { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
 .action-btn { background: none; border: none; cursor: pointer; color: var(--black); padding: 4px; display: flex; align-items: center; position: relative; transition: color 0.2s; }
