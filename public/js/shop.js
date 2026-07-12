@@ -525,24 +525,15 @@ function filterByPrice(val) {
 }
 
 // ─── MOBILE MENU ───
-function openMobileMenu() {
-  document.getElementById('mob-menu').classList.add('open');
-  document.getElementById('mob-overlay').classList.add('open');
-  document.body.style.overflow = 'hidden';
+function toggleMobileMenu() {
+  const nav = document.getElementById('main-nav');
+  if (nav.style.display === 'flex') {
+    nav.style.display = 'none';
+  } else {
+    nav.style.cssText = 'display:flex;flex-direction:column;position:fixed;top:60px;left:0;right:0;background:white;padding:1rem;z-index:99;border-bottom:1px solid #eee;max-height:80vh;overflow-y:auto';
+  }
 }
-function closeMobileMenu() {
-  document.getElementById('mob-menu').classList.remove('open');
-  document.getElementById('mob-overlay').classList.remove('open');
-  document.body.style.overflow = '';
-}
-function toggleMobileSub(id) {
-  const el = document.getElementById(id);
-  if (el) el.classList.toggle('open');
-}
-function mobileCat(cat) {
-  closeMobileMenu();
-  showCategory(cat);
-}
+
 // ─── INFINITE SCROLL ───
 window.addEventListener('scroll', () => {
   if (document.getElementById('page-shop')?.classList.contains('hidden')) return;
