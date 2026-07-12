@@ -471,7 +471,7 @@ app.get('/api/products/variations', async (req, res) => {
 app.get('/api/shop/products', async (req, res) => {
   try {
     const { search, category, limit, offset, max_price } = req.query;
-    let q = "SELECT * FROM products WHERE active=true AND product_type IN ('simple','variable')"; const p = [];
+    let q = "SELECT * FROM products WHERE active=true AND product_type IN ('simple','variable') AND (price > 0 OR sale_price > 0 OR EXISTS (SELECT 1 FROM products v WHERE v.parent_sku = products.sku AND v.price > 0))"; const p = [];
     if (search) { q += ' AND (name ILIKE ? OR sku ILIKE ? OR barcode ILIKE ?)'; p.push('%'+search+'%','%'+search+'%','%'+search+'%'); }
     if (category && category !== 'all') { q += ' AND category ILIKE ?'; p.push('%'+category+'%'); }
     if (max_price) { q += ' AND (sale_price <= ? OR (sale_price = 0 AND price <= ?))'; p.push(max_price, max_price); }
