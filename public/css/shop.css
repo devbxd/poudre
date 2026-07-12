@@ -203,8 +203,6 @@ body { font-family: var(--font-sans); background: var(--bg); color: var(--black)
   .cart-drawer { width: 100%; }
   .header-inner { padding: 0 1rem; }
 }
-
-/* DROPDOWN NAV */
 .nav-dropdown { position: relative; }
 .nav-dropdown .dropdown-menu {
   display: none;
@@ -220,15 +218,37 @@ body { font-family: var(--font-sans); background: var(--bg); color: var(--black)
 }
 .nav-dropdown:hover .dropdown-menu { display: block; }
 .dropdown-menu a {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 8px 16px;
   font-size: 13px;
   color: var(--gray);
   text-decoration: none;
   cursor: pointer;
   transition: background 0.15s;
+  white-space: nowrap;
 }
 .dropdown-menu a:hover { background: var(--light-gray); color: var(--black); }
+
+/* SUB-DROPDOWN */
+.dropdown-sub { position: relative; }
+.dropdown-sub > a::after { content: '›'; margin-left: auto; padding-left: 10px; }
+.dropdown-sub .sub-menu {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 100%;
+  background: white;
+  border: 1px solid var(--border);
+  min-width: 180px;
+  z-index: 101;
+  box-shadow: var(--shadow-md);
+  padding: 0.5rem 0;
+}
+.dropdown-sub:hover .sub-menu { display: block; }
+.sub-menu a { padding: 8px 16px; font-size: 13px; color: var(--gray); display: block; text-decoration: none; }
+.sub-menu a:hover { background: var(--light-gray); color: var(--black); }
 
 /* PRODUCT VARIANTS LIST ON CARD */
 .product-variants-list {

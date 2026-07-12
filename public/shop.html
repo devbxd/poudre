@@ -29,7 +29,7 @@
     </div>
     <nav class="main-nav" id="main-nav">
   <div class="nav-dropdown">
-    <a href="#" class="nav-link" onclick="showCategory('Watches');return false;">Watches ▾</a>
+    <a href="#" class="nav-link" onclick="showCategory('Watches');return false;">Watches</a>
     <div class="dropdown-menu">
       <a onclick="showCategory('Watches > Men');return false;">Men</a>
       <a onclick="showCategory('Watches > Women');return false;">Women</a>
@@ -37,44 +37,62 @@
     </div>
   </div>
   <div class="nav-dropdown">
-    <a href="#" class="nav-link" onclick="showCategory('Perfumes');return false;">Perfumes ▾</a>
+    <a href="#" class="nav-link" onclick="showCategory('Perfumes');return false;">Perfumes</a>
     <div class="dropdown-menu">
+      <div class="dropdown-sub">
+        <a>Gift Sets</a>
+        <div class="sub-menu">
+          <a onclick="showCategory('Perfumes > Gift Sets > Men');return false;">Men</a>
+          <a onclick="showCategory('Perfumes > Gift Sets > Women');return false;">Women</a>
+        </div>
+      </div>
       <a onclick="showCategory('Perfumes > Men');return false;">Men</a>
       <a onclick="showCategory('Perfumes > Women');return false;">Women</a>
       <a onclick="showCategory('Perfumes > Kids & Babies');return false;">Kids & Babies</a>
-      <a onclick="showCategory('Perfumes > Gift Sets');return false;">Gift Sets</a>
     </div>
   </div>
   <div class="nav-dropdown">
-    <a href="#" class="nav-link" onclick="showCategory('Makeup');return false;">Makeup ▾</a>
+    <a href="#" class="nav-link" onclick="showCategory('Makeup');return false;">Makeup</a>
     <div class="dropdown-menu">
-      <a onclick="showCategory('Eyes');return false;">Eyes</a>
-      <a onclick="showCategory('Eyebrow');return false;">&nbsp;&nbsp;Eyebrow</a>
-      <a onclick="showCategory('Eye Shadow');return false;">&nbsp;&nbsp;Eye Shadow</a>
-      <a onclick="showCategory('Eyelashes');return false;">&nbsp;&nbsp;Eyelashes</a>
-      <a onclick="showCategory('Eyeliner');return false;">&nbsp;&nbsp;Eyeliner</a>
-      <a onclick="showCategory('Mascara');return false;">&nbsp;&nbsp;Mascara</a>
-      <a onclick="showCategory('Face');return false;">Face</a>
-      <a onclick="showCategory('Blush');return false;">&nbsp;&nbsp;Blush</a>
-      <a onclick="showCategory('Bronzer');return false;">&nbsp;&nbsp;Bronzer</a>
-      <a onclick="showCategory('Contouring');return false;">&nbsp;&nbsp;Contouring</a>
-      <a onclick="showCategory('Foundation');return false;">&nbsp;&nbsp;Foundation</a>
-      <a onclick="showCategory('Powder');return false;">&nbsp;&nbsp;Powder</a>
-      <a onclick="showCategory('BB Cream/CC Cream');return false;">&nbsp;&nbsp;BB Cream/CC Cream</a>
-      <a onclick="showCategory('Highlighter & Luminizer');return false;">&nbsp;&nbsp;Highlighter & Luminizer</a>
-      <a onclick="showCategory('Primer');return false;">&nbsp;&nbsp;Primer</a>
-      <a onclick="showCategory('Setting Spray');return false;">&nbsp;&nbsp;Setting Spray</a>
-      <a onclick="showCategory('Concealer');return false;">&nbsp;&nbsp;Concealer</a>
-      <a onclick="showCategory('Lips');return false;">Lips</a>
-      <a onclick="showCategory('Lipstick');return false;">&nbsp;&nbsp;Lipstick</a>
-      <a onclick="showCategory('Lip Gloss');return false;">&nbsp;&nbsp;Lip Gloss, Oil & Balm</a>
-      <a onclick="showCategory('Lipliner');return false;">&nbsp;&nbsp;Lipliner</a>
+      <div class="dropdown-sub">
+        <a>Eyes</a>
+        <div class="sub-menu">
+          <a onclick="showCategory('Eyebrow');return false;">Eyebrow</a>
+          <a onclick="showCategory('Eye Shadow');return false;">Eye Shadow</a>
+          <a onclick="showCategory('Eyelashes');return false;">Eyelashes</a>
+          <a onclick="showCategory('Eyeliner');return false;">Eyeliner</a>
+          <a onclick="showCategory('Mascara');return false;">Mascara</a>
+        </div>
+      </div>
+      <div class="dropdown-sub">
+        <a>Face</a>
+        <div class="sub-menu">
+          <a onclick="showCategory('Blush');return false;">Blush</a>
+          <a onclick="showCategory('Bronzer');return false;">Bronzer</a>
+          <a onclick="showCategory('Contouring');return false;">Contouring</a>
+          <a onclick="showCategory('Foundation');return false;">Foundation</a>
+          <a onclick="showCategory('Powder');return false;">Powder</a>
+          <a onclick="showCategory('BB Cream/CC Cream');return false;">BB Cream/CC Cream</a>
+          <a onclick="showCategory('Highlighter & Luminizer');return false;">Highlighter & Luminizer</a>
+          <a onclick="showCategory('Primer');return false;">Primer</a>
+          <a onclick="showCategory('Setting Spray');return false;">Setting Spray</a>
+          <a onclick="showCategory('Concealer');return false;">Concealer</a>
+        </div>
+      </div>
+      <div class="dropdown-sub">
+        <a>Lips</a>
+        <div class="sub-menu">
+          <a onclick="showCategory('Lipstick');return false;">Lipstick</a>
+          <a onclick="showCategory('Lip Gloss');return false;">Lip Gloss, Oil & Balm</a>
+          <a onclick="showCategory('Lipliner');return false;">Lipliner</a>
+        </div>
+      </div>
       <a onclick="showCategory('Kids Makeup');return false;">Kids Makeup</a>
       <a onclick="showCategory('Makeup > Gift Sets');return false;">Gift Sets</a>
     </div>
   </div>
   <div class="nav-dropdown">
-    <a href="#" class="nav-link" onclick="showCategory('Bath & Body');return false;">Bath & Body ▾</a>
+    <a href="#" class="nav-link" onclick="showCategory('Bath & Body');return false;">Bath & Body</a>
     <div class="dropdown-menu">
       <a onclick="showCategory('Body Splashes');return false;">Body Splashes</a>
       <a onclick="showCategory('Body Lotions');return false;">Body Lotions</a>
@@ -82,13 +100,19 @@
       <a onclick="showCategory('Body Scrubs & Bath Salts');return false;">Body Scrubs & Bath Salts</a>
       <a onclick="showCategory('Candles & Reed Diffusers');return false;">Candles & Reed Diffusers</a>
       <a onclick="showCategory('Shower Gel');return false;">Shower Gel</a>
-      <a onclick="showCategory('Deodorant/Deostick');return false;">Deodorant/Deostick</a>
+      <div class="dropdown-sub">
+        <a>Deodorant/Deostick</a>
+        <div class="sub-menu">
+          <a onclick="showCategory('Deodorant > Men');return false;">Men</a>
+          <a onclick="showCategory('Deodorant > Women');return false;">Women</a>
+        </div>
+      </div>
       <a onclick="showCategory('Underwear/Lingerie');return false;">Underwear/Lingerie</a>
       <a onclick="showCategory('Bath & Body > Gift Sets');return false;">Gift Sets</a>
     </div>
   </div>
   <div class="nav-dropdown">
-    <a href="#" class="nav-link" onclick="showCategory('Skin Care');return false;">Skin Care ▾</a>
+    <a href="#" class="nav-link" onclick="showCategory('Skin Care');return false;">Skin Care</a>
     <div class="dropdown-menu">
       <a onclick="showCategory('Cleansers & Toners');return false;">Cleansers & Toners</a>
       <a onclick="showCategory('Creams & Serums');return false;">Creams & Serums</a>
@@ -98,14 +122,14 @@
     </div>
   </div>
   <div class="nav-dropdown">
-    <a href="#" class="nav-link" onclick="showCategory('Sun Care/Tanning');return false;">Sun Care ▾</a>
+    <a href="#" class="nav-link" onclick="showCategory('Sun Care/Tanning');return false;">Sun Care/Tanning</a>
     <div class="dropdown-menu">
       <a onclick="showCategory('Sun Care');return false;">Sun Care</a>
       <a onclick="showCategory('Tanning');return false;">Tanning</a>
     </div>
   </div>
   <div class="nav-dropdown">
-    <a href="#" class="nav-link" onclick="showCategory('Hair Care');return false;">Hair Care ▾</a>
+    <a href="#" class="nav-link" onclick="showCategory('Hair Care');return false;">Hair Care</a>
     <div class="dropdown-menu">
       <a onclick="showCategory('Conditioner');return false;">Conditioner</a>
       <a onclick="showCategory('DYE');return false;">DYE</a>
@@ -119,14 +143,14 @@
     </div>
   </div>
   <div class="nav-dropdown">
-    <a href="#" class="nav-link" onclick="showCategory('Nail Care & Colors');return false;">Nail Care ▾</a>
+    <a href="#" class="nav-link" onclick="showCategory('Nail Care & Colors');return false;">Nail Care & Colors</a>
     <div class="dropdown-menu">
       <a onclick="showCategory('Nail Care');return false;">Nail Care</a>
       <a onclick="showCategory('Nail Colors');return false;">Nail Colors</a>
     </div>
   </div>
   <div class="nav-dropdown">
-    <a href="#" class="nav-link" onclick="showCategory('Brushes & Tools');return false;">Brushes ▾</a>
+    <a href="#" class="nav-link" onclick="showCategory('Brushes & Tools');return false;">Brushes & Tools</a>
     <div class="dropdown-menu">
       <a onclick="showCategory('Brushes');return false;">Brushes</a>
       <a onclick="showCategory('Brushes Sets');return false;">Brushes Sets</a>
@@ -137,7 +161,7 @@
     </div>
   </div>
   <div class="nav-dropdown">
-    <a href="#" class="nav-link" onclick="showCategory('Electricals');return false;">Electricals ▾</a>
+    <a href="#" class="nav-link" onclick="showCategory('Electricals');return false;">Electricals</a>
     <div class="dropdown-menu">
       <a onclick="showCategory('Hair Dryer');return false;">Hair Dryer</a>
       <a onclick="showCategory('Hair Epilator');return false;">Hair Epilator</a>
@@ -145,19 +169,34 @@
     </div>
   </div>
   <div class="nav-dropdown">
-    <a href="#" class="nav-link" onclick="showCategory('Summer Mode');return false;">Summer Mode ▾</a>
+    <a href="#" class="nav-link" onclick="showCategory('Summer Mode');return false;">Summer Mode</a>
     <div class="dropdown-menu">
       <a onclick="showCategory('Beach Towels');return false;">Beach Towels</a>
-      <a onclick="showCategory('Beach Bags & Hats');return false;">Beach Bags & Hats</a>
-      <a onclick="showCategory('Beach Bags');return false;">&nbsp;&nbsp;Beach Bags</a>
-      <a onclick="showCategory('Beach Hats');return false;">&nbsp;&nbsp;Beach Hats</a>
-      <a onclick="showCategory('Slippers/Slides');return false;">Slippers/Slides</a>
+      <div class="dropdown-sub">
+        <a>Beach Bags & Hats</a>
+        <div class="sub-menu">
+          <a onclick="showCategory('Beach Bags');return false;">Beach Bags</a>
+          <a onclick="showCategory('Beach Hats');return false;">Beach Hats</a>
+        </div>
+      </div>
+      <div class="dropdown-sub">
+        <a>Slippers/Slides</a>
+        <div class="sub-menu">
+          <a onclick="showCategory('Slippers > Kids');return false;">Kids</a>
+          <a onclick="showCategory('Slippers > Men');return false;">Men</a>
+          <a onclick="showCategory('Slippers > Women');return false;">Women</a>
+        </div>
+      </div>
       <a onclick="showCategory('Swim Wear');return false;">Swim Wear</a>
       <a onclick="showCategory('Sunglasses');return false;">Sunglasses</a>
-      <a onclick="showCategory('Pouches & Wallets');return false;">Pouches & Wallets</a>
-      <a onclick="showCategory('Pouches');return false;">&nbsp;&nbsp;Pouches</a>
-      <a onclick="showCategory('Wallets');return false;">&nbsp;&nbsp;Wallets</a>
-      <a onclick="showCategory('Key Rings');return false;">&nbsp;&nbsp;Key Rings</a>
+      <div class="dropdown-sub">
+        <a>Pouches & Wallets</a>
+        <div class="sub-menu">
+          <a onclick="showCategory('Pouches');return false;">Pouches</a>
+          <a onclick="showCategory('Wallets');return false;">Wallets</a>
+          <a onclick="showCategory('Key Rings');return false;">Key Rings</a>
+        </div>
+      </div>
     </div>
   </div>
 </nav>
