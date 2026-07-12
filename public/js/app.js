@@ -79,7 +79,7 @@ function navigateTo(page) {
   document.querySelectorAll('.nav-item').forEach(i => i.classList.toggle('active', i.dataset.page === page));
   const main = document.getElementById('main-content');
   main.innerHTML = '<div class="loading-page"><i class="ti ti-loader spin"></i></div>';
-  const pages = { dashboard: loadDashboard, products: loadProducts, import: loadImport, cashier: loadCashier, orders: loadOrders, reports: loadReports, settings: loadSettings };
+  const pages = { dashboard: loadDashboard, products: loadProducts, import: loadImport, cashier: loadCashier, orders: loadOrders, purchases: loadPurchases, reports: loadReports, settings: loadSettings };
   if (pages[page]) pages[page]();
 }
 
@@ -732,52 +732,100 @@ async function loadOrders() {
     </div>`;
 }
 
-
-
 // ─── REPORTS ───
 async function loadReports() {
   const today = new Date().toISOString().split('T')[0];
   const firstDay = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
-  const reports = await api('GET', `/api/reports?from=${firstDay}&to=${today}`);
+  const [reports, purchases] = await Promise.all([
+    api('GET', `/api/reports?from=${firstDay}&to=${today}`),
+    api('GET', `/api/purchases?from=${firstDay}&to=${today}`)
+  ]);
+  const totalPurchases = purchases.reduce((a, p) => a + p.total, 0);
+  const profit = (reports.totalSales||0) - totalPurchases;
   const main = document.getElementById('main-content');
   main.innerHTML = `
     <div class="page-header">
       <div><div class="page-title">Reports</div><div class="page-subtitle">This month's performance</div></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="date" id="rpt-from" class="form-input" value="${firstDay}" style="width:150px"/>
+        <span style="color:var(--text3)">to</span>
+        <input type="date" id="rpt-to" class="form-input" value="${today}" style="width:150px"/>
+        <button class="btn btn-primary" onclick="filterReports()">Filter</button>
+        <button class="btn btn-secondary" onclick="printReport()"><i class="ti ti-printer"></i> Print</button>
+      </div>
     </div>
-    <div class="page-body">
+    <div class="page-body" id="report-body">
       <div class="stats-grid">
         <div class="stat-card">
-          <div class="stat-icon" style="background:#fef3e2">💰</div>
-          <div class="stat-label">Total Revenue</div>
+          <div class="stat-icon" style="background:#edf7f1">💰</div>
+          <div class="stat-label">Total Sales</div>
           <div class="stat-value">$${Number(reports.totalSales||0).toFixed(2)}</div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon" style="background:#edf7f1">🛒</div>
+          <div class="stat-icon" style="background:#fdecea">🛒</div>
+          <div class="stat-label">Total Purchases</div>
+          <div class="stat-value">$${Number(totalPurchases).toFixed(2)}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:${profit>=0?'#edf7f1':'#fdecea'}">📊</div>
+          <div class="stat-label">Net Profit</div>
+          <div class="stat-value" style="color:${profit>=0?'var(--green)':'var(--red)'}">$${Number(profit).toFixed(2)}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:#eff6ff">📦</div>
           <div class="stat-label">Total Orders</div>
           <div class="stat-value">${reports.totalOrders||0}</div>
         </div>
-        <div class="stat-card">
-          <div class="stat-icon" style="background:#eff6ff">📊</div>
-          <div class="stat-label">Avg Order</div>
-          <div class="stat-value">$${reports.totalOrders ? (reports.totalSales/reports.totalOrders).toFixed(2) : '0.00'}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem">
+        <div class="table-card">
+          <div class="table-header"><span class="table-title">💰 Sales</span></div>
+          <table>
+            <thead><tr><th>Date</th><th>Order #</th><th class="text-right">Amount</th></tr></thead>
+            <tbody>
+              ${Object.entries(reports.byDay||{}).sort((a,b)=>b[0].localeCompare(a[0])).map(([d,v])=>`
+                <tr><td>${new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</td><td style="color:var(--text3)">—</td><td class="text-right" style="font-weight:600;color:var(--green)">$${Number(v).toFixed(2)}</td></tr>`).join('') || '<tr class="empty-row"><td colspan="3">No sales</td></tr>'}
+              <tr style="border-top:2px solid var(--border);font-weight:700"><td colspan="2">TOTAL</td><td class="text-right" style="color:var(--green)">$${Number(reports.totalSales||0).toFixed(2)}</td></tr>
+            </tbody>
+          </table>
         </div>
-        <div class="stat-card">
-          <div class="stat-icon" style="background:#fdecea">⚠️</div>
-          <div class="stat-label">Low Stock</div>
-          <div class="stat-value">${reports.lowStock?.length||0}</div>
+        <div class="table-card">
+          <div class="table-header"><span class="table-title">🛒 Purchases</span></div>
+          <table>
+            <thead><tr><th>Date</th><th>Supplier</th><th class="text-right">Amount</th></tr></thead>
+          <tbody>
+            ${purchases.length ? purchases.map(p=>`
+              <tr><td>${p.date||'—'}</td><td>${p.supplier||'—'}</td><td class="text-right" style="font-weight:600;color:var(--red)">$${Number(p.total).toFixed(2)}</td></tr>`).join('') : '<tr class="empty-row"><td colspan="3">No purchases</td></tr>'}
+            <tr style="border-top:2px solid var(--border);font-weight:700"><td colspan="2">TOTAL</td><td class="text-right" style="color:var(--red)">$${Number(totalPurchases).toFixed(2)}</td></tr>
+          </tbody>
+          </table>
         </div>
       </div>
-      <div class="table-card">
-        <div class="table-header"><span class="table-title">Sales by Day</span></div>
-        <table>
-          <thead><tr><th>Date</th><th class="text-right">Revenue</th></tr></thead>
-          <tbody>
-            ${Object.entries(reports.byDay||{}).sort((a,b)=>b[0].localeCompare(a[0])).map(([d,v])=>`
-              <tr><td>${new Date(d).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</td><td class="text-right" style="font-weight:600">$${Number(v).toFixed(2)}</td></tr>`).join('') || '<tr class="empty-row"><td colspan="2">No sales data</td></tr>'}
-          </tbody>
-        </table>
+      <div class="table-card" style="margin-top:1.5rem">
+        <div class="table-header"><span class="table-title" style="font-size:16px;font-weight:700">NET PROFIT : <span style="color:${profit>=0?'var(--green)':'var(--red)'}">$${Number(profit).toFixed(2)}</span></span></div>
       </div>
     </div>`;
+}
+
+async function filterReports() {
+  const from = document.getElementById('rpt-from').value;
+  const to = document.getElementById('rpt-to').value;
+  const [reports, purchases] = await Promise.all([
+    api('GET', `/api/reports?from=${from}&to=${to}`),
+    api('GET', `/api/purchases?from=${from}&to=${to}`)
+  ]);
+  const totalPurchases = purchases.reduce((a, p) => a + p.total, 0);
+  const profit = (reports.totalSales||0) - totalPurchases;
+  // Update stats
+  document.querySelector('.stats-grid').innerHTML = `
+    <div class="stat-card"><div class="stat-icon" style="background:#edf7f1">💰</div><div class="stat-label">Total Sales</div><div class="stat-value">$${Number(reports.totalSales||0).toFixed(2)}</div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#fdecea">🛒</div><div class="stat-label">Total Purchases</div><div class="stat-value">$${Number(totalPurchases).toFixed(2)}</div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:${profit>=0?'#edf7f1':'#fdecea'}">📊</div><div class="stat-label">Net Profit</div><div class="stat-value" style="color:${profit>=0?'var(--green)':'var(--red)'}">$${Number(profit).toFixed(2)}</div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#eff6ff">📦</div><div class="stat-label">Total Orders</div><div class="stat-value">${reports.totalOrders||0}</div></div>`;
+}
+
+function printReport() {
+  window.print();
 }
 
 
@@ -1001,7 +1049,75 @@ async function completeOrder(id) {
 
 
 
+// ─── PURCHASES ───
+async function loadPurchases() {
+  const purchases = await api('GET', '/api/purchases');
+  const main = document.getElementById('main-content');
+  main.innerHTML = `
+    <div class="page-header">
+      <div><div class="page-title">Purchases</div><div class="page-subtitle">${purchases.length} purchase(s)</div></div>
+      <button class="btn btn-primary" onclick="openPurchaseModal()"><i class="ti ti-plus"></i> New Purchase</button>
+    </div>
+    <div class="page-body">
+      <div class="table-card">
+        <table>
+          <thead><tr><th>#</th><th>Supplier</th><th>Date</th><th>Total</th><th>Notes</th><th>Actions</th></tr></thead>
+          <tbody>
+            ${purchases.length ? purchases.map(p=>`
+              <tr>
+                <td style="font-weight:600">${p.num||'—'}</td>
+                <td>${p.supplier||'—'}</td>
+                <td>${p.date||'—'}</td>
+                <td style="font-weight:600;color:var(--red)">$${Number(p.total).toFixed(2)}</td>
+                <td style="color:var(--text3);font-size:12px">${p.notes||'—'}</td>
+                <td><button class="btn btn-sm btn-danger" onclick="deletePurchase(${p.id})">Delete</button></td>
+              </tr>`).join('') : '<tr class="empty-row"><td colspan="6">No purchases yet</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
 
+function openPurchaseModal() {
+  const modal = document.createElement('div');
+  modal.className = 'modal-bg';
+  modal.innerHTML = `
+    <div class="modal-box" style="max-width:450px">
+      <div class="modal-header"><span class="modal-title">New Purchase</span><button class="modal-close" onclick="this.closest('.modal-bg').remove()"><i class="ti ti-x"></i></button></div>
+      <div class="modal-body">
+        <div class="form-group"><label class="form-label">Invoice #</label><input class="form-input" id="pur-num" placeholder="e.g. INV-001"/></div>
+        <div class="form-group"><label class="form-label">Supplier</label><input class="form-input" id="pur-supplier" placeholder="Supplier name"/></div>
+        <div class="form-group"><label class="form-label">Date</label><input type="date" class="form-input" id="pur-date" value="${new Date().toISOString().split('T')[0]}"/></div>
+        <div class="form-group"><label class="form-label">Total Amount ($)</label><input type="number" class="form-input" id="pur-total" placeholder="0.00"/></div>
+        <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" id="pur-notes" rows="2"></textarea></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="this.closest('.modal-bg').remove()">Cancel</button>
+        <button class="btn-save" onclick="savePurchase()">Save</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+async function savePurchase() {
+  const data = {
+    num: document.getElementById('pur-num').value,
+    supplier: document.getElementById('pur-supplier').value,
+    date: document.getElementById('pur-date').value,
+    total: document.getElementById('pur-total').value,
+    notes: document.getElementById('pur-notes').value,
+  };
+  if (!data.supplier || !data.total) { toast('Please fill required fields', 'error'); return; }
+  const r = await api('POST', '/api/purchases', data);
+  if (r.id) { document.querySelector('.modal-bg').remove(); toast('Purchase saved!', 'success'); loadPurchases(); }
+  else toast('Error', 'error');
+}
+
+async function deletePurchase(id) {
+  if (!confirm('Delete this purchase?')) return;
+  const r = await api('DELETE', `/api/purchases/${id}`);
+  if (r.success) { toast('Deleted', 'success'); loadPurchases(); }
+}
 
 
 

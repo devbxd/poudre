@@ -90,7 +90,20 @@ async function initDB() {
       key TEXT PRIMARY KEY,
       value TEXT
     );
+    CREATE TABLE IF NOT EXISTS purchases (
+      id SERIAL PRIMARY KEY,
+      num TEXT,
+      supplier TEXT,
+      date TEXT,
+      total REAL DEFAULT 0,
+      notes TEXT,
+      owner_id INTEGER,
+      owner_name TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
   `);
+
+  
 
   const defaultSettings = {
     store_name: 'Poudre Beauty',
@@ -506,7 +519,29 @@ app.delete('/api/orders/:id', auth, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-
+// PURCHASES
+app.get('/api/purchases', auth, async (req, res) => {
+  try {
+    const { from, to } = req.query;
+    let q = 'SELECT * FROM purchases WHERE 1=1'; const p = [];
+    if (from) { q += ' AND date>=?'; p.push(from); }
+    if (to) { q += ' AND date<=?'; p.push(to); }
+    q += ' ORDER BY created_at DESC';
+    res.json(await query(q, p));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.post('/api/purchases', auth, async (req, res) => {
+  try {
+    const { num, supplier, date, total, notes } = req.body;
+    const r = await queryOne('INSERT INTO purchases (num,supplier,date,total,notes,owner_id,owner_name) VALUES (?,?,?,?,?,?,?) RETURNING id',
+      [num, supplier, date, parseFloat(total)||0, notes||'', req.session.user.id, req.session.user.display_name]);
+    res.json({ id: r.id });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.delete('/api/purchases/:id', auth, async (req, res) => {
+  try { await run('DELETE FROM purchases WHERE id=?', [req.params.id]); res.json({ success: true }); }
+  catch(e) { res.status(500).json({ error: e.message }); }
+});
 
 app.get('/{*path}', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
