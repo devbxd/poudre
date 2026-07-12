@@ -11,6 +11,132 @@
 </head>
 <body>
 
+
+
+
+
+
+
+
+<!-- MOBILE MENU -->
+<div class="mobile-menu-overlay" id="mob-overlay" onclick="closeMobileMenu()"></div>
+<div class="mobile-menu" id="mob-menu">
+  <div class="mobile-menu-header">
+    <span>Menu</span>
+    <button onclick="closeMobileMenu()">✕</button>
+  </div>
+  <div>
+    <div class="mobile-cat" onclick="mobileCat('Watches')">WATCHES</div>
+    <div class="mobile-cat" onclick="toggleMobileSub('mob-perfumes')">PERFUMES <span>›</span></div>
+    <div class="mobile-sub" id="mob-perfumes">
+      <a onclick="mobileCat('Perfumes > Men')">Men</a>
+      <a onclick="mobileCat('Perfumes > Women')">Women</a>
+      <a onclick="mobileCat('Perfumes > Kids & Babies')">Kids & Babies</a>
+      <a onclick="mobileCat('Perfumes > Gift Sets')">Gift Sets</a>
+    </div>
+    <div class="mobile-cat" onclick="toggleMobileSub('mob-makeup')">MAKEUP <span>›</span></div>
+    <div class="mobile-sub" id="mob-makeup">
+      <div class="mobile-cat" style="padding:11px 2rem;font-size:13px;text-transform:none;border-bottom:1px solid #f0f0f0" onclick="toggleMobileSub('mob-eyes')">Eyes <span style="font-size:14px">›</span></div>
+      <div class="mobile-sub-sub" id="mob-eyes">
+        <a onclick="mobileCat('Eyebrow')">Eyebrow</a>
+        <a onclick="mobileCat('Eye Shadow')">Eye Shadow</a>
+        <a onclick="mobileCat('Eyelashes')">Eyelashes</a>
+        <a onclick="mobileCat('Eyeliner')">Eyeliner</a>
+        <a onclick="mobileCat('Mascara')">Mascara</a>
+      </div>
+      <div class="mobile-cat" style="padding:11px 2rem;font-size:13px;text-transform:none;border-bottom:1px solid #f0f0f0" onclick="toggleMobileSub('mob-face')">Face <span style="font-size:14px">›</span></div>
+      <div class="mobile-sub-sub" id="mob-face">
+        <a onclick="mobileCat('Blush')">Blush</a>
+        <a onclick="mobileCat('Bronzer')">Bronzer</a>
+        <a onclick="mobileCat('Foundation')">Foundation</a>
+        <a onclick="mobileCat('Powder')">Powder</a>
+        <a onclick="mobileCat('Concealer')">Concealer</a>
+        <a onclick="mobileCat('Primer')">Primer</a>
+      </div>
+      <div class="mobile-cat" style="padding:11px 2rem;font-size:13px;text-transform:none;border-bottom:1px solid #f0f0f0" onclick="toggleMobileSub('mob-lips')">Lips <span style="font-size:14px">›</span></div>
+      <div class="mobile-sub-sub" id="mob-lips">
+        <a onclick="mobileCat('Lipstick')">Lipstick</a>
+        <a onclick="mobileCat('Lip Gloss')">Lip Gloss</a>
+        <a onclick="mobileCat('Lipliner')">Lipliner</a>
+      </div>
+      <a onclick="mobileCat('Kids Makeup')">Kids Makeup</a>
+      <a onclick="mobileCat('Makeup > Gift Sets')">Gift Sets</a>
+    </div>
+    <div class="mobile-cat" onclick="toggleMobileSub('mob-bath')">BATH & BODY <span>›</span></div>
+    <div class="mobile-sub" id="mob-bath">
+      <a onclick="mobileCat('Body Splashes')">Body Splashes</a>
+      <a onclick="mobileCat('Body Lotions')">Body Lotions</a>
+      <a onclick="mobileCat('Body Oil')">Body Oil</a>
+      <a onclick="mobileCat('Shower Gel')">Shower Gel</a>
+      <a onclick="mobileCat('Deodorant/Deostick')">Deodorant/Deostick</a>
+      <a onclick="mobileCat('Underwear/Lingerie')">Underwear/Lingerie</a>
+    </div>
+    <div class="mobile-cat" onclick="toggleMobileSub('mob-skin')">SKIN CARE <span>›</span></div>
+    <div class="mobile-sub" id="mob-skin">
+      <a onclick="mobileCat('Cleansers & Toners')">Cleansers & Toners</a>
+      <a onclick="mobileCat('Creams & Serums')">Creams & Serums</a>
+      <a onclick="mobileCat('Facials & Scrubs')">Facials & Scrubs</a>
+      <a onclick="mobileCat('Masks')">Masks</a>
+    </div>
+    <div class="mobile-cat" onclick="toggleMobileSub('mob-sun')">SUN CARE <span>›</span></div>
+    <div class="mobile-sub" id="mob-sun">
+      <a onclick="mobileCat('Sun Care')">Sun Care</a>
+      <a onclick="mobileCat('Tanning')">Tanning</a>
+    </div>
+    <div class="mobile-cat" onclick="toggleMobileSub('mob-hair')">HAIR CARE <span>›</span></div>
+    <div class="mobile-sub" id="mob-hair">
+      <a onclick="mobileCat('Shampoo')">Shampoo</a>
+      <a onclick="mobileCat('Conditioner')">Conditioner</a>
+      <a onclick="mobileCat('Oil')">Oil</a>
+      <a onclick="mobileCat('Masks')">Masks</a>
+      <a onclick="mobileCat('Serums')">Serums</a>
+      <a onclick="mobileCat('DYE')">DYE</a>
+      <a onclick="mobileCat('Hair Mist')">Hair Mist</a>
+    </div>
+    <div class="mobile-cat" onclick="toggleMobileSub('mob-nail')">NAIL CARE <span>›</span></div>
+    <div class="mobile-sub" id="mob-nail">
+      <a onclick="mobileCat('Nail Care')">Nail Care</a>
+      <a onclick="mobileCat('Nail Colors')">Nail Colors</a>
+    </div>
+    <div class="mobile-cat" onclick="toggleMobileSub('mob-brushes')">BRUSHES & TOOLS <span>›</span></div>
+    <div class="mobile-sub" id="mob-brushes">
+      <a onclick="mobileCat('Brushes')">Brushes</a>
+      <a onclick="mobileCat('Brushes Sets')">Brushes Sets</a>
+      <a onclick="mobileCat('Sponges')">Sponges</a>
+      <a onclick="mobileCat('Hair Accessories')">Hair Accessories</a>
+    </div>
+    <div class="mobile-cat" onclick="toggleMobileSub('mob-elec')">ELECTRICALS <span>›</span></div>
+    <div class="mobile-sub" id="mob-elec">
+      <a onclick="mobileCat('Hair Dryer')">Hair Dryer</a>
+      <a onclick="mobileCat('Hair Epilator')">Hair Epilator</a>
+      <a onclick="mobileCat('Hair Straightner/Curler')">Hair Straightner/Curler</a>
+    </div>
+    <div class="mobile-cat" onclick="toggleMobileSub('mob-summer')">SUMMER MODE <span>›</span></div>
+    <div class="mobile-sub" id="mob-summer">
+      <a onclick="mobileCat('Beach Towels')">Beach Towels</a>
+      <a onclick="mobileCat('Beach Bags & Hats')">Beach Bags & Hats</a>
+      <a onclick="mobileCat('Swim Wear')">Swim Wear</a>
+      <a onclick="mobileCat('Sunglasses')">Sunglasses</a>
+      <a onclick="mobileCat('Slippers/Slides')">Slippers/Slides</a>
+      <a onclick="mobileCat('Pouches & Wallets')">Pouches & Wallets</a>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 <!-- TOP BAR -->
 <div class="top-bar">
   <div class="top-bar-inner marquee-wrap">
@@ -21,7 +147,7 @@
 <!-- HEADER -->
 <header class="header">
   <div class="header-inner">
-    <button class="menu-btn" onclick="toggleMobileMenu()">☰</button>
+    <button class="menu-btn" onclick="openMobileMenu()">☰</button>
     <div class="header-logo">
       <a href="#" onclick="showPage('home');return false;">
         <img src="https://poudrebeauty.com/wp-content/uploads/2025/02/WhatsApp-Image-2025-02-04-at-11.23.31-AM.jpeg" alt="Poudre Beauty" class="logo-img" onerror="this.outerHTML='<span style=font-family:Cormorant Garamond,serif;font-size:1.5rem;font-weight:600>Poudre Beauty</span>'"/>
