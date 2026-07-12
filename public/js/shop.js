@@ -208,6 +208,16 @@ async function showProductPage(p, type, sku) {
   
   window._currentProduct = p;
   window._selectedVariant = null;
+  
+  // Related products
+  const related = await apiFetch(`/api/shop/products?category=${encodeURIComponent(p.category?.split('>')[0]?.trim()||'')}&limit=5&offset=0`);
+  const relatedFiltered = related.filter(r => r.id !== p.id).slice(0, 4);
+  document.getElementById('page-product').innerHTML += `
+    <div class="container" style="padding:0 0 3rem">
+      <h2 style="font-family:'Cormorant Garamond',serif;font-size:1.5rem;font-weight:400;margin-bottom:1.5rem">Related Products</h2>
+      <div class="products-grid" id="related-grid"></div>
+    </div>`;
+  renderProducts(relatedFiltered, 'related-grid');
 }
 
 function getDeliveryDate() {
