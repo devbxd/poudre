@@ -196,8 +196,7 @@ async function showProductPage(p, type, sku) {
             <button onclick="buySelectedVariant()" style="width:100%;padding:16px;background:#1a1a1a;color:white;border:none;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;margin-bottom:1.5rem;">BUY IT NOW</button>
           ` : `
             <button onclick="addToCart(${JSON.stringify(p).replace(/"/g,'&quot;')})" style="width:100%;padding:16px;border:1.5px solid #1a1a1a;background:white;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;margin-bottom:10px;">ADD TO CART</button>
-            <button onclick="addToCart(${JSON.stringify(p).replace(/"/g,'&quot;')});goCheckout()" style="width:100%;padding:16px;background:#1a1a1a;color:white;border:none;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;margin-bottom:1.5rem;">BUY IT NOW</button>
-          `}
+          <button onclick="if(${p.stock}<=0){showToast('Out of stock!');return;}addToCart(${JSON.stringify(p).replace(/"/g,'&quot;')});goCheckout()" style="width:100%;padding:16px;background:#1a1a1a;color:white;border:none;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;margin-bottom:1.5rem;">BUY IT NOW</button>          `}
           <div style="border-top:1px solid #eee;padding-top:1rem;margin-top:1rem">
             <div style="display:flex;gap:1rem;margin-bottom:1rem">
               <button style="flex:1;padding:10px;border:1px solid #eee;background:white;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
