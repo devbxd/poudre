@@ -251,6 +251,7 @@ function addSelectedVariant() {
 
 function buySelectedVariant() {
   if (!window._selectedVariant) { showToast('Please select a variant'); return; }
+  if (window._selectedVariant.stock <= 0) { showToast('Out of stock!'); return; }
   addToCart(window._selectedVariant);
   goCheckout();
 }
