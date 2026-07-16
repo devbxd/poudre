@@ -46,8 +46,119 @@ function showPage(page) {
 
 // ─── HOME ───
 async function loadHomeProducts() {
-  const products = await apiFetch('/api/shop/products?limit=8&offset=0');
-  renderProducts(products, 'home-products');
+  const main = document.getElementById('page-home');
+  
+  // Hero already in HTML
+  
+  // Define sections
+  const sections = [
+    { title: 'New Arrivals', cat: null, tabs: null, viewAll: 'all' },
+    { title: 'Watches', cat: 'Watches', tabs: ['All', 'Men', 'Women'], viewAll: 'Watches' },
+    { title: 'Sunglasses', cat: 'Sunglasses', tabs: null, viewAll: 'Sunglasses' },
+    { title: 'Makeup', cat: 'Makeup', tabs: ['All', 'Eyes', 'Face', 'Lips', 'Gift Sets'], viewAll: 'Makeup' },
+    { title: 'Perfumes', cat: 'Perfumes', tabs: ['All', 'Men', 'Women', 'Kids & Babies', 'Gift Sets'], viewAll: 'Perfumes' },
+    { title: 'Bath & Body', cat: 'Bath & Body', tabs: ['All', 'Body Splashes', 'Body Lotions', 'Shower Gel', 'Underwear/Lingerie'], viewAll: 'Bath & Body' },
+    { title: 'Skincare', cat: 'Skin Care', tabs: ['All', 'Creams & Serums', 'Cleansers & Toners', 'Masks'], viewAll: 'Skin Care' },
+    { title: 'Suncare & Tanning', cat: 'Sun Care/Tanning', tabs: ['All', 'Sun Care', 'Tanning'], viewAll: 'Sun Care/Tanning' },
+    { title: 'Pouches & Wallets', cat: 'Pouches', tabs: null, viewAll: 'Pouches & Wallets' },
+    { title: 'Brushes & Tools', cat: 'Brushes & Tools', tabs: null, viewAll: 'Brushes & Tools' },
+    { title: 'Electricals', cat: 'Electricals', tabs: null, viewAll: 'Electricals' },
+  ];
+
+  // Build sections HTML
+  const sectionsContainer = document.getElementById('home-sections');
+  if (!sectionsContainer) return;
+  
+  sectionsContainer.innerHTML = sections.map((s, i) => `
+    <section class="home-section" id="section-${i}">
+      <div class="container">
+        <div class="section-header">
+          <h2 class="section-title">${s.title}</h2>
+          <div style="display:flex;align-items:center;gap:1rem">
+            ${s.tabs ? `<div class="section-tabs" id="tabs-${i}">
+              ${s.tabs.map((tab, ti) => `<button class="section-tab ${ti===0?'active':''}" onclick="switchTab(${i}, '${tab}', '${s.cat}', this)">${tab}</button>`).join('')}
+            </div>` : ''}
+            <a href="#" onclick="showCategory('${s.viewAll}');return false;" class="view-all">View All →</a>
+          </div>
+        </div>
+        <div class="slider-wrap">
+          <button class="slider-btn slider-prev" onclick="slideSection(${i}, -1)">‹</button>
+          <div class="products-slider" id="slider-${i}">
+            <div style="text-align:center;padding:2rem;width:100%"><div class="spinner"></div></div>
+          </div>
+          <button class="slider-btn slider-next" onclick="slideSection(${i}, 1)">›</button>
+        </div>
+      </div>
+    </section>`).join('');
+
+  // Load products for each section
+  for (let i = 0; i < sections.length; i++) {
+    const s = sections[i];
+    loadSectionProducts(i, s.cat, null);
+  }
+}
+
+async function loadSectionProducts(sectionIndex, cat, subcat) {
+  let url = '/api/shop/products?limit=12&offset=0';
+  const activeCat = subcat || cat;
+  if (activeCat) url += `&category=${encodeURIComponent(activeCat)}`;
+  
+  const products = await apiFetch(url);
+  const slider = document.getElementById(`slider-${sectionIndex}`);
+  if (!slider) return;
+  
+  if (!products.length) {
+    slider.innerHTML = '<div style="color:#888;padding:1rem">No products</div>';
+    return;
+  }
+  
+  slider.innerHTML = products.map(p => {
+    const price = p.sale_price > 0 ? p.sale_price : p.price;
+    const oldPrice = p.sale_price > 0 && p.price > p.sale_price ? p.price : null;
+    const discount = oldPrice ? Math.round((1 - price/oldPrice) * 100) : null;
+    const hasPrice = price > 0;
+    
+    return `
+      <div class="slider-card" onclick="openProduct(${p.id}, '${p.product_type}', '${(p.sku||'').replace(/'/g,"\\'")}')">
+        <div class="slider-img-wrap">
+          <button class="wishlist-btn" data-id="${p.id}" onclick="toggleWishlist(${p.id}, '${p.name.replace(/'/g,"\\'")}', event)" style="position:absolute;top:6px;right:6px;background:white;border:none;border-radius:50%;width:28px;height:28px;font-size:14px;cursor:pointer;z-index:1;box-shadow:0 2px 4px rgba(0,0,0,0.1)">♡</button>
+          ${p.image_url ? `<img src="${p.image_url}" alt="${p.name.replace(/"/g,'&quot;')}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=product-img-placeholder>💄</div>'"/>` : '<div class="product-img-placeholder">💄</div>'}
+          ${discount ? `<span class="sale-badge">-${discount}%</span>` : ''}
+        </div>
+        <div class="slider-info">
+          <div class="product-name">${p.name}</div>
+          ${hasPrice ? `<div class="product-price">
+            <span class="price-current">$${Number(price).toFixed(2)}</span>
+            ${oldPrice ? `<span class="price-old">$${Number(oldPrice).toFixed(2)}</span>` : ''}
+          </div>` : '<div style="font-size:12px;color:#888">Select variant</div>'}
+          <button class="add-to-cart-btn" onclick="event.stopPropagation();quickAddToCart(${p.id}, '${p.product_type}', '${(p.sku||'').replace(/'/g,"\\'")}')">
+            ${p.product_type === 'variable' ? 'Choose Options' : 'Add to Cart'}
+          </button>
+        </div>
+      </div>`;
+  }).join('');
+  
+  setTimeout(updateWishlistUI, 100);
+}
+
+async function switchTab(sectionIndex, tab, mainCat, btn) {
+  // Update active tab
+  document.querySelectorAll(`#tabs-${sectionIndex} .section-tab`).forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  
+  // Load products
+  if (tab === 'All') {
+    loadSectionProducts(sectionIndex, mainCat, null);
+  } else {
+    loadSectionProducts(sectionIndex, mainCat, tab);
+  }
+}
+
+function slideSection(sectionIndex, direction) {
+  const slider = document.getElementById(`slider-${sectionIndex}`);
+  if (!slider) return;
+  const cardWidth = 220;
+  slider.scrollBy({ left: direction * cardWidth * 3, behavior: 'smooth' });
 }
 
 // ─── CATEGORIES ───

@@ -464,7 +464,17 @@ function loadCashier() {
       if (!val) { loadPosProducts(); return; }
       // Try barcode scan first
       const r = await api('GET', `/api/products/scan/${encodeURIComponent(val)}`);
-      if (r.id) { addToCart(r); scanInput.value = ''; loadPosProducts(); return; }
+      if (r.id) {
+        scanInput.value = '';
+        if (r.product_type === 'variable') {
+          showVariantPicker(r.id);
+        } else {
+          r.stock = 999;
+          addToCart(r);
+        }
+        loadPosProducts();
+        return;
+      }
       // Search by name
       const products = await api('GET', `/api/products/search?q=${encodeURIComponent(val)}`);
       renderPosGrid(products);
@@ -991,11 +1001,13 @@ async function filterOrders() {
 
 
 async function showVariantPicker(productId) {
-  const variations = (window._posProducts||[]).filter(p => p.parent_sku == productId || String(p.parent_sku) === String(productId));
+  // Get product to find its SKU
+  const product = await api('GET', `/api/products/${productId}`);
+  const sku = product.sku;
   
-  // Also check from _variations
-  const allVars = (window._variations||[]).filter(v => String(v.parent_sku) === String(productId));
-  const vars = allVars.length ? allVars : variations;
+  // Get variations from API
+  const allVars = (window._variations||[]).filter(v => String(v.parent_sku) === String(sku));
+  const vars = allVars.length ? allVars : (window._posProducts||[]).filter(p => String(p.parent_sku) === String(sku));
   
   if (!vars.length) { toast('No variants available', 'error'); return; }
   
@@ -1004,24 +1016,29 @@ async function showVariantPicker(productId) {
   modal.innerHTML = `
     <div style="background:white;border-radius:16px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,0.3);overflow:hidden">
       <div style="padding:1.25rem 1.5rem;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:15px;font-weight:700">Choose Variant</span>
+        <span style="font-size:15px;font-weight:700">${product.name}</span>
         <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#888">×</button>
       </div>
       <div style="padding:1rem;max-height:400px;overflow-y:auto">
         ${vars.map(v => `
-          <div onclick="addToCart(${JSON.stringify(v).replace(/"/g,'&quot;')});this.closest('[style*=fixed]').remove()" 
+          <div onclick="addVariantToCartPos(${JSON.stringify(v).replace(/"/g,'&quot;')});this.closest('[style*=fixed]').remove()" 
                style="display:flex;align-items:center;justify-content:space-between;padding:12px;border:1.5px solid #eee;border-radius:10px;margin-bottom:8px;cursor:pointer;transition:all 0.15s"
                onmouseover="this.style.borderColor='#c8a882';this.style.background='#fdf8f3'"
                onmouseout="this.style.borderColor='#eee';this.style.background='white'">
             <div>
               <div style="font-size:13px;font-weight:600;color:#1a1a1a">${v.variant_name||v.name}</div>
-              <div style="font-size:11px;color:#888;margin-top:2px">SKU: ${v.sku||'—'} · Stock: ${v.stock}</div>
+              <div style="font-size:11px;color:#888;margin-top:2px">SKU: ${v.sku||'—'} · Stock: <span style="color:${v.stock>0?'#2d7a4f':'#e74c3c'}">${v.stock}</span></div>
             </div>
             <div style="font-size:14px;font-weight:700;color:#c8a882">$${Number(v.sale_price||v.price).toFixed(2)}</div>
           </div>`).join('')}
       </div>
     </div>`;
   document.body.appendChild(modal);
+}
+
+function addVariantToCartPos(v) {
+  v.stock = 999; // Allow adding regardless of stock in POS
+  addToCart(v);
 }
 
 async function handlePosClick(id, type, product) {
