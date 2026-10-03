@@ -1,0 +1,2 @@
+# Website templates and theme assets must stay byte-identical (mixed CRLF/LF from WordPress)
+site/** -text
