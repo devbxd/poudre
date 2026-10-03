@@ -5,7 +5,7 @@ const call = async (m, p, body) => {
   const sc = r.headers.get('set-cookie'); if (sc) cookie = sc.split(';')[0];
   const j = await r.json(); if (!r.ok) throw new Error(p + ': ' + j.error); return j;
 };
-await call('POST', '/auth/login', { username: 'jeanclaude', password: 'RzEnRGoa' });
+await call('POST', '/auth/login', { username: 'jeanclaude', password: process.env.OWNER_PASSWORD });
 const stock = await call('GET', '/admin/stock?per_page=1000&sort=-sold');
 const item = stock.items.find((x) => x.manage_stock && x.stock_quantity >= 5 && x.sku);
 const qty = () => call('GET', `/admin/stock?q=${encodeURIComponent(item.sku)}`).then((s) => s.items.find((x) => x.product_id === item.product_id && x.variation_id === item.variation_id).stock_quantity);

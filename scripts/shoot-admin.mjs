@@ -1,4 +1,4 @@
-// Screenshots of dashboard pages for visual checks: node scripts/shoot-admin.mjs [path...]
+// Screenshots of dashboard pages for visual checks: node --env-file=.env scripts/shoot-admin.mjs [path...]
 import { chromium } from 'playwright';
 const base = 'http://localhost:8787/admin';
 const paths = process.argv.slice(2).length ? process.argv.slice(2) : ['/', '/orders', '/products', '/stock', '/categories', '/pos'];
@@ -10,7 +10,7 @@ page.on('console', (m) => m.type() === 'error' && errors.push(`${page.url()}: ${
 await page.goto(base + '/');
 if (await page.locator('input[autocomplete=username]').count()) {
   await page.fill('input[autocomplete=username]', 'jeanclaude');
-  await page.fill('input[type=password]', process.env.OWNER_PASSWORD || 'RzEnRGoa');
+  await page.fill('input[type=password]', process.env.OWNER_PASSWORD);
   await page.click('button:has-text("Sign in")');
   await page.waitForTimeout(1500);
 }
