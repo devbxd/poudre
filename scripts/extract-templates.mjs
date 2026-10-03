@@ -60,7 +60,7 @@ function skeleton(html, { name, mainNeedle = '<main', keepMain = false }) {
   sub(/<title>[\s\S]*?<\/title>/, '<title><!--@title--></title>');
   // feeds / oembed / api links / canonical / shortlink are rebuilt per page
   h = h.replace(/<link rel="alternate"[^>]*>\s*/g, '').replace(/<link rel="(https:\/\/api\.w\.org\/|EditURI|canonical|shortlink)"[^>]*>/g, '').replace(/<link rel='shortlink'[^>]*>/g, '').replace(/<link rel="https:\/\/api\.w\.org\/"[^>]*>/g, '');
-  sub(/<\/head>/, '<!--@head-->\n</head>');
+  sub(/<\/head>/, '<!--@head--></head>');
   sub(/<body class="[^"]*"/, '<body class="<!--@body_class-->"');
   sub(/<header id="header" class="[^"]*"/, '<header id="header" class="<!--@header_class-->"');
   let n;
@@ -102,12 +102,45 @@ const PAGES = [
   ['notfound', 'html/notfound.html'],
 ];
 
+/** Cuts `html` between two literal markers (start included, end excluded) and replaces it with <!--@name--> */
+function cut(html, start, end, name, { includeEnd = false } = {}) {
+  const a = html.indexOf(start);
+  if (a < 0) throw new Error(`cut ${name}: start not found`);
+  const b = html.indexOf(end, a + start.length);
+  if (b < 0) throw new Error(`cut ${name}: end not found`);
+  return html.slice(0, a) + `<!--@${name}-->` + html.slice(includeEnd ? b + end.length : b);
+}
+
+// Product archive main area (shop, categories, brands, tags, search)
+function archiveMain(main) {
+  let h = main;
+  h = cut(h, '<h1 class="title">', '\t</h1>', 'page_title_h1');
+  h = h.replace('<!--@page_title_h1-->', '<h1 class="title">\n\t\t<!--@page_title-->');
+  h = cut(h, '<nav class="pls-breadcrumb">', '</div>', 'breadcrumb');
+  h = cut(h, '<div class="pls-products-view">', '</div>', 'products_view', { includeEnd: true });
+  h = cut(h, '\t\t\t\t\t<option value="menu_order"', '\t\t\t</select>', 'orderby_options');
+  h = cut(h, '<input type="hidden" name="paged" value="1" />', '</form>', 'ordering_hidden');
+  h = cut(h, '<div class="woocommerce-result-count" role="alert" aria-relevant="all" >\n', '</div>', 'result_count');
+  h = h.replace('<!--@result_count-->', '<div class="woocommerce-result-count" role="alert" aria-relevant="all" >\n<!--@result_count-->');
+  h = cut(h, '<div class="products products-wrap', '\r\n</div><!-- .pls-content-area -->', 'products');
+  h = cut(h, '<div class="sidebar-inner">\r\n', '\t</div>\r\n</div><!-- #secondary -->', 'sidebar');
+  h = h.replace('<!--@sidebar-->', '<div class="sidebar-inner">\r\n<!--@sidebar-->');
+  return h;
+}
+
 for (const [name, file] of PAGES) {
   let html = await readFile(`${SRC}/${file}`, 'utf8');
   if (file.endsWith('.txt')) html = html.slice(html.indexOf('\n\n') + 2);
   // keep the original main area alongside, as reference for the renderers
   const norm = normalise(html);
   const ms = norm.indexOf('<main');
-  await writeFile(`${OUT}/${name}.main.html`, norm.slice(ms, elementEnd(norm, ms)));
+  const main = norm.slice(ms, elementEnd(norm, ms));
+  await writeFile(`${OUT}/${name}.main.html`, main);
+  if (name === 'archive') await writeFile(`${OUT}/archive.main.tpl.html`, archiveMain(main));
+  if (name === 'home') {
+    const i = norm.indexOf('class="pls-block pls-block-1247"');
+    const start = norm.lastIndexOf('<', i);
+    await writeFile(`${OUT}/search_popup_block.html`, norm.slice(start, elementEnd(norm, start)));
+  }
   await writeFile(`${OUT}/${name}.html`, skeleton(html, { name }));
 }

@@ -1,5 +1,5 @@
 // Renders navigation menus with the exact markup of the WordPress walker used by the theme.
-import { esc } from './html.js';
+import { esc, decodeEntities } from './html.js';
 
 const TAXONOMIES = new Set(['product_cat', 'category', 'product_tag', 'product_brand']);
 const itemType = (it) => (it.type === 'custom' || !it.type ? 'custom' : TAXONOMIES.has(it.type) ? 'taxonomy' : 'post_type');
@@ -38,7 +38,9 @@ export function renderMenu(items, { id, className, style = 'desktop', ctx = null
       ...(kids.length ? ['menu-item-has-children'] : []), `menu-item-${it.id}`];
     if (style !== 'plain') classes.push(`item-level-${depth}`);
     const idAttr = style === 'mobile' ? '' : ` id="menu-item-${it.id}"`;
-    const title = style === 'plain' ? esc(it.title).replace(/&amp;/g, '&#038;') : esc(it.title);
+    // WordPress' stored title (entities included) is used until the title is edited in the dashboard
+    const raw = it.raw_title && decodeEntities(it.raw_title) === it.title ? it.raw_title : null;
+    const title = raw ?? (style === 'plain' ? esc(it.title).replace(/&amp;/g, '&#038;') : esc(it.title));
     const link = style === 'plain'
       ? `<a href="${esc(it.url)}">${title}</a>`
       : `<a href="${esc(it.url)}" class="nav-link"><span class="pls-menu-text">${title}</span></a>`;

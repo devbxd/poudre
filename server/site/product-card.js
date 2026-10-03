@@ -80,7 +80,8 @@ function cartButton(p, { currentUrl = '/shop/' } = {}) {
  * opts.position: index in the loop (for first/last), opts.columns: loop columns,
  * opts.images: shared lazy-loading counter { count } like WordPress' content image counter.
  */
-export function productCard(p, { position = 0, columns = 3, images, currentUrl } = {}) {
+export function productCard(p, { position = 0, columns = 3, images, currentUrl, list = false } = {}) {
+  if (list) return productListCard(p, { position, columns, images, currentUrl });
   const extra = [];
   if (columns > 0 && position % columns === 0) extra.push('first');
   else if (columns > 0 && position % columns === columns - 1) extra.push('last');
@@ -92,5 +93,22 @@ export function productCard(p, { position = 0, columns = 3, images, currentUrl }
   const percent = salePercent(p);
   const labels = (p.on_sale || p.range?.on_sale) ? '<div class="pls-product-labels"><span class="on-sale">Sale</span></div>' : '';
   const thumb = p.image ? imageUrl(p.image, 'woocommerce_gallery_thumbnail') : '';
-  return `<div class="${productClasses(p, extra)}">\t \n\t\n<div class="pls-product-inner">\n\t\t\n\t<div class="pls-product-image">\n\t\t${labels}<a href="${url}" class="woocommerce-LoopProduct-link" target="_self">${front}${hover}</a>\t\t\t\t\t\t<div class="pls-product-icons">\n\t\t\t\t\t\r\n\t\t<div class="pls-whishlist-btn">\r\n\t\t\t<a href="?add-to-wishlist=${p.id}" class="woosw-btn woosw-btn-${p.id}" data-id="${p.id}" data-product_name="${escName(p.name)}" data-product_image="${thumb}" rel="nofollow" aria-label="Add to wishlist">Add to wishlist</a>\t\t</div>\t\t\r\n\t\t\t</div>\n\t</div>\n\t<div class="pls-product-info">\n\t\t<h3 class="product-title"><a href="${url}" target="_self">${texturize(p.name)}</a></h3>${hasPrice(p) ? `\n\t<div class="pls-product-price">\n\t\t${priceHtml(p)}\n\t\t${percent ? `<span class="on-sale">-${percent}% </span>\t</div>` : '\t</div>'}` : ''}\n\t\t\n\t\t\n\t\t\t\t${p.swatches || ''}<div class="pls-product-actions">\n\t\t\t\t\t\r\n\t\t<div class="pls-cart-button">\r\n\t\t\t${cartButton(p, { currentUrl })}\t\t </div>\r\n\t\t\t\t</div>\n\t</div>\n</div>\t \n</div>\n\n`;
+  return `\n<div class="${productClasses(p, extra)}">\t \n\t\n<div class="pls-product-inner">\n\t\t\n\t<div class="pls-product-image">\n\t\t${labels}<a href="${url}" class="woocommerce-LoopProduct-link" target="_self">${front}${hover}</a>\t\t\t\t\t\t<div class="pls-product-icons">\n\t\t\t\t\t\r\n\t\t<div class="pls-whishlist-btn">\r\n\t\t\t<a href="?add-to-wishlist=${p.id}" class="woosw-btn woosw-btn-${p.id}" data-id="${p.id}" data-product_name="${escName(p.name)}" data-product_image="${thumb}" rel="nofollow" aria-label="Add to wishlist">Add to wishlist</a>\t\t</div>\t\t\r\n\t\t\t</div>\n\t</div>\n\t<div class="pls-product-info">\n\t\t<h3 class="product-title"><a href="${url}" target="_self">${texturize(p.name)}</a></h3>${hasPrice(p) ? `\n\t<div class="pls-product-price">\n\t\t${priceHtml(p)}\n\t\t${percent ? `<span class="on-sale">-${percent}% </span>\t</div>` : '\t</div>'}` : ''}\n\t\t\n\t\t\n\t\t\t\t${p.swatches || ''}<div class="pls-product-actions">\n\t\t\t\t\t\r\n\t\t<div class="pls-cart-button">\r\n\t\t\t${cartButton(p, { currentUrl })}\t\t </div>\r\n\t\t\t\t</div>\n\t</div>\n</div>\t \n</div>\n`;
+}
+
+/** List view ("grid-list") card: wishlist moves next to the cart button, no swatches. */
+function productListCard(p, { position, columns, images, currentUrl }) {
+  const extra = [];
+  if (columns > 0 && position % columns === 0) extra.push('first');
+  else if (columns > 0 && position % columns === columns - 1) extra.push('last');
+  const url = productUrl(p);
+  const front = p.image
+    ? imageTag(p.image, 'woocommerce_thumbnail', { className: 'front-image', counter: images })
+    : `<img decoding="async" width="500" src="/wp-content/themes/anvogue/assets/images/transparent.png" class="attachment-woocommerce_thumbnail size-woocommerce_thumbnail front-image" alt="Place holder" />`;
+  const hover = p.hover_image ? imageTag(p.hover_image, 'woocommerce_thumbnail', { className: 'hover-image', counter: images, hover: true }) : '';
+  const percent = salePercent(p);
+  const labels = (p.on_sale || p.range?.on_sale) ? '<div class="pls-product-labels"><span class="on-sale">Sale</span></div>' : '';
+  const thumb = p.image ? imageUrl(p.image, 'woocommerce_gallery_thumbnail') : '';
+  const price = hasPrice(p) ? `\n\t<div class="pls-product-price">\n\t\t${priceHtml(p)}\n\t\t${percent ? `<span class="on-sale">-${percent}% </span>\t</div>` : '\t</div>'}` : '';
+  return `\n<div class="${productClasses(p, extra)}">\t \n\t\n<div class="pls-product-inner">\n\t\t\n\t<div class="pls-product-image">\n\t\t${labels}<a href="${url}" class="woocommerce-LoopProduct-link" target="_self">${front}${hover}</a>\t\t\t</div>\n\t<div class="pls-product-info">\n\t\t<div class="pls-product-title-rating">\n\t\t\t<h3 class="product-title"><a href="${url}" target="_self">${texturize(p.name)}</a></h3>${price}\n\t\t</div>\n\t\t<div class="pls-product-actions">\n\t\t\t\t\t\r\n\t\t<div class="pls-cart-button">\r\n\t\t\t${cartButton(p, { currentUrl })}\t\t </div>\r\n\t\t\t\t\t<div class="pls-product-icons">\n\t\t\t\t\t\t\r\n\t\t<div class="pls-whishlist-btn">\r\n\t\t\t<a href="?add-to-wishlist=${p.id}" class="woosw-btn woosw-btn-${p.id}" data-id="${p.id}" data-product_name="${escName(p.name)}" data-product_image="${thumb}" rel="nofollow" aria-label="Add to wishlist">Add to wishlist</a>\t\t</div>\t\t\r\n\t\t\t\t</div>\n\t\t\t\n\t\t\t\t\t</div>\n\t</div>\n</div>\t \n</div>\n`;
 }

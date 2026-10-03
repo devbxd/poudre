@@ -286,7 +286,7 @@ const menus = await raw('wp_menus');
 const items = await raw('wp_menu_items');
 const relUrl = (u) => (u || '').replace(/^https?:\/\/(www\.)?poudrebeauty\.com/, '') || '/';
 const tree = (menuId, parent = 0) => items.filter((i) => i.menus === menuId && i.parent === parent).sort((a, b) => a.menu_order - b.menu_order)
-  .map((i) => ({ id: i.id, title: decode(i.title.rendered), url: relUrl(i.url), type: i.object, object_id: i.object_id, children: tree(menuId, i.id) }));
+  .map((i) => ({ id: i.id, title: decode(i.title.rendered), raw_title: i.title.rendered, url: relUrl(i.url), type: i.object, object_id: i.object_id, children: tree(menuId, i.id) }));
 await insert('menus', menus.map((m) => ({
   id: m.id, location: m.locations[0] || m.slug, name: m.name, items: tree(m.id),
 })));

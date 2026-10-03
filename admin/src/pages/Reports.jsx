@@ -24,7 +24,7 @@ function DeadStock() {
         {data && <span className="ml-auto text-zinc-600">{data.length} products · {money(total)} at cost</span>}
       </div>
       {!data ? <Spinner /> : <Table dense rows={data} columns={[
-        { key: 'name', label: 'Product', render: (r) => <a href={`/admin/products/${r.id}`} className="hover:underline">{r.name}</a> },
+        { key: 'name', label: 'Product', render: (r) => <a href={`/dashboard/products/${r.id}`} className="hover:underline">{r.name}</a> },
         { key: 'stock_quantity', label: 'In stock', align: 'right' },
         { key: 'value', label: 'Value at cost', align: 'right', render: (r) => money(r.value) },
         { key: 'last_sold', label: 'Last sold', align: 'right', render: (r) => (r.last_sold ? date(r.last_sold) : 'Never') },

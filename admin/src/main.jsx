@@ -75,7 +75,7 @@ function Guard() {
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <BrowserRouter basename="/admin">
+    <BrowserRouter basename="/dashboard">
       <AuthProvider>
         <ToastProvider>
           <Guard />

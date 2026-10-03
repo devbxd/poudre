@@ -4,9 +4,9 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
   root: 'admin',
-  base: '/admin/',
+  base: '/dashboard/',
   plugins: [react(), tailwindcss()],
-  build: { outDir: '../dist/admin', emptyOutDir: true },
+  build: { outDir: '../dist/dashboard', emptyOutDir: true },
   server: {
     port: 5173,
     proxy: { '/api': 'http://localhost:8787', '/uploads': 'http://localhost:8787' },

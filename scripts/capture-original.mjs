@@ -5,7 +5,7 @@ import { chromium } from 'playwright';
 
 const BASE = process.env.CAPTURE_BASE || 'https://poudrebeauty.com';
 const OUT = process.env.CAPTURE_OUT || 'data/original';
-const urls = JSON.parse(await readFile('data/site-urls.json', 'utf8'));
+const urls = JSON.parse(await readFile(process.env.CAPTURE_URLS || 'data/site-urls.json', 'utf8'));
 const only = process.argv.slice(2);
 const browser = await chromium.launch();
 const sizes = { desktop: { width: 1440, height: 900 }, mobile: { width: 390, height: 844, isMobile: true, hasTouch: true } };

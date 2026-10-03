@@ -8,6 +8,7 @@ import { reports } from './routes/reports.js';
 import { content } from './routes/content.js';
 import { pos } from './routes/pos.js';
 import { serveUpload } from './images.js';
+import { site, searchPage } from './site/routes.js';
 
 export const app = new Hono();
 
@@ -28,5 +29,12 @@ api.route('/pos', pos);
 api.get('/health', (c) => c.json({ ok: true }));
 app.route('/api', api);
 
+// Theme assets (Netlify serves them as static files before reaching the function)
+if (!process.env.NETLIFY) (await import('./dev-static.js')).devStatic(app);
+
 // Product and media images (WordPress paths, resized on demand)
 app.get('/wp-content/uploads/*', serveUpload);
+
+// Website
+app.get('/', async (c, next) => (c.req.query('s') !== undefined ? searchPage(c) : next()));
+app.route('/', site);
