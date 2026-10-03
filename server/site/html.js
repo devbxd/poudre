@@ -9,8 +9,14 @@ export const esc = (s) => String(s ?? '')
 /** wp_kses-free attribute escaping used for data-product_name (keeps apostrophes as &apos;) */
 export const escName = (s) => esc(s).replace(/&#039;/g, '&apos;');
 
+const NAMED = { amp: '&', apos: "'", quot: '"', lt: '<', gt: '>', nbsp: ' ', ndash: '–', mdash: '—', hellip: '…', rsquo: '’', lsquo: '‘', ldquo: '“', rdquo: '”', times: '×', laquo: '«', raquo: '»' };
 export const decodeEntities = (s) => String(s ?? '')
-  .replace(/&#038;|&amp;/g, '&').replace(/&#8217;/g, '’').replace(/&#8211;/g, '–').replace(/&#039;|&apos;/g, "'").replace(/&quot;/g, '"');
+  .replace(/&#(\d+);/g, (m, n) => String.fromCodePoint(Number(n)))
+  .replace(/&#x([0-9a-f]+);/gi, (m, n) => String.fromCodePoint(parseInt(n, 16)))
+  .replace(/&([a-z]+);/gi, (m, n) => NAMED[n.toLowerCase()] ?? m);
+
+/** PHP urlencode(): only letters, digits, - _ . stay; spaces become + */
+export const phpUrlencode = (s) => encodeURIComponent(s).replace(/[!'()*~]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`).replace(/%20/g, '+');
 
 const fmt = (n) => Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 

@@ -80,8 +80,9 @@ function cartButton(p, { currentUrl = '/shop/' } = {}) {
  * opts.position: index in the loop (for first/last), opts.columns: loop columns,
  * opts.images: shared lazy-loading counter { count } like WordPress' content image counter.
  */
-export function productCard(p, { position = 0, columns = 3, images, currentUrl, list = false } = {}) {
+export function productCard(p, { position = 0, columns = 3, images, currentUrl, list = false, slide = false } = {}) {
   if (list) return productListCard(p, { position, columns, images, currentUrl });
+  if (slide) return productCard(p, { position, columns, images, currentUrl }).replace('\n<div class="product ', '\n<div class="swiper-slide product ');
   const extra = [];
   if (columns > 0 && position % columns === 0) extra.push('first');
   else if (columns > 0 && position % columns === columns - 1) extra.push('last');

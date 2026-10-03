@@ -37,6 +37,7 @@ export async function renderPage(page) {
     search_popup_block: await searchPopupBlock(),
     main: page.main,
     path: esc(page.path || '/'),
+    ...(page.vars || {}),
   });
   // each search form gets its own select id, like WordPress
   return html.replace(/<!--@search_categories-->/g, () => menusHtml.search_categories.replace("id='product-cat-1'", `id='product-cat-${++selects}'`));

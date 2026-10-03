@@ -70,6 +70,11 @@ function skeleton(html, { name, mainNeedle = '<main', keepMain = false }) {
   [h, n] = replaceElement(h, 'id="menu-primary-menu-2"', 'menu_mobile_categories'); log.push(`menu_mobile_categories: ${n}`);
   [h, n] = replaceElement(h, "<select  name='product_cat'", 'search_categories', { all: true }); log.push(`search_categories: ${n}`);
   [h, n] = replaceElement(h, 'class="pls-block pls-block-1247"', 'search_popup_block', { required: false }); log.push(`search_popup_block: ${n}`);
+  if (name === 'product') {
+    // product-specific parts outside <main>: sticky add-to-cart bar and schema.org data
+    [h, n] = replaceElement(h, 'class="pls-sticky-add-to-cart"', 'sticky'); log.push(`sticky: ${n}`);
+    sub(/<script type="application\/ld\+json">[\s\S]*?<\/script>/, '<script type="application/ld+json"><!--@schema--></script>');
+  }
   if (!keepMain) {
     const start = h.indexOf(mainNeedle);
     const end = elementEnd(h, start);
@@ -128,6 +133,27 @@ function archiveMain(main) {
   return h;
 }
 
+/** Replaces the whole element whose opening tag contains `needle` */
+function cutElement(html, needle, name) {
+  const i = html.indexOf(needle);
+  if (i < 0) throw new Error(`cutElement ${name}: not found`);
+  const start = html.lastIndexOf('<', i);
+  return html.slice(0, start) + `<!--@${name}-->` + html.slice(elementEnd(html, start));
+}
+
+// Single product main area
+function productMain(main) {
+  let h = main;
+  h = cut(h, '<nav class="pls-breadcrumb">', '</div>', 'breadcrumb');
+  h = cutElement(h, 'class="pls-product-navigation"', 'product_nav');
+  h = h.replace(/<div id="product-\d+" class="[^"]*">/, '<div id="product-<!--@product_id-->" class="<!--@product_class-->">');
+  h = cutElement(h, 'class="woocommerce-product-gallery ', 'gallery');
+  h = cutElement(h, 'class="summary entry-summary"', 'summary');
+  h = cutElement(h, 'class="woocommerce-tabs ', 'tabs');
+  h = cut(h, '\t\t\t\t\t\n\t<section class="related products">', '</section> <!-- .related .products -->', 'related', { includeEnd: true });
+  return h;
+}
+
 for (const [name, file] of PAGES) {
   let html = await readFile(`${SRC}/${file}`, 'utf8');
   if (file.endsWith('.txt')) html = html.slice(html.indexOf('\n\n') + 2);
@@ -137,6 +163,15 @@ for (const [name, file] of PAGES) {
   const main = norm.slice(ms, elementEnd(norm, ms));
   await writeFile(`${OUT}/${name}.main.html`, main);
   if (name === 'archive') await writeFile(`${OUT}/archive.main.tpl.html`, archiveMain(main));
+  if (name === 'product') {
+    await writeFile(`${OUT}/product.main.tpl.html`, productMain(main));
+    // reviews panel without reviews (theme file uses CRLF in places): keep it verbatim
+    const r0 = main.indexOf('<div id="reviews" class="row woocommerce-Reviews">');
+    const reviews = main.slice(r0, elementEnd(main, r0))
+      .replaceAll('Hoody Blanket', '<!--@product_name-->').replaceAll('/product/hoody-blanket/', '<!--@product_url-->')
+      .replaceAll("value='18859'", "value='<!--@product_id-->'");
+    await writeFile(`${OUT}/reviews_empty.html`, reviews);
+  }
   if (name === 'home') {
     const i = norm.indexOf('class="pls-block pls-block-1247"');
     const start = norm.lastIndexOf('<', i);

@@ -5,6 +5,8 @@ import { esc } from './html.js';
 import { categories } from './data.js';
 import { renderPage } from './layout.js';
 import { renderArchive, breadcrumbHtml, categoryPath, categoryUrl } from './catalog.js';
+import { renderProduct, stickyBar, schemaJson } from './product-page.js';
+import { decodeEntities } from './html.js';
 
 export const site = new Hono();
 
@@ -47,7 +49,6 @@ async function archivePage(c, { title, titleTag = title, woo, crumbs, base, q, b
     template: 'archive', title: res.page > 1 ? `${titleTag} &#8211; Page ${res.page}` : titleTag, main: html, path: new URL(c.req.url).pathname,
     bodyClass: bodyClass(before, { woo: woo || 'woocommerce woocommerce-page', layout: 'pls-has-sidebar left-sidebar pls-catalog-ajax-filter', after: 'pls-catalog-page' }),
     headerClass: OVERLAY_HEADER, menuCtx,
-    head: `<link rel="canonical" href="${base}${res.page > 1 ? `page/${res.page}/` : ''}" />\n`,
   });
   return c.html(page);
 }
@@ -113,6 +114,23 @@ for (const [prefix, table, link, tax] of [['brand', 'brands', 'product_brands', 
   site.get(`/${prefix}/:slug/`, handler);
   site.get(`/${prefix}/:slug/page/:page{[0-9]+}/`, handler);
 }
+
+// ---------------- Single product
+site.get('/product/:slug/', async (c) => {
+  const preview = c.req.query('preview') === '1';
+  const r = await renderProduct(c.req.param('slug'), { currentUrl: currentUrl(c), preview });
+  if (!r) return c.notFound();
+  const p = r.product;
+  const siteUrl = process.env.SITE_URL || new URL(c.req.url).origin;
+  const html = await renderPage({
+    template: 'product', title: decodeEntities(p.name), main: r.html, path: new URL(c.req.url).pathname,
+    bodyClass: bodyClass(`wp-singular product-template-default single single-product postid-${p.id}`, { after: 'product-thumbnail-overlay  pls-single-product-quick-buy' }),
+    menuCtx: { objectType: 'product', objectId: p.id, productCats: r.categories.map((x) => x.id), productAncestors: r.chain.map((x) => x.id) },
+    head: `<link rel="canonical" href="${siteUrl}/product/${p.slug}/" />\n`,
+    vars: { sticky: stickyBar(p), schema: schemaJson(p, siteUrl) },
+  });
+  return c.html(html);
+});
 
 // WordPress always uses trailing slashes
 site.get('/:path{.*[^/]$}', async (c, next) => {
