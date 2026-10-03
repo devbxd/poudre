@@ -1,0 +1,36 @@
+// File storage for uploads made from the dashboard.
+// Netlify: Netlify Blobs (store "uploads"), served by /uploads/new/* through the API function.
+// Local: files written to data/uploads/new.
+import { mkdir, writeFile, readFile, unlink } from 'node:fs/promises';
+import { dirname } from 'node:path';
+
+const onNetlify = () => !!(process.env.NETLIFY || process.env.NETLIFY_BLOBS_CONTEXT);
+
+async function blobStore() {
+  const { getStore } = await import('@netlify/blobs');
+  return getStore({ name: 'uploads', consistency: 'strong' });
+}
+
+export async function saveFile(key, buffer, contentType) {
+  if (onNetlify()) {
+    await (await blobStore()).set(key, buffer, { metadata: { contentType } });
+  } else {
+    const path = `data/uploads/new/${key}`;
+    await mkdir(dirname(path), { recursive: true });
+    await writeFile(path, buffer);
+  }
+  return `/uploads/new/${key}`;
+}
+
+export async function readStoredFile(key) {
+  if (onNetlify()) {
+    const res = await (await blobStore()).getWithMetadata(key, { type: 'arrayBuffer' });
+    return res ? { body: Buffer.from(res.data), contentType: res.metadata?.contentType } : null;
+  }
+  try { return { body: await readFile(`data/uploads/new/${key}`) }; } catch { return null; }
+}
+
+export async function deleteFile(key) {
+  if (onNetlify()) await (await blobStore()).delete(key);
+  else await unlink(`data/uploads/new/${key}`).catch(() => {});
+}

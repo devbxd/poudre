@@ -1,0 +1,23 @@
+const B = 'http://localhost:8787/api';
+let cookie = '';
+const call = async (m, p, body) => {
+  const r = await fetch(B + p, { method: m, headers: { 'content-type': 'application/json', cookie }, body: body ? JSON.stringify(body) : undefined });
+  const sc = r.headers.get('set-cookie'); if (sc) cookie = sc.split(';')[0];
+  const j = await r.json(); if (!r.ok) throw new Error(p + ': ' + j.error); return j;
+};
+await call('POST', '/auth/login', { username: 'jeanclaude', password: 'RzEnRGoa' });
+const stock = await call('GET', '/admin/stock?per_page=1000&sort=-sold');
+const item = stock.items.find((x) => x.manage_stock && x.stock_quantity >= 5 && x.sku);
+const qty = () => call('GET', `/admin/stock?q=${encodeURIComponent(item.sku)}`).then((s) => s.items.find((x) => x.product_id === item.product_id && x.variation_id === item.variation_id).stock_quantity);
+console.log('item', item.name, 'stock', item.stock_quantity);
+const o = await call('POST', '/pos/orders', { items: [{ product_id: item.product_id, variation_id: item.variation_id, quantity: 3 }], payment_method: 'cash', payment_title: 'Cash', cash_tendered: 200 });
+console.log('sold 3 → stock', await qty(), '| order total', o.total);
+await call('POST', `/admin/orders/${o.id}/refund`, { items: [{ order_item_id: o.items[0].id, quantity: 1 }], restock: true });
+console.log('refund 1 → stock', await qty());
+await call('PUT', `/admin/orders/${o.id}`, { status: 'cancelled' });
+console.log('cancel → stock', await qty(), '(should be back to', item.stock_quantity + ')');
+const po = await call('POST', '/admin/purchase-orders', { items: [{ product_id: item.product_id, variation_id: item.variation_id, name: item.name, qty: 4, cost: 2.5 }] });
+await call('POST', `/admin/purchase-orders/${po.id}/receive`, { all: true });
+console.log('received PO of 4 → stock', await qty());
+await call('POST', '/admin/stock/adjust', { lines: [{ product_id: item.product_id, variation_id: item.variation_id, set: item.stock_quantity }], reason: 'count' });
+console.log('count reset → stock', await qty());
