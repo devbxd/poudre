@@ -4,7 +4,6 @@ import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { app } from './app.js';
 
-app.use('/uploads/*', serveStatic({ root: './data' }));
 app.use('/admin/assets/*', serveStatic({ root: './dist' }));
 app.get('/admin/*', async (c) => c.html(await readFile('dist/admin/index.html', 'utf8')));
 app.get('/admin', (c) => c.redirect('/admin/'));

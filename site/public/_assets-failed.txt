@@ -1,0 +1,8 @@
+404 https://poudrebeauty.com/wp-content/themes/anvogue/assets/images/icons/credit-cards/visa.svg
+404 https://poudrebeauty.com/wp-content/themes/anvogue/assets/images/icons/credit-cards/mastercard.svg
+404 https://poudrebeauty.com/wp-content/themes/anvogue/assets/images/icons/credit-cards/laser.svg
+404 https://poudrebeauty.com/wp-content/themes/anvogue/assets/images/icons/credit-cards/amex.svg
+404 https://poudrebeauty.com/wp-content/themes/anvogue/assets/images/icons/credit-cards/jcb.svg
+404 https://poudrebeauty.com/wp-content/themes/anvogue/assets/images/icons/credit-cards/maestro.svg
+404 https://poudrebeauty.com/wp-content/themes/anvogue/assets/images/icons/credit-cards/diners.svg
+404 https://poudrebeauty.com/wp-content/themes/anvogue/assets/images/icons/credit-cards/discover.svg

@@ -7,7 +7,7 @@ import { inventory } from './routes/inventory.js';
 import { reports } from './routes/reports.js';
 import { content } from './routes/content.js';
 import { pos } from './routes/pos.js';
-import { readStoredFile } from './storage.js';
+import { serveUpload } from './images.js';
 
 export const app = new Hono();
 
@@ -28,10 +28,5 @@ api.route('/pos', pos);
 api.get('/health', (c) => c.json({ ok: true }));
 app.route('/api', api);
 
-// Images uploaded from the dashboard
-app.get('/uploads/new/*', async (c) => {
-  const key = decodeURIComponent(c.req.path.replace('/uploads/new/', ''));
-  const file = await readStoredFile(key);
-  if (!file) return c.notFound();
-  return c.body(file.body, 200, { 'Content-Type': file.contentType || 'image/webp', 'Cache-Control': 'public, max-age=31536000, immutable' });
-});
+// Product and media images (WordPress paths, resized on demand)
+app.get('/wp-content/uploads/*', serveUpload);

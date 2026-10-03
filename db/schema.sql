@@ -29,7 +29,9 @@ create table if not exists media (
   width int,
   height int,
   alt text default '',
-  sizes jsonb default '{}',
+  title text default '',
+  caption text default '',
+  sizes jsonb default '[]',
   created_at timestamptz not null default now()
 );
 

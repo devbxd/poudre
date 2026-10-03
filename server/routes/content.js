@@ -4,6 +4,7 @@ import { query, one, tx } from '../db.js';
 import { requireStaff } from '../auth.js';
 import { fail, pick, insertRow, updateRow, uniqueSlug, paging, getSetting, setSetting, audit } from '../lib.js';
 import { saveFile, deleteFile } from '../storage.js';
+import { sizesFor } from '../images.js';
 
 export const content = new Hono();
 
@@ -37,10 +38,14 @@ content.post('/media', requireStaff(), async (c) => {
       name = name.replace(/\.[a-z0-9]+$/i, '') + '.webp';
     }
     const now = new Date();
-    const safe = name.toLowerCase().replace(/[^a-z0-9.]+/g, '-');
-    const key = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${Date.now().toString(36)}-${safe}`;
+    const safe = `${Date.now().toString(36)}-${name.toLowerCase().replace(/[^a-z0-9.]+/g, '-')}`;
+    const key = `uploads/${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${safe}`;
     const url = await saveFile(key, buffer, mime);
-    out.push(await tx((t) => insertRow(t, 'media', { url, filename: safe, mime, width, height, alt: form.get('alt') || '' })));
+    // same size names as WordPress; the resized files are generated on first request
+    const base = safe.replace(/\.[a-z0-9]+$/i, '');
+    const ext = safe.split('.').pop();
+    const sizes = width ? Object.entries(sizesFor(width, height)).map(([name, s]) => ({ name, ...s, file: `${base}-${s.width}x${s.height}.${ext}` })) : [];
+    out.push(await tx((t) => insertRow(t, 'media', { url, filename: safe, mime, width, height, alt: form.get('alt') || '', sizes: JSON.stringify(sizes) })));
   }
   return c.json(out, 201);
 });
@@ -52,7 +57,7 @@ content.put('/media/:id', requireStaff(), async (c) => {
 
 content.delete('/media/:id', requireStaff('manager'), async (c) => {
   const row = await one('delete from media where id = $1 returning url', [Number(c.req.param('id'))]);
-  if (row?.url?.startsWith('/uploads/new/')) await deleteFile(row.url.replace('/uploads/new/', ''));
+  if (row?.url?.startsWith('/wp-content/uploads/')) await deleteFile(row.url.replace('/wp-content/', ''));
   return c.json({ ok: true });
 });
 

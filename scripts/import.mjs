@@ -10,13 +10,13 @@ const conn = await db();
 const q = conn.query;
 
 const SITE = 'https://poudrebeauty.com';
-// Old uploads URLs become local /uploads/... paths served by our own hosting
-const url = (u) => (u ? String(u).replace(/^https?:\/\/(www\.)?poudrebeauty\.com\/wp-content\/uploads\//, '/uploads/') : null);
-const html = (s) => (s || '').replaceAll(`${SITE}/wp-content/uploads/`, '/uploads/');
+// Absolute WordPress URLs become root-relative: the new hosting serves the same paths
+const url = (u) => (u ? String(u).replace(/^https?:\/\/(www\.)?poudrebeauty\.com/, '') : null);
+const html = (s) => (s || '').replaceAll(`${SITE}/`, '/');
 const num = (v) => (v === '' || v === null || v === undefined || isNaN(Number(v)) ? null : Number(v));
 const date = (v) => (v ? `${v.replace(' ', 'T')}${/Z|[+-]\d\d:?\d\d$/.test(v) ? '' : 'Z'}` : null);
 const meta = (x, key) => x.meta_data?.find((m) => m.key === key)?.value;
-const decode = (s) => (s || '').replace(/&amp;/g, '&').replace(/&#8217;/g, '’').replace(/&#8211;/g, '–').replace(/&#039;/g, "'").replace(/&quot;/g, '"');
+import { decodeEntities as decode } from '../server/site/html.js';
 
 const PG_ARRAYS = new Set(['upsell_ids', 'cross_sell_ids', 'product_ids', 'excluded_product_ids', 'category_ids', 'excluded_category_ids', 'coupon_codes', 'tags', 'categories']);
 
@@ -59,7 +59,9 @@ const media = await raw('wp_media');
 await insert('media', media.map((m) => ({
   id: m.id, url: url(m.source_url), filename: m.media_details?.file?.split('/').pop() || m.slug,
   mime: m.mime_type, width: m.media_details?.width || null, height: m.media_details?.height || null,
-  alt: m.alt_text || '', sizes: {}, created_at: date(m.date_gmt),
+  alt: m.alt_text || '', title: decode(m.title?.raw ?? m.title?.rendered ?? ''), caption: m.caption?.raw ?? '', created_at: date(m.date_gmt),
+  // an array keeps WordPress' size order (jsonb objects do not keep key order), which drives srcset
+  sizes: Object.entries(m.media_details?.sizes || {}).filter(([k]) => k !== 'full').map(([name, v]) => ({ name, file: v.file, width: v.width, height: v.height })),
 })), { batch: 500 });
 
 // ---------- Taxonomies ----------
@@ -86,7 +88,14 @@ await insert('brands', brands.map((b) => ({ id: b.id, name: decode(b.name), slug
 const tags = await raw('tags');
 await insert('tags', tags.map((t) => ({ id: t.id, name: decode(t.name), slug: t.slug })), { batch: 500 });
 const attrs = await raw('attributes');
-await insert('attributes', attrs.map((a) => ({ id: a.id, name: a.name, slug: a.slug, terms: [] })));
+const attrTerms = JSON.parse(await readFile('data/raw/attribute_terms.json', 'utf8'));
+const swatches = JSON.parse(await readFile('data/raw/swatches.json', 'utf8'));
+// swatch colours only exist in the theme's term meta, harvested from the shop pages
+const swatchColor = (tax, slug) => (swatches[`${tax}:${slug}`]?.inner.match(/background-color:([^"]*)"/) || [])[1] ?? null;
+await insert('attributes', attrs.map((a) => ({
+  id: a.id, name: a.name, slug: a.slug,
+  terms: (attrTerms[a.id] || []).map((t) => ({ id: t.id, name: decode(t.name), slug: t.slug, menu_order: t.menu_order || 0, color: swatchColor(a.slug, t.slug) })),
+})));
 
 // ---------- Suppliers ----------
 const suppliers = await raw('atum_suppliers');
@@ -132,7 +141,8 @@ const rows = products.map((p) => {
     attributes: p.attributes.map((a) => ({ id: a.id, name: a.name, options: a.options, visible: a.visible, variation: a.variation })),
     default_attributes: p.default_attributes || [],
     upsell_ids: p.upsell_ids.filter((i) => productIds.has(i)), cross_sell_ids: p.cross_sell_ids.filter((i) => productIds.has(i)),
-    bundle_items: [], seo: {}, meta: { wc_permalink: p.permalink },
+    // wp_name keeps WordPress' exact stored name (entities included) so the website renders it identically
+    bundle_items: [], seo: {}, meta: { wc_permalink: p.permalink, wp_name: p.name },
     total_sales: p.total_sales || 0, average_rating: num(p.average_rating) || 0, rating_count: p.rating_count || 0,
     created_at: date(p.date_created_gmt), updated_at: date(p.date_modified_gmt),
   };
@@ -143,15 +153,19 @@ await insert('product_brands', products.flatMap((p) => (p.brands || []).map((b) 
 await insert('product_tags', products.flatMap((p) => p.tags.map((t) => ({ product_id: p.id, tag_id: t.id }))), { batch: 1000 });
 
 const variations = (await raw('variations')).filter((v) => productIds.has(v.parent_id));
+// The API returns the parent image for variations without their own; the shop pages tell them apart
+const ownImage = JSON.parse(await readFile('data/raw/variation_own_image.json', 'utf8'));
+const mainImage = new Map(products.map((p) => [p.id, p.images[0]?.id]));
+const hasOwnImage = (v) => ownImage[v.id] ?? (v.image?.id && v.image.id !== mainImage.get(v.parent_id));
 await insert('variations', variations.map((v) => ({
   id: v.id, product_id: v.parent_id, status: v.status, sku: v.sku || null, barcode: v.barcode || v.global_unique_id || v.sku || null,
-  attributes: v.attributes.map((a) => ({ name: a.name, option: a.option })),
+  attributes: v.attributes.map((a) => ({ id: a.id || 0, name: a.name, option: a.option })),
   regular_price: num(v.regular_price), sale_price: num(v.sale_price),
   sale_from: date(v.date_on_sale_from_gmt), sale_to: date(v.date_on_sale_to_gmt),
   purchase_price: num(v.purchase_price) ?? lastCost.get(v.id) ?? null,
   manage_stock: v.manage_stock === true, stock_quantity: v.manage_stock === true ? (v.stock_quantity ?? 0) : null,
   stock_status: v.stock_status, backorders: v.backorders || 'no', low_stock_amount: num(v.low_stock_amount),
-  image: v.image ? { id: v.image.id, url: url(v.image.src), alt: v.image.alt || '' } : null,
+  image: v.image && hasOwnImage(v) ? { id: v.image.id, url: url(v.image.src), alt: v.image.alt || '' } : null,
   weight: num(v.weight), description: html(v.description),
   supplier_id: supplierIds.has(v.supplier_id) ? v.supplier_id : null, supplier_sku: v.supplier_sku || null,
   menu_order: v.menu_order || 0, created_at: date(v.date_created_gmt), updated_at: date(v.date_modified_gmt),

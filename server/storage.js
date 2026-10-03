@@ -1,6 +1,6 @@
 // File storage for uploads made from the dashboard.
-// Netlify: Netlify Blobs (store "uploads"), served by /uploads/new/* through the API function.
-// Local: files written to data/uploads/new.
+// Netlify: Netlify Blobs (store "uploads"); local development: files in data/blobs.
+// Keys look like "uploads/2026/10/name.webp" and are served at /wp-content/<key>.
 import { mkdir, writeFile, readFile, unlink } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
@@ -15,11 +15,11 @@ export async function saveFile(key, buffer, contentType) {
   if (onNetlify()) {
     await (await blobStore()).set(key, buffer, { metadata: { contentType } });
   } else {
-    const path = `data/uploads/new/${key}`;
+    const path = `data/blobs/${key}`;
     await mkdir(dirname(path), { recursive: true });
     await writeFile(path, buffer);
   }
-  return `/uploads/new/${key}`;
+  return `/wp-content/${key}`;
 }
 
 export async function readStoredFile(key) {
@@ -27,10 +27,10 @@ export async function readStoredFile(key) {
     const res = await (await blobStore()).getWithMetadata(key, { type: 'arrayBuffer' });
     return res ? { body: Buffer.from(res.data), contentType: res.metadata?.contentType } : null;
   }
-  try { return { body: await readFile(`data/uploads/new/${key}`) }; } catch { return null; }
+  try { return { body: await readFile(`data/blobs/${key}`) }; } catch { return null; }
 }
 
 export async function deleteFile(key) {
   if (onNetlify()) await (await blobStore()).delete(key);
-  else await unlink(`data/uploads/new/${key}`).catch(() => {});
+  else await unlink(`data/blobs/${key}`).catch(() => {});
 }
