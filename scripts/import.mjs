@@ -248,7 +248,8 @@ await insert('coupons', (await raw('coupons')).map((c) => ({
 })));
 await insert('reviews', (await raw('reviews')).filter((r) => productIds.has(r.product_id)).map((r) => ({
   id: r.id, product_id: r.product_id, author: decode(r.reviewer), email: r.reviewer_email, rating: r.rating || null,
-  content: r.review, status: r.status === 'approved' ? 'approved' : r.status === 'spam' ? 'spam' : 'pending',
+  // reviews left "on hold" in WordPress were never moderated and are all bot spam (links, adult content)
+  content: r.review, status: r.status === 'approved' ? 'approved' : 'spam',
   verified: !!r.verified, created_at: date(r.date_created_gmt),
 })));
 

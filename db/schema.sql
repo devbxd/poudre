@@ -151,6 +151,10 @@ create table if not exists product_tags (
   tag_id int references tags(id) on delete cascade,
   primary key (product_id, tag_id)
 );
+create index if not exists product_categories_cat_idx on product_categories (category_id);
+create index if not exists product_brands_brand_idx on product_brands (brand_id);
+create index if not exists product_tags_tag_idx on product_tags (tag_id);
+create index if not exists products_created_idx on products (created_at desc);
 
 create table if not exists variations (
   id serial primary key,
@@ -422,3 +426,5 @@ create table if not exists wishlists (
   customer_id int,
   updated_at timestamptz not null default now()
 );
+create index if not exists reviews_product_idx on reviews (product_id);
+create index if not exists order_items_variation_idx on order_items (variation_id);

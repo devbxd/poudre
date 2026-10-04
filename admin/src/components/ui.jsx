@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { Component, createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, ChevronLeft, ChevronRight, Search, Loader2, Check, AlertCircle } from 'lucide-react';
 
@@ -161,9 +161,16 @@ export function Spinner({ className }) {
   return <div className={cx('flex justify-center py-12 text-zinc-400', className)}><Loader2 className="animate-spin" size={22} /></div>;
 }
 
-export function Thumb({ src, size = 40, className }) {
+/** Pre-generated square copy of an uploaded image (150 or 500 px) instead of the full-size original */
+export function sized(url, px = 150) {
+  if (!url || !/^\/wp-content\/uploads\/.+\.(jpe?g|png|webp)$/i.test(url) || /-\d+x\d+\.[a-z]+$/i.test(url)) return url;
+  const s = px <= 150 ? 150 : 500;
+  return url.replace(/(-scaled)?\.([a-z]+)$/i, `-${s}x${s}.$2`);
+}
+
+export function Thumb({ src, size = 40, className, crop = true }) {
   return src
-    ? <img src={src} alt="" loading="lazy" style={{ width: size, height: size }} className={cx('shrink-0 rounded border border-zinc-200 bg-white object-cover', className)} />
+    ? <img src={crop ? sized(src, size * 2) : src} alt="" loading="lazy" style={{ width: size, height: size }} className={cx('shrink-0 rounded border border-zinc-200 bg-white object-cover', className)} />
     : <div style={{ width: size, height: size }} className={cx('shrink-0 rounded border border-zinc-200 bg-zinc-100', className)} />;
 }
 
@@ -330,4 +337,21 @@ export function useAction() {
     }
   }, [toast]);
   return [run, busy];
+}
+
+/** Catches a crashing page so the rest of the dashboard keeps working (reset when the page changes) */
+export class ErrorBoundary extends Component {
+  state = { error: null };
+  static getDerivedStateFromError(error) { return { error }; }
+  componentDidCatch(error) { console.error(error); }
+  render() {
+    if (!this.state.error) return this.props.children;
+    return (
+      <div className="mx-auto mt-16 max-w-md rounded-lg border border-zinc-200 bg-white p-6 text-center">
+        <p className="font-medium">This page could not be displayed</p>
+        <p className="mt-1 text-[13px] text-zinc-500">{String(this.state.error?.message || this.state.error)}</p>
+        <button className="mt-4 rounded-md bg-zinc-900 px-3 py-1.5 text-[13px] text-white" onClick={() => location.reload()}>Reload</button>
+      </div>
+    );
+  }
 }

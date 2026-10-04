@@ -210,6 +210,10 @@ sales.put('/reviews/:id', requireStaff('manager'), async (c) => {
   await refreshRating(row.product_id);
   return c.json(row);
 });
+sales.delete('/reviews/spam', requireStaff('manager'), async (c) => {
+  const rows = await query(`delete from reviews where status = 'spam' returning id`);
+  return c.json({ deleted: rows.length });
+});
 sales.delete('/reviews/:id', requireStaff('manager'), async (c) => {
   const row = await one('delete from reviews where id = $1 returning product_id', [Number(c.req.param('id'))]);
   if (row) await refreshRating(row.product_id);

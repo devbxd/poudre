@@ -5,7 +5,17 @@ let client;
 async function init() {
   if (process.env.DATABASE_URL) {
     const { default: postgres } = await import('postgres');
-    const sql = postgres(process.env.DATABASE_URL, { max: 5, prepare: false, idle_timeout: 20 });
+    // Same value types as PGlite: bigint/count() as numbers, and JSON params passed pre-serialised
+    // (the app sends JSON.stringify'd text to jsonb columns — postgres.js would otherwise encode it twice)
+    const jsonType = (oid) => ({ to: oid, from: [oid], serialize: (v) => (typeof v === 'string' ? v : JSON.stringify(v)), parse: JSON.parse });
+    const sql = postgres(process.env.DATABASE_URL, {
+      max: 5, prepare: false, idle_timeout: 20,
+      types: {
+        bigint: { to: 20, from: [20], serialize: (v) => String(v), parse: (v) => Number(v) },
+        json: jsonType(114),
+        jsonb: jsonType(3802),
+      },
+    });
     return {
       query: (text, params = []) => sql.unsafe(text, params),
       exec: (text) => sql.unsafe(text),

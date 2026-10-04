@@ -1,12 +1,24 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, EyeOff, ImagePlus, Monitor, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, ImagePlus, Pencil, Plus, Trash2 } from 'lucide-react';
 import { api } from '../lib/api.js';
 import { useFetch } from '../lib/hooks.js';
 import { Button, Card, Field, Input, Modal, PageHeader, SearchInput, Select, Spinner, Textarea, Thumb, Toggle, cx, useAction, useToast } from '../components/ui.jsx';
 import { MediaPicker } from '../components/MediaPicker.jsx';
 import { categoryOptions } from '../components/pickers.jsx';
 import { useAuth } from '../lib/auth.jsx';
+
+/** Small on/off switch used in the category rows */
+function MiniSwitch({ on, onClick, title }) {
+  return (
+    <span className="flex w-14 justify-center">
+      <button type="button" role="switch" aria-checked={!!on} title={title} onClick={onClick}
+        className={cx('relative h-5 w-9 rounded-full transition-colors', on ? 'bg-emerald-600' : 'bg-zinc-300')}>
+        <span className={cx('absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-all', on ? 'left-[18px]' : 'left-0.5')} />
+      </button>
+    </span>
+  );
+}
 
 function CategoryForm({ value, categories, onClose, onSaved }) {
   const [c, setC] = useState(value);
@@ -104,6 +116,10 @@ export default function Categories() {
         </div>
         {!data ? <Spinner /> : (
           <ul className="divide-y divide-zinc-100">
+            <li className="flex items-center gap-2 bg-zinc-50 px-3 py-1.5 text-xs font-medium text-zinc-500">
+              <span className="flex-1">Category</span>
+              {can('manager') && <><span className="w-14 text-center">Website</span><span className="w-14 text-center">POS</span><span className="w-[136px]" /></>}
+            </li>
             {tree.map((c) => (
               <li key={c.id} className="flex items-center gap-2 px-3 py-2 hover:bg-zinc-50">
                 <div style={{ width: c.depth * 24 }} className="shrink-0" />
@@ -119,14 +135,8 @@ export default function Categories() {
                 <Link to={`/products?category=${c.id}`} className="num w-24 text-right text-[13px] text-zinc-500 hover:text-zinc-900">{c.product_count} products</Link>
                 {can('manager') && (
                   <div className="flex items-center gap-0.5">
-                    <button title={c.visible ? 'Visible on website — click to hide' : 'Hidden from website — click to show'} onClick={() => toggle(c, 'visible')}
-                      className={cx('rounded px-2 py-1 text-xs font-medium', c.visible ? 'bg-emerald-50 text-emerald-700' : 'bg-zinc-100 text-zinc-500')}>
-                      {c.visible ? 'Website' : <span className="inline-flex items-center gap-1"><EyeOff size={11} />Website</span>}
-                    </button>
-                    <button title={c.pos_visible ? 'Visible in POS — click to hide' : 'Hidden from POS — click to show'} onClick={() => toggle(c, 'pos_visible')}
-                      className={cx('rounded px-2 py-1 text-xs font-medium', c.pos_visible ? 'bg-emerald-50 text-emerald-700' : 'bg-zinc-100 text-zinc-500')}>
-                      <span className="inline-flex items-center gap-1"><Monitor size={11} />POS</span>
-                    </button>
+                    <MiniSwitch on={c.visible} onClick={() => toggle(c, 'visible')} title={c.visible ? 'Shown on the website — click to hide' : 'Hidden from the website — click to show'} />
+                    <MiniSwitch on={c.pos_visible} onClick={() => toggle(c, 'pos_visible')} title={c.pos_visible ? 'Shown in the POS — click to hide' : 'Hidden from the POS — click to show'} />
                     <button title="Move up" onClick={() => move(c, -1)} className="rounded p-1.5 text-zinc-400 hover:bg-zinc-200 hover:text-zinc-900"><ArrowUp size={14} /></button>
                     <button title="Move down" onClick={() => move(c, 1)} className="rounded p-1.5 text-zinc-400 hover:bg-zinc-200 hover:text-zinc-900"><ArrowDown size={14} /></button>
                     <button title="Edit" onClick={() => setEdit(c)} className="rounded p-1.5 text-zinc-400 hover:bg-zinc-200 hover:text-zinc-900"><Pencil size={14} /></button>

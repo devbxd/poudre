@@ -26,7 +26,7 @@ function BrandForm({ value, onClose, onSaved }) {
       <div className="space-y-3">
         <div className="flex gap-3">
           <button type="button" onClick={() => setPicker(true)} className="shrink-0">
-            {b.image ? <Thumb src={b.image} size={72} className="object-contain" /> : <div className="flex h-[72px] w-[72px] items-center justify-center rounded border border-dashed border-zinc-300 text-zinc-400"><ImagePlus size={18} /></div>}
+            {b.image ? <Thumb src={b.image} size={72} crop={false} className="object-contain" /> : <div className="flex h-[72px] w-[72px] items-center justify-center rounded border border-dashed border-zinc-300 text-zinc-400"><ImagePlus size={18} /></div>}
           </button>
           <Field label="Name" className="flex-1"><Input autoFocus value={b.name} onChange={(e) => setB({ ...b, name: e.target.value })} /></Field>
         </div>
@@ -53,7 +53,7 @@ export default function Brands() {
         <div className="border-b border-zinc-200 p-3"><SearchInput value={q} onChange={setQ} delay={0} placeholder="Find a brand…" className="w-72" /></div>
         {!data ? <Spinner /> : (
           <Table rows={rows} onRowClick={can('manager') ? setEdit : undefined} columns={[
-            { key: 'name', label: 'Brand', render: (b) => <div className="flex items-center gap-3"><Thumb src={b.image} size={32} /><span className="font-medium">{b.name}</span>{!b.visible && <span className="text-xs text-zinc-400">hidden</span>}</div> },
+            { key: 'name', label: 'Brand', render: (b) => <div className="flex items-center gap-3"><Thumb src={b.image} size={32} crop={false} /><span className="font-medium">{b.name}</span>{!b.visible && <span className="text-xs text-zinc-400">hidden</span>}</div> },
             { key: 'slug', label: 'URL', render: (b) => <span className="text-zinc-500">/brand/{b.slug}</span> },
             { key: 'product_count', label: 'Products', align: 'right', render: (b) => <Link onClick={(e) => e.stopPropagation()} to={`/products?brand=${b.id}`} className="hover:underline">{b.product_count}</Link> },
           ]} />

@@ -15,7 +15,15 @@ export default function Reviews() {
     <>
       <PageHeader title="Reviews" subtitle="Customer reviews appear on the product page once approved" />
       <Card padded={false}>
-        <Tabs className="px-2" value={status} onChange={setStatus} tabs={[{ value: 'pending', label: 'Waiting' }, { value: 'approved', label: 'Published' }, { value: 'spam', label: 'Spam' }, { value: '', label: 'All' }]} />
+        <div className="flex items-center justify-between pr-3">
+          <Tabs className="px-2" value={status} onChange={setStatus} tabs={[{ value: 'pending', label: 'Waiting' }, { value: 'approved', label: 'Published' }, { value: 'spam', label: 'Spam' }, { value: '', label: 'All' }]} />
+          {status === 'spam' && data?.length > 0 && (
+            <Button size="sm" variant="ghost" icon={Trash2} onClick={async () => {
+              if (!confirm(`Delete all ${data.length} spam reviews? This cannot be undone.`)) return;
+              await run(() => api.del('/admin/reviews/spam'), 'Spam deleted'); reload();
+            }}>Empty spam</Button>
+          )}
+        </div>
         {!data ? <Spinner /> : !data.length ? <Empty icon={Star} title="No reviews here" /> : (
           <ul className="divide-y divide-zinc-100">
             {data.map((r) => (

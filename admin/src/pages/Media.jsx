@@ -3,7 +3,7 @@ import { Copy, Trash2 } from 'lucide-react';
 import { api, qs } from '../lib/api.js';
 import { useFetch } from '../lib/hooks.js';
 import { date } from '../lib/format.js';
-import { Button, Card, Field, Input, Modal, PageHeader, Pagination, SearchInput, Spinner, useAction, useToast } from '../components/ui.jsx';
+import { Button, Card, Field, Input, Modal, PageHeader, Pagination, SearchInput, Spinner, sized, useAction, useToast } from '../components/ui.jsx';
 import { UploadButton } from '../components/MediaPicker.jsx';
 
 export default function Media() {
@@ -24,7 +24,7 @@ export default function Media() {
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-6 lg:grid-cols-10">
               {data.items.map((m) => (
                 <button key={m.id} onClick={() => setOpen(m)} className="aspect-square overflow-hidden rounded border border-zinc-200 bg-zinc-50 hover:border-zinc-400">
-                  <img src={m.url} alt={m.alt} loading="lazy" className="h-full w-full object-cover" />
+                  <img src={sized(m.url, 300)} alt={m.alt} loading="lazy" className="h-full w-full object-cover" />
                 </button>
               ))}
             </div>

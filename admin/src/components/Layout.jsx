@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutGrid, ShoppingBag, Package, FolderTree, Tag, Boxes, Truck, ClipboardList, Users, TicketPercent, Star, BarChart3,
@@ -7,7 +7,7 @@ import {
 import { useAuth } from '../lib/auth.jsx';
 import { api } from '../lib/api.js';
 import { money } from '../lib/format.js';
-import { cx, Thumb } from './ui.jsx';
+import { cx, Thumb, ErrorBoundary, Spinner } from './ui.jsx';
 
 const NAV = [
   { items: [
@@ -164,7 +164,7 @@ export default function Layout() {
           <div className="flex-1" />
           <NavLink to="/pos" className="hidden h-9 items-center gap-2 rounded-md bg-zinc-900 px-3.5 font-medium text-white hover:bg-zinc-800 sm:flex"><Store size={15} /> Open POS</NavLink>
         </header>
-        <main className="mx-auto w-full max-w-[1400px] flex-1 p-4 lg:p-6"><Outlet /></main>
+        <main className="mx-auto w-full max-w-[1400px] flex-1 p-4 lg:p-6"><ErrorBoundary key={location.pathname}><Suspense fallback={<Spinner />}><Outlet /></Suspense></ErrorBoundary></main>
       </div>
       <CommandPalette open={palette} onClose={() => setPalette(false)} />
     </div>

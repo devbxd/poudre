@@ -1,6 +1,6 @@
 // Screenshots of dashboard pages for visual checks: node --env-file=.env scripts/shoot-admin.mjs [path...]
 import { chromium } from 'playwright';
-const base = 'http://localhost:8787/admin';
+const base = (process.env.BASE || 'http://localhost:8787') + '/dashboard';
 const paths = process.argv.slice(2).length ? process.argv.slice(2) : ['/', '/orders', '/products', '/stock', '/categories', '/pos'];
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });

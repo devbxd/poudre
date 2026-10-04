@@ -4,7 +4,7 @@ import { ArrowLeft, Copy, ExternalLink, ImagePlus, Plus, Star, Trash2, Wand2, Ch
 import { api } from '../lib/api.js';
 import { useFetch } from '../lib/hooks.js';
 import { money, int, dateTime, date } from '../lib/format.js';
-import { Badge, Button, Card, Checkbox, Field, Input, PageHeader, Select, Spinner, Textarea, Thumb, Toggle, cx, useAction, useToast } from '../components/ui.jsx';
+import { Badge, Button, Card, Checkbox, Field, Input, PageHeader, Select, Spinner, Textarea, Thumb, Toggle, cx, sized, useAction, useToast } from '../components/ui.jsx';
 import { ProductSearch, categoryOptions } from '../components/pickers.jsx';
 import { MediaPicker } from '../components/MediaPicker.jsx';
 import RichText from '../components/RichText.jsx';
@@ -36,7 +36,7 @@ function Images({ images, onChange }) {
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
           {images.map((img, i) => (
             <div key={`${img.url}-${i}`} className={cx('group relative aspect-square overflow-hidden rounded-md border bg-zinc-50', i === 0 ? 'col-span-2 row-span-2 border-zinc-300' : 'border-zinc-200')}>
-              <img src={img.url} alt={img.alt} className="h-full w-full object-cover" />
+              <img src={sized(img.url, 500)} alt={img.alt} className="h-full w-full object-cover" />
               {i === 0 && <span className="absolute left-1.5 top-1.5 rounded bg-white/90 px-1.5 text-xs font-medium">Main</span>}
               <div className="absolute inset-x-0 bottom-0 flex justify-center gap-1 bg-gradient-to-t from-black/50 p-1.5 opacity-0 transition group-hover:opacity-100">
                 {i > 0 && <button title="Make main image" onClick={() => onChange([img, ...images.filter((_, j) => j !== i)])} className="rounded bg-white p-1"><Star size={13} /></button>}
@@ -168,8 +168,17 @@ function CategoryChecklist({ categories, value, onChange }) {
   const [q, setQ] = useState('');
   const opts = useMemo(() => categoryOptions(categories), [categories]);
   const shown = opts.filter((o) => !q || o.label.toLowerCase().includes(q.toLowerCase()));
+  const selected = opts.filter((o) => value.includes(o.id));
   return (
     <div>
+      {selected.length > 0 && (
+        <div className="mb-2 flex flex-wrap gap-1">
+          {selected.map((o) => (
+            <button key={o.id} type="button" title="Remove" onClick={() => onChange(value.filter((x) => x !== o.id))}
+              className="rounded bg-zinc-900 px-2 py-0.5 text-xs text-white hover:bg-zinc-700">{o.label} ×</button>
+          ))}
+        </div>
+      )}
       <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a category…" className="mb-2 h-8" />
       <div className="max-h-56 space-y-0.5 overflow-y-auto rounded-md border border-zinc-200 p-2">
         {shown.map((o) => (

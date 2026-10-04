@@ -46,7 +46,15 @@ export async function renderPage(page) {
   return html.replace(/<!--@search_categories-->/g, () => menusHtml.search_categories.replace("id='product-cat-1'", `id='product-cat-${++selects}'`));
 }
 
-function buildMenus(menuSets, cats, ctx) {
+/** Menu items linking to a category hidden from the website are left out (with their sub-items) */
+function withoutHidden(items, hidden) {
+  return items.filter((it) => !(it.type === 'product_cat' && hidden.has(Number(it.object_id))))
+    .map((it) => (it.children?.length ? { ...it, children: withoutHidden(it.children, hidden) } : it));
+}
+
+function buildMenus(allMenuSets, cats, ctx) {
+  const hidden = new Set(cats.filter((c) => !c.visible).map((c) => c.id));
+  const menuSets = hidden.size ? Object.fromEntries(Object.entries(allMenuSets).map(([k, v]) => [k, withoutHidden(v, hidden)])) : allMenuSets;
   return {
     menu_topbar: renderMenu(menuSets['topbar-menu'] || [], { id: 'menu-topbar-menu', className: 'menu', style: 'plain', ctx }),
     menu_primary: renderMenu(menuSets.primary || [], { id: 'menu-primary-menu', className: 'menu', ctx }),

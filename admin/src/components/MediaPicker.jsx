@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { Upload, Check } from 'lucide-react';
 import { api, qs } from '../lib/api.js';
 import { useFetch } from '../lib/hooks.js';
-import { Button, Modal, Pagination, SearchInput, Spinner, cx, useAction } from './ui.jsx';
+import { Button, Modal, Pagination, SearchInput, Spinner, cx, sized, useAction } from './ui.jsx';
 
 export function useUpload() {
   const [run, busy] = useAction();
@@ -54,7 +54,7 @@ export function MediaPicker({ open, onClose, onPick, multiple = false }) {
               return (
                 <button key={m.id} type="button" onClick={() => toggle(m)} title={m.filename}
                   className={cx('relative aspect-square overflow-hidden rounded border bg-zinc-50', on ? 'border-zinc-900 ring-2 ring-zinc-900' : 'border-zinc-200 hover:border-zinc-400')}>
-                  <img src={m.url} alt="" loading="lazy" className="h-full w-full object-cover" />
+                  <img src={sized(m.url, 300)} alt="" loading="lazy" className="h-full w-full object-cover" />
                   {on && <span className="absolute right-1 top-1 rounded-full bg-zinc-900 p-0.5 text-white"><Check size={12} /></span>}
                 </button>
               );

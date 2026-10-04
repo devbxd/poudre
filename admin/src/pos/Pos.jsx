@@ -6,7 +6,7 @@ import {
 import { api } from '../lib/api.js';
 import { money, dateTime, time, fullName } from '../lib/format.js';
 import { useAuth } from '../lib/auth.jsx';
-import { Button, Field, Input, Modal, Spinner, Thumb, cx, useAction, useToast } from '../components/ui.jsx';
+import { Button, Field, Input, Modal, Spinner, Thumb, cx, sized, useAction, useToast } from '../components/ui.jsx';
 import { CustomerSearch } from '../components/pickers.jsx';
 import { printOrder } from '../components/Receipt.jsx';
 
@@ -16,6 +16,7 @@ const priceOf = (x) => {
     && (!x.sale_from || new Date(x.sale_from).getTime() <= now) && (!x.sale_to || new Date(x.sale_to).getTime() >= now);
   return { price: sale ? x.sale_price : x.regular_price ?? 0, regular: x.regular_price ?? 0, on_sale: sale };
 };
+const initials = (name) => (name || '').split(/\s+/).filter((w) => /^[a-z0-9]/i.test(w)).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
 const optionLabel = (v) => (typeof v.attributes === 'string' ? JSON.parse(v.attributes) : v.attributes).map((a) => a.option).filter(Boolean).join(' / ');
 const norm = (s) => (s || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '');
 
@@ -406,13 +407,14 @@ export default function Pos() {
             )}
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
               {results.slice(0, limit).map((p) => {
-                const pr = p.type === 'variable' ? Math.min(...(p.variations || []).map((v) => priceOf(v).price).filter((x) => x != null), Infinity) : priceOf(p).price;
+                const pr = p.type === 'variable' ? Math.min(...(p.variations || []).filter((v) => v.regular_price != null).map((v) => priceOf(v).price), Infinity) : priceOf(p).price;
                 const stock = p.type === 'variable' ? (p.variations || []).reduce((s, v) => s + (v.manage_stock ? Math.max(0, v.stock_quantity) : 0), 0) : p.manage_stock ? p.stock_quantity : null;
                 const out = p.type === 'variable' ? !(p.variations || []).some((v) => (v.manage_stock ? v.stock_quantity > 0 : v.stock_status !== 'outofstock')) : p.manage_stock ? p.stock_quantity <= 0 : p.stock_status === 'outofstock';
                 return (
                   <button key={p.id} onClick={() => addLine(p)} className="flex flex-col overflow-hidden rounded-md border border-zinc-200 bg-white text-left transition hover:border-zinc-900">
                     <div className="relative aspect-[4/3] w-full bg-zinc-50">
-                      {p.image && <img src={p.image} alt="" loading="lazy" className="h-full w-full object-contain p-1" />}
+                      {p.image ? <img src={sized(p.image, 500)} alt="" loading="lazy" className="h-full w-full object-contain p-1" />
+                        : <span className="flex h-full w-full items-center justify-center text-2xl font-semibold tracking-wide text-zinc-300">{initials(p.name)}</span>}
                       {out && <span className="absolute left-1.5 top-1.5 rounded bg-white/90 px-1.5 text-[11px] font-medium text-red-600">Out of stock</span>}
                       {p.type === 'variable' && <span className="absolute right-1.5 top-1.5 rounded bg-white/90 px-1.5 text-[11px] text-zinc-600">{p.variations?.length} options</span>}
                     </div>
