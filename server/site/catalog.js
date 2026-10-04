@@ -1,4 +1,5 @@
 // Product archives (shop, categories, brands, tags, search) rendered like WooCommerce + Anvogue.
+import { templateFile } from './files.js';
 import { readFile } from 'node:fs/promises';
 import { query } from '../db.js';
 import { esc, fill } from './html.js';
@@ -15,7 +16,7 @@ const byName = (a, b) => collator.compare(sortKey(a), sortKey(b));
 
 let tpl;
 async function template() {
-  if (!tpl) tpl = await readFile(new URL('../../site/templates/archive.main.tpl.html', import.meta.url), 'utf8');
+  if (!tpl) tpl = await readFile(templateFile('archive.main.tpl.html'), 'utf8');
   return tpl;
 }
 

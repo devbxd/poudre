@@ -8,6 +8,7 @@ import { reports } from './routes/reports.js';
 import { content } from './routes/content.js';
 import { pos } from './routes/pos.js';
 import { serveUpload } from './images.js';
+import { onNetlify } from './site/files.js';
 import { site, searchPage } from './site/routes.js';
 import { shopApi, wcAjax } from './site/shop-api.js';
 import { notFound } from './site/pages.js';
@@ -32,7 +33,7 @@ api.get('/health', (c) => c.json({ ok: true }));
 app.route('/api', api);
 
 // Theme assets (Netlify serves them as static files before reaching the function)
-if (!process.env.NETLIFY) (await import('./dev-static.js')).devStatic(app);
+if (!onNetlify()) (await import('./dev-static.js')).devStatic(app);
 
 // Product and media images (WordPress paths, resized on demand)
 app.get('/wp-content/uploads/*', serveUpload);

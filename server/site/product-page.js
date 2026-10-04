@@ -1,4 +1,5 @@
 // Single product page, rendered with the exact markup of WooCommerce + Anvogue.
+import { templateFile } from './files.js';
 import { readFile } from 'node:fs/promises';
 import { query } from '../db.js';
 import { esc, escName, fill, wcPrice } from './html.js';
@@ -12,8 +13,8 @@ import { decodeEntities, phpUrlencode } from './html.js';
 const json = (v) => (typeof v === 'string' ? JSON.parse(v) : v);
 let tpl;
 const template = async () => {
-  reviewsEmptyTpl ??= await readFile(new URL('../../site/templates/reviews_empty.html', import.meta.url), 'utf8');
-  return (tpl ??= await readFile(new URL('../../site/templates/product.main.tpl.html', import.meta.url), 'utf8'));
+  reviewsEmptyTpl ??= await readFile(templateFile('reviews_empty.html'), 'utf8');
+  return (tpl ??= await readFile(templateFile('product.main.tpl.html'), 'utf8'));
 };
 const uniqid = () => `quantity_${Date.now().toString(16).slice(-8)}${Math.floor(Math.random() * 0xfffff).toString(16).padStart(5, '0')}`;
 const SITE_URL = () => process.env.SITE_URL || 'https://poudrebeauty.com';

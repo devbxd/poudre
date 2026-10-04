@@ -1,4 +1,5 @@
 // Fills a page skeleton (header, menus, footer, scripts) around the rendered main content.
+import { templateFile } from './files.js';
 import { readFile } from 'node:fs/promises';
 import { fill, esc } from './html.js';
 import { categories, menus, cached } from './data.js';
@@ -7,14 +8,14 @@ import { visitorVars } from './visitor.js';
 
 const skeletons = new Map();
 export async function skeleton(name) {
-  if (!skeletons.has(name)) skeletons.set(name, await readFile(new URL(`../../site/templates/${name}.html`, import.meta.url), 'utf8'));
+  if (!skeletons.has(name)) skeletons.set(name, await readFile(templateFile(`${name}.html`), 'utf8'));
   return skeletons.get(name);
 }
 
 let popupBlock;
 async function searchPopupBlock() {
   // the "trending products" block of the search popup is kept as on the original site for now
-  if (popupBlock === undefined) popupBlock = await readFile(new URL('../../site/templates/search_popup_block.html', import.meta.url), 'utf8').catch(() => '');
+  if (popupBlock === undefined) popupBlock = await readFile(templateFile('search_popup_block.html'), 'utf8').catch(() => '');
   return popupBlock;
 }
 

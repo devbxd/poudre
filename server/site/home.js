@@ -1,4 +1,5 @@
 // Homepage: the Elementor page of the original site, with every product grid/slider rebuilt from the database.
+import { templateFile } from './files.js';
 import { readFile } from 'node:fs/promises';
 import { query } from '../db.js';
 import { categories, productsByIds, setting } from './data.js';
@@ -8,7 +9,7 @@ import { elementEnd } from './dom.js';
 
 const json = (v) => (typeof v === 'string' ? JSON.parse(v) : v);
 let source;
-const page = async () => (source ??= await readFile(new URL('../../site/templates/home.main.html', import.meta.url), 'utf8'));
+const page = async () => (source ??= await readFile(templateFile('home.main.html'), 'utf8'));
 const unquote = (s) => s.replace(/&quot;/g, '"').replace(/&amp;/g, '&');
 
 /** Products for a widget config: { categories: "12,34", limit, orderby, order, data_source } — like the theme's WC query */

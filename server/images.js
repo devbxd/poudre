@@ -2,6 +2,7 @@
 // originals as-is, and resized copies ("name-500x500.webp") generated on demand with the same dimensions.
 import { readFile } from 'node:fs/promises';
 import { readStoredFile, saveFile } from './storage.js';
+import { onNetlify } from './site/files.js';
 
 const MIME = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif', svg: 'image/svg+xml', avif: 'image/avif' };
 const mimeOf = (p) => MIME[p.split('.').pop().toLowerCase()] || 'application/octet-stream';
@@ -9,12 +10,12 @@ const CACHE = { 'Cache-Control': 'public, max-age=31536000, immutable', 'Netlify
 
 /** Original file bytes: local copy in development, the static deploy (or blob store) in production. */
 async function loadOriginal(path, origin, internal) {
-  if (!process.env.NETLIFY) {
+  if (!onNetlify()) {
     try { return await readFile(`data/uploads/${path}`); } catch { /* not a WordPress original */ }
   }
   const stored = await readStoredFile(`uploads/${path}`);
   if (stored) return stored.body;
-  if (process.env.NETLIFY && origin && !internal) {
+  if (onNetlify() && origin && !internal) {
     // WordPress originals are deployed as static files; a missing file comes back here, so never loop
     const res = await fetch(`${origin}/wp-content/uploads/${path}`, { headers: { 'x-poudre-internal': '1' } });
     if (res.ok) return Buffer.from(await res.arrayBuffer());

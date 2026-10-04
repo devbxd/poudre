@@ -4,7 +4,7 @@
 import { mkdir, writeFile, readFile, unlink } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
-const onNetlify = () => !!(process.env.NETLIFY || process.env.NETLIFY_BLOBS_CONTEXT);
+import { onNetlify } from './site/files.js';
 
 async function blobStore() {
   const { getStore } = await import('@netlify/blobs');

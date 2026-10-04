@@ -7,7 +7,7 @@
     "dev:api": "node --env-file-if-exists=.env --watch server/dev.js",
     "dev:admin": "vite",
     "dev": "concurrently -n api,admin \"npm:dev:api\" \"npm:dev:admin\"",
-    "build": "vite build"
+    "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && vite build && node scripts/build-static.mjs"
   },
   "keywords": [],
   "author": "",
@@ -38,5 +38,8 @@
     "tailwindcss": "^4.3.3",
     "vite": "^8.3.2"
   },
-  "private": true
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  }
 }

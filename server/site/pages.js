@@ -1,4 +1,5 @@
 // Remaining website pages: cart, checkout, order received, wishlist, account, static pages, blog, 404.
+import { templateFile } from './files.js';
 import { readFile } from 'node:fs/promises';
 import bcrypt from 'bcryptjs';
 import { query, one } from '../db.js';
@@ -10,11 +11,11 @@ import { currentCustomer, loginCustomer, logoutCustomer } from '../auth.js';
 
 const tplCache = new Map();
 const main = async (name) => {
-  if (!tplCache.has(name)) tplCache.set(name, await readFile(new URL(`../../site/templates/${name}.main.html`, import.meta.url), 'utf8'));
+  if (!tplCache.has(name)) tplCache.set(name, await readFile(templateFile(`${name}.main.html`), 'utf8'));
   return tplCache.get(name);
 };
 let meta;
-const pageMeta = async (name) => (meta ??= JSON.parse(await readFile(new URL('../../site/templates/pages.json', import.meta.url), 'utf8')))[name];
+const pageMeta = async (name) => (meta ??= JSON.parse(await readFile(templateFile('pages.json'), 'utf8')))[name];
 
 /** Static page from the original site (title tag kept as on WordPress) */
 async function staticPage(c, name, { mainHtml, menuCtx = null, status = 200, preload } = {}) {
