@@ -279,16 +279,17 @@ function Emails() {
       <div className={cx('rounded-md border px-4 py-3 text-[13px]', ready ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-amber-200 bg-amber-50 text-amber-900')}>
         {ready ? 'E-mail sending is set up. Use "Send test" below to check it.' : 'E-mails are not being sent yet: enter the mailbox address and its password below.'}
       </div>
-      <Card title="Mailbox used to send e-mails">
-        <p className="mb-3 text-[13px] text-zinc-500">Customers receive e-mails from this address. Use your shop mailbox (for example info@poudrebeauty.com, hosted by Hostinger).</p>
+      <Card title="Sending service">
+        <p className="mb-3 text-[13px] text-zinc-500">Order confirmations, new-order alerts and password resets are sent through this service.</p>
         <div className="grid gap-3 sm:grid-cols-2">
-          {f('smtp_user', 'E-mail address', { placeholder: 'info@poudrebeauty.com' })}
-          <Field label="Mailbox password" hint={data.has_password ? 'Saved. Type a new one only to change it.' : 'The password of this mailbox'}>
+          {f('from_email', 'Send e-mails from', { placeholder: 'info@poudrebeauty.com', hint: 'Customers see and reply to this address' })}
+          {f('smtp_user', 'Login', { placeholder: 'resend', hint: 'Resend: resend · a mailbox: its e-mail address' })}
+          <Field label="Password / API key" hint={data.has_password ? 'Saved. Type a new one only to change it.' : 'Resend: your API key (re_…)'}>
             <Input type="password" autoComplete="new-password" value={pass} placeholder={data.has_password ? '••••••••' : ''} onChange={(e) => setPass(e.target.value)} />
           </Field>
           {f('from_name', 'Sender name', { placeholder: 'Poudre Beauty' })}
           {f('notify_to', 'Send new-order alerts to', { placeholder: 'owner@email.com', hint: 'Separate several addresses with commas' })}
-          {f('smtp_host', 'Mail server', { hint: 'Hostinger: smtp.hostinger.com' })}
+          {f('smtp_host', 'Mail server', { hint: 'Resend: smtp.resend.com · Hostinger: smtp.hostinger.com' })}
           {f('smtp_port', 'Port', { type: 'number', hint: '465 (recommended) or 587' })}
         </div>
       </Card>
