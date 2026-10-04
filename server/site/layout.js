@@ -30,7 +30,7 @@ export async function renderPage(page) {
     ? await cached(key, 30000, async () => buildMenus(menuSets, cats, null))
     : buildMenus(menuSets, cats, ctx);
   let selects = 0;
-  const html = fill(tpl, {
+  let html = fill(tpl, {
     title: `${esc(page.title)} &#8211; Poudre Beauty`,
     head: page.head || '',
     body_class: page.bodyClass,
@@ -43,7 +43,8 @@ export async function renderPage(page) {
     ...(page.vars || {}),
   });
   // each search form gets its own select id, like WordPress
-  return html.replace(/<!--@search_categories-->/g, () => menusHtml.search_categories.replace("id='product-cat-1'", `id='product-cat-${++selects}'`));
+  html = html.replace(/<!--@search_categories-->/g, () => menusHtml.search_categories.replace("id='product-cat-1'", `id='product-cat-${++selects}'`));
+  return /variations_form|has-quick-shop/.test(html) ? withVariationScripts(html) : html;
 }
 
 /** Menu items linking to a category hidden from the website are left out (with their sub-items) */
@@ -63,3 +64,16 @@ function buildMenus(allMenuSets, cats, ctx) {
     search_categories: renderCategorySelect(cats),
   };
 }
+
+// WooCommerce variation scripts (choosing an option swaps photo, price and stock; quick shop on product cards).
+// WordPress only printed them on product-with-options pages; the captured skeletons do not all have them.
+let variationParts;
+const NO_JS = "c = c.replace(/woocommerce-no-js/, 'woocommerce-js');\n\t\t\tdocument.body.className = c;\n\t\t})();\n\t</script>";
+async function withVariationScripts(html) {
+  if (html.includes('add-to-cart-variation.min.js')) return html;
+  variationParts ??= await Promise.all(['variation_tmpl.html', 'variation_scripts.html'].map((f) => readFile(templateFile(f), 'utf8')));
+  const [tmpl, scripts] = variationParts;
+  return html.replace(NO_JS, () => `${NO_JS}\n${tmpl}`)
+    .replace(/(<script id="popup-maker-site-js" src="[^"]*"><\/script>)/, (m) => `${m}\n${scripts}`);
+}
+

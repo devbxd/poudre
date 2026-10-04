@@ -280,17 +280,18 @@ export async function renderProduct(slug, { currentUrl, preview = false } = {}) 
   const chain = main ? categoryPath(cats, main) : [];
   const crumbs = [{ title: 'Home', url: '/' }, { title: 'Products', url: '/shop/' }, ...chain.map((c) => ({ title: esc(c.name), url: categoryUrl(cats, c) })), { title: texturize(p.name) }];
   const breadcrumb = `<nav class="pls-breadcrumb">${crumbs.map((it, i) => (i === crumbs.length - 1 ? `<span class="last">${it.title}</span>` : `<a href="${it.url}">${it.title}</a><span class="pls-delimiter-sep pls-greater-than"></span>`)).join('')}</nav>`;
+  const galleryHtml = gallery(images, decodeEntities(p.name));
   const html = fill(await template(), {
     breadcrumb,
     product_nav: productNav(nav.prev, nav.next),
     product_id: String(p.id),
     product_class: `pls-single-product-page pls-product-content-style-1 pls-product-sticky ${productClasses(p, ['first'])}`,
-    gallery: gallery(images, decodeEntities(p.name)),
+    gallery: galleryHtml,
     summary: summary(p, { cats, mine, taxonomies }),
     tabs: tabs(p, reviews, taxonomies),
     related: relatedSection(related, currentUrl),
   });
-  return { html, product: p, mainCategory: main, categories: mine, chain };
+  return { html, product: p, mainCategory: main, categories: mine, chain, galleryHtml };
 }
 
 async function loadForPopup(productId) {

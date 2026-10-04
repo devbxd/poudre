@@ -9,6 +9,8 @@ import { renderProduct, stickyBar, schemaJson } from './product-page.js';
 import { renderHome } from './home.js';
 import { registerPages } from './pages.js';
 import { decodeEntities } from './html.js';
+import { readFile } from 'node:fs/promises';
+import { templateFile } from './files.js';
 
 export const site = new Hono();
 
@@ -141,7 +143,7 @@ site.get('/product/:slug/', async (c) => {
     head: `<link rel="canonical" href="${siteUrl}/product/${p.slug}/" />\n`,
     vars: { sticky: stickyBar(p), schema: schemaJson(p, siteUrl) },
   });
-  return c.html(html);
+  return c.html(p.type === 'variable' ? withVariationScripts(html, p, r.galleryHtml) : html);
 });
 
 // Cart, checkout, account, wishlist, static pages
@@ -153,3 +155,9 @@ site.get('/:path{.*[^/]$}', async (c, next) => {
   if (/\.[a-z0-9]+$/i.test(p) || p.startsWith('/api') || p.startsWith('/dashboard') || p.startsWith('/wp-')) return next();
   return c.redirect(`${p}/${new URL(c.req.url).search}`, 301);
 });
+
+// Products with options: the variation scripts are added by renderPage; this fills the gallery the scripts restore.
+function withVariationScripts(html, p, galleryHtml) {
+  const defaults = `(window.wc_variation_gallery_defaults = window.wc_variation_gallery_defaults || {})[${p.id}] = ${JSON.stringify(galleryHtml).replace(/\//g, '\\/')};`;
+  return html.replace('/*@variation_gallery_default*/', () => defaults);
+}
