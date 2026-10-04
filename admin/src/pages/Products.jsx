@@ -159,12 +159,12 @@ export default function Products() {
                     </div>
                   </div>
                 ) },
-                { key: 'status', label: 'Status', render: (p) => <Badge tone={STATUS[p.status]?.tone}>{STATUS[p.status]?.label}</Badge> },
+                { key: 'status', label: 'Status', mobile: false, render: (p) => <Badge tone={STATUS[p.status]?.tone}>{STATUS[p.status]?.label}</Badge> },
                 { key: 'stock', label: 'Stock', render: (p) => <StockCell p={p} /> },
                 { key: 'price', label: 'Price', render: (p) => <span className="num whitespace-nowrap"><PriceCell p={p} /></span> },
-                { key: 'categories', label: 'Category', render: (p) => <span className="block max-w-[180px] truncate text-zinc-600">{p.categories.map((c) => c.name).join(', ') || <span className="text-amber-700">None</span>}</span> },
-                { key: 'brand', label: 'Brand', render: (p) => <span className="text-zinc-600">{p.brands[0]?.name || '—'}</span> },
-                { key: 'sales', label: 'Sold', align: 'right', render: (p) => int(p.total_sales) },
+                { key: 'categories', label: 'Category', mobile: false, render: (p) => <span className="block max-w-[180px] truncate text-zinc-600">{p.categories.map((c) => c.name).join(', ') || <span className="text-amber-700">None</span>}</span> },
+                { key: 'brand', label: 'Brand', mobile: false, render: (p) => <span className="text-zinc-600">{p.brands[0]?.name || '—'}</span> },
+                { key: 'sales', label: 'Sold', mobile: false, align: 'right', render: (p) => int(p.total_sales) },
               ]}
             />
             <Pagination page={data.page} perPage={data.per_page} total={data.total} onChange={(page) => setF({ page: String(page) })} />

@@ -189,7 +189,7 @@ export function Pagination({ page, perPage, total, onChange }) {
   );
 }
 
-/** Simple table. columns: [{key, label, render, align, width, className}] */
+/** Simple table. columns: [{key, label, render, align, width, className, mobile: false = hidden on phones}] */
 export function Table({ columns, rows, onRowClick, selectable, selected, onSelect, rowKey = 'id', empty, dense }) {
   const all = rows.length > 0 && rows.every((r) => selected?.has(r[rowKey]));
   const some = rows.some((r) => selected?.has(r[rowKey]));
@@ -199,7 +199,7 @@ export function Table({ columns, rows, onRowClick, selectable, selected, onSelec
         <thead>
           <tr className="border-b border-zinc-200 text-xs font-medium text-zinc-500">
             {selectable && (
-              <th className="w-10 px-4 py-2.5">
+              <th className="hidden w-10 px-4 py-2.5 sm:table-cell">
                 <Checkbox checked={all} indeterminate={!all && some} onChange={(v) => {
                   const next = new Set(selected);
                   rows.forEach((r) => (v ? next.add(r[rowKey]) : next.delete(r[rowKey])));
@@ -208,7 +208,7 @@ export function Table({ columns, rows, onRowClick, selectable, selected, onSelec
               </th>
             )}
             {columns.map((c) => (
-              <th key={c.key} style={{ width: c.width }} className={cx('px-4 py-2.5 font-medium whitespace-nowrap', c.align === 'right' && 'text-right', c.headClassName)}>{c.label}</th>
+              <th key={c.key} style={{ width: c.width }} className={cx('px-4 py-2.5 font-medium whitespace-nowrap', c.align === 'right' && 'text-right', c.mobile === false && 'hidden sm:table-cell', c.headClassName)}>{c.label}</th>
             ))}
           </tr>
         </thead>
@@ -220,7 +220,7 @@ export function Table({ columns, rows, onRowClick, selectable, selected, onSelec
               className={cx('border-b border-zinc-100 last:border-0', onRowClick && 'cursor-pointer hover:bg-zinc-50', selected?.has(r[rowKey]) && 'bg-zinc-50')}
             >
               {selectable && (
-                <td className="px-4" onClick={(e) => e.stopPropagation()}>
+                <td className="hidden px-4 sm:table-cell" onClick={(e) => e.stopPropagation()}>
                   <Checkbox checked={selected.has(r[rowKey])} onChange={(v) => {
                     const next = new Set(selected);
                     v ? next.add(r[rowKey]) : next.delete(r[rowKey]);
@@ -229,7 +229,7 @@ export function Table({ columns, rows, onRowClick, selectable, selected, onSelec
                 </td>
               )}
               {columns.map((c) => (
-                <td key={c.key} className={cx('px-4', dense ? 'py-1.5' : 'py-2.5', c.align === 'right' && 'text-right num', c.className)}>
+                <td key={c.key} className={cx('px-4', dense ? 'py-1.5' : 'py-2.5', c.align === 'right' && 'text-right num', c.mobile === false && 'hidden sm:table-cell', c.className)}>
                   {c.render ? c.render(r) : r[c.key] ?? '—'}
                 </td>
               ))}

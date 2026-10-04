@@ -54,11 +54,11 @@ export default function Customers() {
               empty={<Empty icon={Users} title="No customers found" />}
               columns={[
                 { key: 'name', label: 'Customer', render: (c) => <div><div className="font-medium">{fullName(c) || <span className="text-zinc-400">No name</span>}</div>{c.tags?.length > 0 && <div className="text-xs text-zinc-500">{c.tags.join(', ')}</div>}</div> },
-                { key: 'contact', label: 'Contact', render: (c) => <div className="text-zinc-600"><div>{c.phone}</div><div className="text-xs">{c.email}</div></div> },
-                { key: 'city', label: 'City', render: (c) => c.city || '—' },
+                { key: 'contact', label: 'Contact', mobile: false, render: (c) => <div className="text-zinc-600"><div>{c.phone}</div><div className="text-xs">{c.email}</div></div> },
+                { key: 'city', label: 'City', mobile: false, render: (c) => c.city || '—' },
                 { key: 'order_count', label: 'Orders', align: 'right' },
                 { key: 'spent', label: 'Spent', align: 'right', render: (c) => money(c.spent) },
-                { key: 'last_order', label: 'Last order', align: 'right', render: (c) => date(c.last_order) },
+                { key: 'last_order', label: 'Last order', mobile: false, align: 'right', render: (c) => date(c.last_order) },
               ]} />
             <Pagination page={data.page} perPage={data.per_page} total={data.total} onChange={(page) => setF({ page: String(page) })} />
           </div>

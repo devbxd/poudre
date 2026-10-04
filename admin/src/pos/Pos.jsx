@@ -232,6 +232,8 @@ export default function Pos() {
   const [catalog, setCatalog] = useState(null);
   const [q, setQ] = useState('');
   const [cat, setCat] = useState(null);
+  // phones: one panel at a time (products or cart)
+  const [mobileView, setMobileView] = useState('products');
   const [cart, setCart] = useState([]);
   const [customer, setCustomer] = useState(null);
   const [discount, setDiscount] = useState(null); // {type, amount}
@@ -340,6 +342,7 @@ export default function Pos() {
     }));
     setPaying(false);
     setDone(order);
+    setMobileView('products');
     reset();
     if (settings.auto_print !== false) printOrder(order, { store: catalog.store, pos: settings });
     // refresh stock numbers in the background
@@ -373,15 +376,15 @@ export default function Pos() {
         <div className="relative max-w-xl flex-1">
           <Search size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
           <input ref={search} autoFocus value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={onSearchKey}
-            placeholder="Scan a barcode or search a product…  (F2)"
+            placeholder="Search or scan…"
             className="h-10 w-full rounded-md border border-zinc-300 bg-white pl-10 pr-8 text-[15px] outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900" />
           {q && <button onClick={() => setQ('')} className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-400 hover:text-zinc-900"><X size={15} /></button>}
         </div>
-        <div className="flex-1" />
-        <Button variant="ghost" icon={ReceiptText} onClick={() => setDrawer(true)}>Sales</Button>
+        <div className="hidden flex-1 sm:block" />
+        <Button variant="ghost" icon={ReceiptText} title="Sales" onClick={() => setDrawer(true)}><span className="hidden sm:inline">Sales</span></Button>
         {held.length > 0 && <Button variant="ghost" icon={Clock} onClick={() => setHeldOpen(true)}>On hold ({held.length})</Button>}
         <Button variant="ghost" icon={Wallet} onClick={() => setRegisterOpen(true)}>
-          {session ? <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-emerald-500" />Register</span> : 'Open register'}
+          {session ? <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-emerald-500" /><span className="hidden sm:inline">Register</span></span> : <span className="hidden sm:inline">Open register</span>}
         </Button>
         <button onClick={() => setLocked(true)} title="Lock / switch cashier" className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-zinc-100">
           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-900 text-xs font-semibold text-white">{staff.name.slice(0, 1)}</span>
@@ -391,7 +394,7 @@ export default function Pos() {
 
       <div className="flex min-h-0 flex-1">
         {/* Catalogue */}
-        <section className="flex min-w-0 flex-1 flex-col">
+        <section className={cx('min-w-0 flex-1 flex-col', mobileView === 'cart' ? 'hidden md:flex' : 'flex')}>
           <div className="flex shrink-0 gap-1.5 overflow-x-auto border-b border-zinc-200 bg-white px-3 py-2">
             <button onClick={() => setCat(null)} className={cx('whitespace-nowrap rounded-full px-3 py-1 text-[13px]', !cat ? 'bg-zinc-900 text-white' : 'bg-zinc-100 hover:bg-zinc-200')}>All</button>
             {topCats.map((c) => (
@@ -431,11 +434,17 @@ export default function Pos() {
             </div>
             {!results.length && <p className="py-16 text-center text-zinc-400">No products found</p>}
           </div>
+          {cart.length > 0 && (
+            <button onClick={() => setMobileView('cart')} className="m-3 mt-0 flex shrink-0 items-center justify-between rounded-md bg-zinc-900 px-4 py-3 font-medium text-white md:hidden">
+              <span>View cart · {cart.reduce((n, l) => n + l.quantity, 0)} items</span><span className="num">{money(total)}</span>
+            </button>
+          )}
         </section>
 
         {/* Cart */}
-        <aside className="flex w-[380px] shrink-0 flex-col border-l border-zinc-200 bg-white xl:w-[420px]">
+        <aside className={cx('w-full shrink-0 flex-col border-l border-zinc-200 bg-white md:w-[340px] lg:w-[380px] xl:w-[420px]', mobileView === 'products' ? 'hidden md:flex' : 'flex')}>
           <div className="border-b border-zinc-200 p-3">
+            <button onClick={() => setMobileView('products')} className="mb-2 flex items-center gap-1.5 text-[13px] font-medium text-zinc-600 md:hidden"><ArrowLeft size={14} />Add more products</button>
             {customer ? (
               <div className="flex items-center justify-between rounded-md bg-zinc-100 px-3 py-2">
                 <span className="flex items-center gap-2"><User size={15} />{fullName(customer) || customer.phone}<span className="text-zinc-500">{customer.phone}</span></span>

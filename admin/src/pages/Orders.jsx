@@ -68,15 +68,15 @@ export default function Orders() {
               empty={<Empty icon={ShoppingBag} title="No orders found" text="Try changing the filters." />}
               columns={[
                 { key: 'number', label: 'Order', render: (o) => <span className="font-medium">#{o.number}</span> },
-                { key: 'created_at', label: 'Date', render: (o) => <span className="whitespace-nowrap text-zinc-600">{dateTime(o.created_at)}</span> },
+                { key: 'created_at', label: 'Date', mobile: false, render: (o) => <span className="whitespace-nowrap text-zinc-600">{dateTime(o.created_at)}</span> },
                 { key: 'customer', label: 'Customer', render: (o) => (
                   <div className="max-w-[220px]">
                     <div className="truncate">{fullName(o) && fullName(o) !== 'Guest' ? fullName(o) : <span className="text-zinc-400">Walk-in</span>}</div>
                     {o.phone && <div className="text-xs text-zinc-500">{o.phone}</div>}
                   </div>
                 ) },
-                { key: 'items', label: 'Items', render: (o) => <div className="max-w-[280px] truncate text-zinc-600" title={o.items_preview}>{o.item_count} · {o.items_preview}</div> },
-                { key: 'channel', label: 'Channel', render: (o) => <span className="text-zinc-600">{CHANNEL[o.channel]}{o.staff_name ? ` · ${o.staff_name.split(' ')[0]}` : ''}</span> },
+                { key: 'items', label: 'Items', mobile: false, render: (o) => <div className="max-w-[280px] truncate text-zinc-600" title={o.items_preview}>{o.item_count} · {o.items_preview}</div> },
+                { key: 'channel', label: 'Channel', mobile: false, render: (o) => <span className="text-zinc-600">{CHANNEL[o.channel]}{o.staff_name ? ` · ${o.staff_name.split(' ')[0]}` : ''}</span> },
                 { key: 'status', label: 'Status', render: (o) => <Badge tone={ORDER_STATUS[o.status]?.tone}>{ORDER_STATUS[o.status]?.label}</Badge> },
                 { key: 'total', label: 'Total', align: 'right', render: (o) => (
                   <div>
