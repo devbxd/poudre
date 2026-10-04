@@ -47,6 +47,7 @@ export async function renderPage(page) {
   // Lebanon has no postcodes in practice: WooCommerce only hid "State", so checkout blocked customers on
   // "Please enter a valid postal code". The postcode is now optional and hidden for LB (cart & checkout settings).
   html = html.replaceAll(LB_LOCALE, LB_LOCALE_FIXED);
+  html = await withSiteExtras(html);
   return /variations_form|has-quick-shop/.test(html) ? withVariationScripts(html) : html;
 }
 
@@ -92,3 +93,12 @@ const withMobileCart = (tpl) => (tpl.includes(MOBILE_END) && !tpl.includes('pdr-
 // wcSettings.countries.LB.locale (URL-encoded JSON inside the page): + postcode optional & hidden
 const LB_LOCALE = '%22LB%22%3A%7B%22allowBilling%22%3Atrue%2C%22allowShipping%22%3Atrue%2C%22states%22%3A%5B%5D%2C%22locale%22%3A%7B%22state%22%3A%7B%22required%22%3Afalse%2C%22hidden%22%3Atrue%7D%7D%7D';
 const LB_LOCALE_FIXED = '%22LB%22%3A%7B%22allowBilling%22%3Atrue%2C%22allowShipping%22%3Atrue%2C%22states%22%3A%5B%5D%2C%22locale%22%3A%7B%22state%22%3A%7B%22required%22%3Afalse%2C%22hidden%22%3Atrue%7D%2C%22postcode%22%3A%7B%22required%22%3Afalse%2C%22hidden%22%3Atrue%7D%7D%7D';
+
+// Visitors: the shop's own Popup Maker pop-up "Subscribe and get 10% off" (Promocode: POUDRE10) only opened on a
+// click no button triggered, so nobody saw it. It now opens by itself once; closing it sets the plugin's own
+// 1-month cookie. Phones: the Instagram icon of the top bar sits on the right.
+let siteExtrasTpl;
+async function withSiteExtras(html) {
+  siteExtrasTpl ??= await readFile(templateFile('site-extras.html'), 'utf8');
+  return html.replace('</body>', () => `${siteExtrasTpl}\n</body>`);
+}

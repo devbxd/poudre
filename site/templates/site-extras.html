@@ -1,0 +1,13 @@
+<style>
+.pls-header-topbar .pls-header-mobile .pls-header-col-center{justify-content:flex-end!important;padding-right:16px}
+</style>
+<script>
+(function(){
+  if (/^\/(cart|checkout|my-account|wishlist)/.test(location.pathname)) return;
+  if (document.cookie.indexOf('pum-16158=') >= 0) return;
+  setTimeout(function(){
+    if (document.cookie.indexOf('pum-16158=') >= 0) return;
+    if (window.PUM && typeof PUM.open === 'function') PUM.open(16158);
+  }, 6000);
+})();
+</script>
