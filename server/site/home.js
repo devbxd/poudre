@@ -61,8 +61,34 @@ function fixHero(html) {
     .replace('<div class="elementor-widget-container">\n\t\t\t\t\t<div id="pls-home-slides-', `<div class="elementor-widget-container">${HERO_FIX}\n\t\t\t\t\t<div id="pls-home-slides-`);
 }
 
+// Category tabs (Perfumes: Men Gift Sets, Women Gift Sets, Men, Women…): on phones they did not fit and the last
+// ones were cut off. They now scroll sideways, with arrows shown only when some tabs are hidden.
+const TABS_SCROLL = `<style>
+.nav-tabs-wrapper{position:relative;max-width:100%;min-width:0}
+.nav-tabs-wrapper .nav-tabs{max-width:100%;flex-wrap:nowrap!important;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;scroll-behavior:smooth;-webkit-overflow-scrolling:touch}
+.nav-tabs-wrapper .nav-tabs::-webkit-scrollbar{display:none}
+.nav-tabs-wrapper .nav-tabs .nav-item{flex:0 0 auto;white-space:nowrap}
+.pdr-tab-arrow{position:absolute;top:50%;transform:translateY(-50%);z-index:30;width:32px;height:32px;border-radius:50%;border:1px solid #e5e5e5;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.12);display:none;align-items:center;justify-content:center;padding:0;cursor:pointer;color:#1f1f1f;font-size:18px;line-height:1}
+.pdr-tab-arrow.prev{left:-6px}.pdr-tab-arrow.next{right:-6px}
+.pdr-tab-arrow.show{display:flex}
+</style>
+<script>
+document.addEventListener('DOMContentLoaded',function(){
+  document.querySelectorAll('.nav-tabs-wrapper').forEach(function(w){
+    var ul=w.querySelector('.nav-tabs');if(!ul)return;
+    var mk=function(c,t){var b=document.createElement('button');b.type='button';b.className='pdr-tab-arrow '+c;b.setAttribute('aria-label',c==='prev'?'Previous':'Next');b.innerHTML=t;w.appendChild(b);return b;};
+    var prev=mk('prev','&#8249;'),next=mk('next','&#8250;');
+    var update=function(){var max=ul.scrollWidth-ul.clientWidth;prev.classList.toggle('show',ul.scrollLeft>4);next.classList.toggle('show',max>4&&ul.scrollLeft<max-4);};
+    prev.addEventListener('click',function(){ul.scrollLeft-=ul.clientWidth*0.7;});
+    next.addEventListener('click',function(){ul.scrollLeft+=ul.clientWidth*0.7;});
+    ul.addEventListener('scroll',update,{passive:true});window.addEventListener('resize',update);update();setTimeout(update,800);
+  });
+});
+</script>`;
+
 export async function renderHome() {
   let html = fixHero(await page());
+  html = html.replace('<main', `${TABS_SCROLL}<main`);
   const overrides = (await setting('homepage', {})).sections || [];
   const images = { count: 0 };
   // every tabs widget: the active pane shows the first tab's products
