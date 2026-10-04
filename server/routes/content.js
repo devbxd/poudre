@@ -6,6 +6,7 @@ import { fail, pick, insertRow, updateRow, uniqueSlug, paging, getSetting, setSe
 import { saveFile, deleteFile } from '../storage.js';
 import { sizesFor } from '../images.js';
 import { emailSettings, sendMail, layout, EMAIL_TYPES } from '../mail.js';
+import { icarrySettings, testIcarry } from '../icarry.js';
 
 export const content = new Hono();
 
@@ -137,12 +138,28 @@ content.post('/emails/test', requireStaff('owner'), async (c) => {
   return c.json({ ok: true, to: target });
 });
 
+// ---------------- iCARRY delivery (owner only; the account password never leaves the server) ----------------
+const publicIcarry = async () => { const { password, ...rest } = await icarrySettings(); return { ...rest, has_password: !!password }; };
+content.get('/icarry', requireStaff('owner'), async (c) => c.json(await publicIcarry()));
+content.put('/icarry', requireStaff('owner'), async (c) => {
+  const body = await c.req.json();
+  const next = { ...(await getSetting('icarry', {})), ...pick(body, ['enabled', 'auto_send', 'email', 'pickup_location', 'default_weight']) };
+  if (body.password) next.password = body.password;
+  await setSetting('icarry', next);
+  await audit(c.get('staff'), 'update', 'settings', 'icarry');
+  return c.json(await publicIcarry());
+});
+content.post('/icarry/test', requireStaff('owner'), async (c) => {
+  try { await testIcarry(await icarrySettings()); } catch (e) { fail(400, e.message); }
+  return c.json({ ok: true });
+});
+
 content.get('/settings', requireStaff(), async (c) => {
-  const rows = await query("select key, value from settings where key <> 'emails'");
+  const rows = await query("select key, value from settings where key not in ('emails', 'icarry')");
   return c.json(Object.fromEntries(rows.map((r) => [r.key, typeof r.value === 'string' ? JSON.parse(r.value) : r.value])));
 });
 content.get('/settings/:key', requireStaff(), async (c) => {
-  if (c.req.param('key') === 'emails') fail(403, 'Use /emails');
+  if (['emails', 'icarry'].includes(c.req.param('key'))) fail(403, 'Not available here');
   return c.json(await getSetting(c.req.param('key'), {}));
 });
 content.put('/settings/:key', requireStaff('manager'), async (c) => {

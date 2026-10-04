@@ -4,6 +4,7 @@ import { requireStaff } from '../auth.js';
 import { fail, pick, insertRow, updateRow, paging, Where, audit, toCsv } from '../lib.js';
 import { createOrder, changeStatus, refundOrder } from '../orders.js';
 import { emailsForStatus, sendOrderEmail } from '../mail.js';
+import { sendToIcarry } from '../icarry.js';
 
 export const sales = new Hono();
 
@@ -110,6 +111,14 @@ sales.post('/orders/:id/notes', requireStaff(), async (c) => {
   const row = await tx((t) => insertRow(t, 'order_notes', { order_id: Number(c.req.param('id')), note, customer_visible: !!customer_visible, author: c.get('staff').name }));
   if (customer_visible) await sendOrderEmail('customer_note', row.order_id, { note });
   return c.json(row, 201);
+});
+
+sales.post('/orders/:id/icarry', requireStaff('manager'), async (c) => {
+  const id = Number(c.req.param('id'));
+  const r = await sendToIcarry(id, { force: true });
+  if (!r.ok) fail(400, r.error);
+  await audit(c.get('staff'), 'icarry', 'order', id);
+  return c.json(await fullOrder(id));
 });
 
 sales.post('/orders/:id/refund', requireStaff('manager'), async (c) => {

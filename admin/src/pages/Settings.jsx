@@ -72,7 +72,40 @@ function Shipping() {
         <div className="mt-4"><Toggle checked={s.pickup !== false} onChange={(v) => set({ ...s, pickup: v })} label="Allow pick-up in store" /></div>
       </Card>
       <SaveBar onSave={save} busy={busy} />
+      <Icarry />
     </div>
+  );
+}
+
+/** iCARRY: website orders are sent automatically to the delivery company */
+function Icarry() {
+  const { data, setData } = useFetch('/admin/icarry');
+  const [pass, setPass] = useState('');
+  const [run, busy] = useAction();
+  const [runTest, testing] = useAction();
+  if (!data) return null;
+  const set = (patch) => setData({ ...data, ...patch });
+  const save = () => run(async () => { setData(await api.put('/admin/icarry', { ...data, password: pass || undefined })); setPass(''); }, 'iCARRY settings saved');
+  return (
+    <Card title="iCARRY delivery">
+      <p className="mb-3 text-[13px] text-zinc-500">Every website order is created automatically in your iCARRY account, with the address, phone, items and the amount to collect. Store pickup orders are not sent.</p>
+      <div className="mb-4 flex flex-wrap gap-6">
+        <Toggle checked={data.enabled} onChange={(v) => set({ enabled: v })} label="Connected to iCARRY" />
+        <Toggle checked={data.auto_send} onChange={(v) => set({ auto_send: v })} label="Send new website orders automatically" />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="iCARRY account e-mail"><Input value={data.email || ''} onChange={(e) => set({ email: e.target.value })} /></Field>
+        <Field label="iCARRY password" hint={data.has_password ? 'Saved. Type a new one only to change it.' : ''}>
+          <Input type="password" autoComplete="new-password" value={pass} placeholder={data.has_password ? '••••••••' : ''} onChange={(e) => setPass(e.target.value)} />
+        </Field>
+        <Field label="Pickup location" hint="As named in your iCARRY account (optional)"><Input value={data.pickup_location || ''} onChange={(e) => set({ pickup_location: e.target.value })} /></Field>
+        <Field label="Default parcel weight (kg)"><Input type="number" step="0.1" value={data.default_weight ?? 1} onChange={(e) => set({ default_weight: Number(e.target.value) })} /></Field>
+      </div>
+      <div className="mt-4 flex justify-end gap-2">
+        <Button loading={testing} onClick={() => runTest(() => api.post('/admin/icarry/test', {}), 'Connected to iCARRY')}>Test connection</Button>
+        <Button variant="primary" loading={busy} onClick={save}>Save</Button>
+      </div>
+    </Card>
   );
 }
 

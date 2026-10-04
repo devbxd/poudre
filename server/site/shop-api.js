@@ -14,6 +14,7 @@ import { getCookie } from 'hono/cookie';
 import { availabilityHtml } from './variations.js';
 import { createOrder } from '../orders.js';
 import { sendOrderEmail, emailSettings, sendMail, layout } from '../mail.js';
+import { autoSendToIcarry } from '../icarry.js';
 
 export const shopApi = new Hono();
 const siteUrl = (c) => process.env.SITE_URL || new URL(c.req.url).origin;
@@ -375,7 +376,7 @@ async function placeOrder(c, b) {
   cart.coupons = [];
   await saveCart(c, cart);
   // like WooCommerce: alert the shop and confirm to the customer (in parallel, failures only logged)
-  const mails = Promise.all([sendOrderEmail('new_order', order.id), sendOrderEmail('customer_processing', order.id)]);
+  const mails = Promise.all([sendOrderEmail('new_order', order.id), sendOrderEmail('customer_processing', order.id), autoSendToIcarry(order.id)]);
   // on Netlify the e-mails finish after the response (context.waitUntil), so the customer is not kept waiting
   const waitUntil = c.env?.context?.waitUntil?.bind(c.env.context);
   if (waitUntil) waitUntil(mails); else await mails;

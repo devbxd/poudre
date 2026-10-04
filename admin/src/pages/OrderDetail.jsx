@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Printer, FileText, RotateCcw, Trash2, Pencil } from 'lucide-react';
+import { ArrowLeft, Printer, FileText, RotateCcw, Trash2, Pencil, Truck } from 'lucide-react';
 import { useFetch, useSettings } from '../lib/hooks.js';
 import { api } from '../lib/api.js';
 import { money, dateTime, fullName, ORDER_STATUS, CHANNEL } from '../lib/format.js';
@@ -85,7 +85,7 @@ export default function OrderDetail() {
   const [run, busy] = useAction();
   if (!order) return <Spinner />;
 
-  const update = async (patch, msg = 'Order updated') => setData(await run(() => api.put(`/admin/orders/${id}`, patch), msg));
+  const update = async (patch, msg = 'Order updated') => setData(await run(() => (patch ? api.put(`/admin/orders/${id}`, patch) : api.post(`/admin/orders/${id}/icarry`, {})), msg));
   const addNote = async () => {
     if (!note.trim()) return;
     await run(() => api.post(`/admin/orders/${id}/notes`, { note }), 'Note added');
@@ -105,6 +105,9 @@ export default function OrderDetail() {
         actions={<>
           <Button icon={Printer} onClick={() => print('receipt')}>Receipt</Button>
           <Button icon={FileText} onClick={() => print('invoice')}>Invoice</Button>
+          {order.channel === 'online' && can('manager') && (order.meta?.icarry?.sent_at
+            ? <Badge tone="green"><Truck size={12} className="mr-1 inline" />Sent to iCARRY</Badge>
+            : <Button icon={Truck} loading={busy} onClick={() => update(null, 'Sent to iCARRY')}>Send to iCARRY</Button>)}
           {can('manager') && Number(order.refunded_total) < Number(order.total) && order.status !== 'cancelled' && <Button icon={RotateCcw} onClick={() => setRefundOpen(true)}>Refund</Button>}
           {can('owner') && <Button variant="danger" icon={Trash2} onClick={async () => {
             if (await confirm({ title: 'Delete this order?', message: 'The order is removed for good and its items go back into stock. Prefer "Cancelled" if you want to keep a trace.', danger: true, confirmLabel: 'Delete' })) {
