@@ -40,6 +40,12 @@ async function insert(table, rows, { batch = 200 } = {}) {
 
 console.log('Recreating schema…');
 const tables = ['carts', 'wishlists', 'audit_log', 'messages', 'menus', 'posts', 'pages', 'cash_sessions', 'stock_movements', 'purchase_orders', 'reviews', 'refunds', 'order_notes', 'order_items', 'orders', 'coupons', 'customers', 'variations', 'product_tags', 'product_brands', 'product_categories', 'products', 'suppliers', 'attributes', 'tags', 'brands', 'categories', 'media', 'staff', 'settings'];
+// kept across a re-import (final sync before go-live): connections set up in the dashboard and staff logins
+const kept = { settings: [], staff: [] };
+try {
+  kept.settings = await q("select key, value from settings where key in ('emails', 'icarry')");
+  kept.staff = await q('select username, password_hash, pin_hash from staff');
+} catch { /* first import: nothing to keep */ }
 await conn.exec(`drop table if exists ${tables.join(',')} cascade`);
 await conn.exec(await readFile('db/schema.sql', 'utf8'));
 
@@ -326,6 +332,12 @@ const settingsRows = [
   ['homepage', { sections: [] }],
 ];
 await insert('settings', settingsRows.map(([key, value]) => ({ key, value })));
+for (const r of kept.settings) await q('insert into settings (key, value) values ($1, $2) on conflict (key) do update set value = excluded.value', [r.key, typeof r.value === 'string' ? r.value : JSON.stringify(r.value)]);
+// passwords changed in the dashboard win over the imported ones (unless OWNER_PASSWORD is given explicitly)
+for (const r of kept.staff) {
+  if (process.env.OWNER_PASSWORD && r.username === 'jeanclaude') continue;
+  await q('update staff set password_hash = $2, pin_hash = $3 where username = $1', [r.username, r.password_hash, r.pin_hash]);
+}
 
 // ---------- Sequences ----------
 for (const t of ['staff', 'media', 'categories', 'brands', 'tags', 'attributes', 'suppliers', 'products', 'variations', 'customers', 'coupons', 'orders', 'order_items', 'order_notes', 'refunds', 'reviews', 'purchase_orders', 'pages', 'posts', 'menus', 'messages', 'cash_sessions']) {
