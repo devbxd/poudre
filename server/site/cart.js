@@ -123,10 +123,13 @@ export async function computeCart(cart) {
   // shipping rates
   const ship = await setting('shipping', { methods: [] });
   const freeByCoupon = coupons.some((c) => c.free_shipping);
-  const rates = (ship.methods || []).filter((m) => m.enabled !== false).filter((m) => {
+  let rates = (ship.methods || []).filter((m) => m.enabled !== false).filter((m) => {
     if (m.type === 'free_shipping' && m.min_amount != null) return freeByCoupon || subtotal >= m.min_amount;
     return true;
   });
+  // once free shipping is reached (order amount or coupon), only free shipping and store pickup are offered
+  const earnedFree = rates.filter((m) => m.type === 'free_shipping' && m.min_amount != null);
+  if (earnedFree.length) rates = rates.filter((m) => earnedFree.includes(m) || /pickup/.test(m.type || m.id));
   const selected = rates.find((r) => r.id === cart.shipping_method) || rates[0] || null;
   const shippingTotal = lines.length && selected ? Number(selected.cost || 0) : 0;
   const total = Math.max(0, subtotal - discount) + shippingTotal;

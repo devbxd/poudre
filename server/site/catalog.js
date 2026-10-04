@@ -84,7 +84,8 @@ function sortProducts(list, orderby, search) {
       const score = (p) => (p.lname.includes(phrase) ? 4 : 0) + (words.every((w) => p.lname.includes(w)) ? 2 : 0) + (words.some((w) => p.lname.includes(w)) ? 1 : 0);
       return s.sort((a, b) => score(b) - score(a) || new Date(b.created_at) - new Date(a.created_at) || b.id - a.id);
     }
-    default: return s.sort((a, b) => a.menu_order - b.menu_order || byName(a.sort_name, b.sort_name));
+    // default sorting: the shop's manual order first, then newest products first (asked by the shop instead of A–Z)
+    default: return s.sort((a, b) => a.menu_order - b.menu_order || new Date(b.created_at) - new Date(a.created_at) || b.id - a.id);
   }
 }
 
