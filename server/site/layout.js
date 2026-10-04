@@ -100,5 +100,8 @@ const LB_LOCALE_FIXED = '%22LB%22%3A%7B%22allowBilling%22%3Atrue%2C%22allowShipp
 let siteExtrasTpl;
 async function withSiteExtras(html) {
   siteExtrasTpl ??= await readFile(templateFile('site-extras.html'), 'utf8');
-  return html.replace('</body>', () => `${siteExtrasTpl}\n</body>`);
+  return html
+    // the theme's empty "Sign up and get 10% off" block (About page) gets the same sign-up form
+    .replace(/<div class="pls-element pls-newsletter overlay-form ">\s*<\/div>/g, () => `<div class="pls-element pls-newsletter overlay-form "><form class="pdr-nl" data-source="page" novalidate><input type="email" name="email" placeholder="Your email address" autocomplete="email" aria-label="Email address" required /><button type="submit">Sign up</button><div class="pdr-nl-err" aria-live="polite"></div></form></div>`)
+    .replace('</body>', () => `${siteExtrasTpl}\n</body>`);
 }

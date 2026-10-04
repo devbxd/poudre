@@ -451,4 +451,15 @@ shopApi.post('/wp-json/contact-form-7/v1/contact-forms/:id/feedback', async (c) 
   }
   return c.json({ ...base, status: 'mail_sent', message: 'Thank you for your message. It has been sent.', invalid_fields: [] });
 });
+
+// ---------------- Newsletter sign-up (welcome pop-up + "Sign up and get 10% off" block) ----------------
+shopApi.post('/newsletter/subscribe', async (c) => {
+  const b = await c.req.json().catch(() => ({}));
+  const email = String(b.email || '').trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || email.length > 200) return c.json({ ok: false, message: 'Please enter a valid email address.' }, 400);
+  const [exists] = await query("select id from messages where kind = 'newsletter' and lower(email) = $1 limit 1", [email]);
+  if (!exists) await query("insert into messages (kind, email, subject, body) values ('newsletter', $1, 'Newsletter sign-up', $2)", [email, `Signed up from the ${String(b.source || 'website').slice(0, 40)}`]);
+  const [coupon] = await query("select code from coupons where lower(code) = 'poudre10' and active limit 1");
+  return c.json({ ok: true, code: (coupon?.code || 'POUDRE10').toUpperCase() });
+});
 export { texturize };

@@ -1,13 +1,81 @@
 <style>
+/* phone header: Instagram icon on the right (was centred) */
 .pls-header-topbar .pls-header-mobile .pls-header-col-center{justify-content:flex-end!important;padding-right:16px}
+/* welcome offer pop-up (replaces the plugin's unstyled one) */
+.pdr-offer{position:fixed;inset:0;z-index:2000000000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(20,20,20,.55);opacity:0;visibility:hidden;transition:opacity .3s,visibility .3s}
+.pdr-offer.open{opacity:1;visibility:visible}
+.pdr-offer-card{position:relative;width:100%;max-width:420px;background:#f5d3cb;border-radius:28px;padding:44px 28px 30px;text-align:center;color:#1f1f1f;box-shadow:0 24px 60px rgba(0,0,0,.25);transform:translateY(16px) scale(.98);transition:transform .3s}
+.pdr-offer.open .pdr-offer-card{transform:none}
+.pdr-offer .pdr-offer-close{position:absolute;top:14px;right:14px;width:38px;height:38px;min-width:0;min-height:0;padding:0!important;margin:0;border:0;border-radius:50%;background:#fff!important;color:#1f1f1f!important;font-size:24px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.pdr-offer-kicker{font-size:13px;font-weight:600;letter-spacing:2px;text-transform:uppercase;opacity:.7;margin:0 0 8px}
+.pdr-offer h3{font-size:34px;line-height:1.1;font-weight:600;margin:0 0 12px;color:#1f1f1f}
+.pdr-offer p{font-size:15px;line-height:1.55;margin:0 auto 22px;max-width:300px;color:#3a3a3a}
+.pdr-offer-code{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#fff;border:2px dashed #1f1f1f;border-radius:16px;padding:10px 10px 10px 20px;margin:0 0 16px}
+.pdr-offer-code span{font-size:22px;font-weight:700;letter-spacing:3px}
+.pdr-offer .pdr-offer-copy{border:0;border-radius:12px;background:#1f1f1f;color:#fff;font-size:13px;font-weight:600;text-transform:uppercase;padding:12px 16px;cursor:pointer;white-space:nowrap}
+.pdr-offer .pdr-offer-shop{display:block;width:100%;border:0;border-radius:30px;background:#1f1f1f!important;color:#fff!important;font-size:15px;font-weight:600;text-transform:uppercase;padding:15px;cursor:pointer}
+.pdr-nl{display:flex;flex-direction:column;gap:10px;margin:0}
+.pdr-nl input{width:100%;height:52px;border:1px solid #fff;border-radius:30px;padding:0 22px;background:#fff;font-size:16px;color:#1f1f1f;outline:none}
+.pdr-nl input:focus{border-color:#1f1f1f}
+.pdr-nl button{background-color:#1f1f1f!important;color:#fff!important;height:52px;border:0;border-radius:30px;background:#1f1f1f;color:#fff;font-size:15px;font-weight:600;text-transform:uppercase;cursor:pointer}
+.pdr-nl button[disabled]{opacity:.6}
+.pdr-nl-err{min-height:18px;font-size:13px;color:#b42318}
+.pdr-offer .step-code{display:none}.pdr-offer.done .step-form{display:none}.pdr-offer.done .step-code{display:block}
+.pls-newsletter .pdr-nl{max-width:460px;margin:18px auto 0}
+.pls-newsletter .pdr-nl-done{margin-top:14px;font-size:16px}
+.pls-newsletter .pdr-nl-done b{letter-spacing:2px}
+.pdr-offer small{display:block;margin-top:12px;font-size:12px;opacity:.65}
+@media (max-width:420px){.pdr-offer h3{font-size:29px}.pdr-offer-code span{font-size:19px;letter-spacing:2px}}
 </style>
+<div class="pdr-offer" role="dialog" aria-modal="true" aria-labelledby="pdr-offer-title">
+  <div class="pdr-offer-card">
+    <button type="button" class="pdr-offer-close" aria-label="Close">&times;</button>
+    <p class="pdr-offer-kicker">Welcome to Poudré</p>
+    <h3 id="pdr-offer-title">Get 10% off</h3>
+    <div class="step-form">
+      <p>Sign up for early sale access, new arrivals, promotions and more — and get your code.</p>
+      <form class="pdr-nl" data-source="pop-up" novalidate><input type="email" name="email" placeholder="Your email address" autocomplete="email" aria-label="Email address" required /><button type="submit">Get my code</button><div class="pdr-nl-err" aria-live="polite"></div></form>
+    </div>
+    <div class="step-code">
+      <p>Thank you for signing up! Use this code at checkout:</p>
+      <div class="pdr-offer-code"><span class="pdr-code">POUDRE10</span><button type="button" class="pdr-offer-copy">Copy</button></div>
+      <button type="button" class="pdr-offer-shop">Start shopping</button>
+      <small>10% off your order at poudrebeauty.com</small>
+    </div>
+  </div>
+</div>
 <script>
 (function(){
-  if (/^\/(cart|checkout|my-account|wishlist)/.test(location.pathname)) return;
-  if (document.cookie.indexOf('pum-16158=') >= 0) return;
-  setTimeout(function(){
-    if (document.cookie.indexOf('pum-16158=') >= 0) return;
-    if (window.PUM && typeof PUM.open === 'function') PUM.open(16158);
-  }, 6000);
+  var COOKIE='pum-16158';
+  var pop=document.querySelector('.pdr-offer');if(!pop)return;
+  function seen(){return document.cookie.indexOf(COOKIE+'=')>=0}
+  function close(){pop.classList.remove('open');document.cookie=COOKIE+'=true; path=/; max-age='+(30*24*3600)+'; SameSite=Lax'}
+  pop.querySelector('.pdr-offer-close').addEventListener('click',close);
+  pop.querySelector('.pdr-offer-shop').addEventListener('click',close);
+  pop.addEventListener('click',function(e){if(e.target===pop)close()});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape')close()});
+  document.addEventListener('submit',function(e){
+    var f=e.target;if(!f.classList||!f.classList.contains('pdr-nl'))return;
+    e.preventDefault();
+    var input=f.querySelector('input'),btn=f.querySelector('button'),err=f.querySelector('.pdr-nl-err');
+    var email=input.value.trim();
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){err.textContent='Please enter a valid email address.';input.focus();return}
+    btn.disabled=true;err.textContent='';
+    fetch('/newsletter/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email,source:f.getAttribute('data-source')})})
+      .then(function(r){return r.json()}).then(function(d){
+        btn.disabled=false;
+        if(!d.ok){err.textContent=d.message||'Please try again.';return}
+        document.cookie=COOKIE+'=true; path=/; max-age='+(365*24*3600)+'; SameSite=Lax';
+        if(f.closest('.pdr-offer')){pop.querySelector('.pdr-code').textContent=d.code;pop.classList.add('done')}
+        else{f.outerHTML='<div class="pdr-nl-done">Thank you for signing up! Your code: <b>'+d.code+'</b> — 10% off your order.</div>'}
+      }).catch(function(){btn.disabled=false;err.textContent='Please try again.'});
+  });
+  pop.querySelector('.pdr-offer-copy').addEventListener('click',function(){
+    var b=this;var done=function(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy'},2000)};
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText('POUDRE10').then(done,done)}else{done()}
+  });
+  // shown once a month to visitors, never on cart / checkout / account pages
+  if(seen()||/^\/(cart|checkout|my-account|wishlist)/.test(location.pathname))return;
+  setTimeout(function(){if(!seen())pop.classList.add('open')},6000);
 })();
 </script>
