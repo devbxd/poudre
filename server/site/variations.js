@@ -36,7 +36,7 @@ export function attributeKeyValue(attr, taxonomies) {
 }
 
 function imageProps(media) {
-  if (!media) return { title: '', caption: '', url: '', alt: '', src: '', srcset: false, sizes: false, full_src: '', full_src_w: '', full_src_h: '', gallery_thumbnail_src: '', gallery_thumbnail_src_w: '', gallery_thumbnail_src_h: '', thumb_src: '', thumb_src_w: '', thumb_src_h: '', src_w: '', src_h: '' };
+  if (!media) return { title: '', caption: '', url: '', alt: '', src: '', srcset: false, sizes: false };
   const find = (n) => (media.sizes || []).find((s) => s.name === n);
   const dir = media.url.slice(0, media.url.lastIndexOf('/') + 1);
   const single = find('woocommerce_single') || { file: media.url.split('/').pop(), width: media.width, height: media.height };
@@ -64,6 +64,8 @@ export function availabilityHtml(v) {
 /**
  * product: product row (with images) ; variations: rows from the variations table ; media: Map of media by id
  */
+const WP = (n) => wcPrice(n, { bdi: true, symbol: '&#36;', translate: true });
+
 export function availableVariations(product, variations, media, taxonomies) {
   const prices = variations.map((v) => effectivePrice({ ...v, regular_price: v.regular_price ?? product.regular_price }));
   const samePrice = prices.every((x) => x.price === prices[0]?.price && x.regular === prices[0]?.regular);
@@ -93,7 +95,7 @@ export function availableVariations(product, variations, media, taxonomies) {
       gallery_image_ids: [],
       gallery_images_html: '',
       image: imageProps(m),
-      image_id: m?.id || '',
+      image_id: m?.id || 0,
       is_downloadable: false,
       is_in_stock: inStock,
       is_purchasable: v.regular_price != null || product.regular_price != null,
@@ -101,7 +103,7 @@ export function availableVariations(product, variations, media, taxonomies) {
       is_virtual: false,
       max_qty: v.manage_stock && v.backorders === 'no' ? Math.max(0, v.stock_quantity) : '',
       min_qty: 1,
-      price_html: samePrice ? '' : `<span class="price">${on_sale ? `<ins>${wcPrice(price)}</ins> <del aria-hidden="true">${wcPrice(regular)}</del>` : wcPrice(price)}</span>`,
+      price_html: samePrice ? '' : `<span class="price">${on_sale ? `<ins>${WP(price)}</ins> <del aria-hidden="true">${WP(regular)}</del>` : WP(price)}</span>`,
       sku: v.sku || product.sku || '',
       variation_description: v.description || '',
       variation_id: v.id,
@@ -109,7 +111,7 @@ export function availableVariations(product, variations, media, taxonomies) {
       variation_is_visible: true,
       weight: v.weight ? String(v.weight) : '',
       weight_html: v.weight ? `${v.weight} kg` : 'N/A',
-      woosb_image: m ? imageTag(m, 'woocommerce_thumbnail', { mode: 'attachment' }) : '',
+      ...(m ? { woosb_image: imageTag(m, 'woocommerce_thumbnail', { mode: 'attachment' }) } : {}),
       // set by the theme only when the variation has its own image
       image_src: own ? [own.url, own.width, own.height, false] : false,
       image_srcset: own ? srcset(own, fullSrc) || false : false,

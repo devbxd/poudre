@@ -64,7 +64,7 @@ function galleryThumb(m) {
 
 function gallery(images, productName) {
   if (!images.length) {
-    return `<div class="woocommerce-product-gallery pls-product-gallery-with-thumbnails  images" data-columns="4" style="opacity: 0; transition: opacity .25s ease-in-out;">\n\t<div class="woocommerce-product-gallery__wrapper">\n\t\n\t\t\t\t\n\t\t<div class="pls-single-product-gallery pls-product-slider" data-slider_options='{&quot;slidesPerView&quot;:1,&quot;spaceBetween&quot;:16,&quot;loop&quot;:false,&quot;navigation&quot;:false,&quot;thumbs&quot;:true}'>\n\t\t\t<div class="woocommerce-product-gallery__image--placeholder"><img src="/wp-content/uploads/woocommerce-placeholder-800x800.png" alt="Awaiting product image" class="wp-post-image" /></div>\t\t</div>\n\t\t\n\t\t<div class="pls-product-gallery-btns">\n\t\t\t\t\t</div>\n\t\t\n\t</div>\n\t\n\t</div>`;
+    return `<div class="woocommerce-product-gallery pls-product-gallery-without-thumbnails  images" data-columns="4" style="opacity: 0; transition: opacity .25s ease-in-out;">\n\t<div class="woocommerce-product-gallery__wrapper">\n\t\n\t\t\t\t\n\t\t<div class="pls-single-product-gallery" >\n\t\t\t<div class="woocommerce-product-gallery__image woocommerce-product-gallery__image--placeholder"><img src="/wp-content/uploads/woocommerce-placeholder-800x800.png" alt="Awaiting product image" class="wp-post-image" /></div>\t\t</div>\n\t\t\n\t\t<div class="pls-product-gallery-btns">\n\t\t\t\t\t</div>\n\t\t\n\t</div>\n\t\n\t\t\n</div>`;
   }
   if (images.length === 1) {
     return `<div class="woocommerce-product-gallery pls-product-gallery-without-thumbnails  images" data-columns="4" style="opacity: 0; transition: opacity .25s ease-in-out;">\n\t<div class="woocommerce-product-gallery__wrapper">\n\t\n\t\t\t\t\n\t\t<div class="pls-single-product-gallery" >\n\t\t\t${galleryImage(images[0], 0, productName)}\t\t</div>\n\t\t\n\t\t<div class="pls-product-gallery-btns">\n\t\t\t\t\t</div>\n\t\t\n\t</div>\n\t\n\t\t\n</div>`;
@@ -78,7 +78,7 @@ function summaryPrice(p) {
   if (p.type === 'variable') {
     const r = p.range;
     if (!r) return '<p class="price pls-product-price"></p>';
-    if (r.min !== r.max) return `<p class="price pls-product-price">${P(r.min)} <span aria-hidden="true">&ndash;</span> ${P(r.max)}<span class="screen-reader-text">Price range: &#36;${r.min.toFixed(2)} through &#36;${r.max.toFixed(2)}</span></p>`;
+    if (r.min !== r.max) return `<p class="price pls-product-price">${P(r.min).replace('amount">', 'amount" aria-hidden="true">')} <span aria-hidden="true">&ndash;</span> ${P(r.max).replace('amount">', 'amount" aria-hidden="true">')}<span class="screen-reader-text">Price range: &#36;${r.min.toFixed(2)} through &#36;${r.max.toFixed(2)}</span></p>`;
     if (r.regMax > r.min && r.regMin === r.regMax) return `<p class="price pls-product-price"><ins>${P(r.min)}</ins> <del aria-hidden="true">${P(r.regMax)}</del></p>`;
     return `<p class="price pls-product-price">${P(r.min)}</p>`;
   }
@@ -110,19 +110,23 @@ function variationForm(p, taxonomies) {
   const rows = attrs.map((a) => {
     const tax = a.id ? taxonomies.get(Number(a.id)) : null;
     const name = tax ? tax.slug : sanitizeTitle(a.name);
+    // only options used by an available variation are offered ("any" variations keep them all)
+    const key = `attribute_${name}`;
+    const used = new Set((p.available_variations || []).map((v) => v.attributes[key]));
+    const keep = (value) => used.has('') || used.has(value);
     const options = a.options.map((o) => {
       const term = tax?.terms.find((t) => decodeEntities(t.name) === decodeEntities(o));
       return { value: term ? term.slug : o, label: term ? term.name : o, color: term?.color || '' };
-    });
+    }).filter((o) => keep(o.value));
     const select = `<select id="${name}" class="" name="attribute_${name}" data-attribute_name="attribute_${name}" data-show_option_none="yes"><option value="">Choose an option</option>${options.map((o) => `<option value="${esc(o.value)}" >${esc(o.label)}</option>`).join('')}</select>`;
     if (tax?.slug === 'pa_color') {
       const sw = options.map((o) => `<span class="swatch-term swatch swatch-color term-${o.value} swatch-circle swatch-normal " title="${esc(o.label).replace(/&#039;/g, '&apos;')}" data-term="${o.value}"><span class="pls-tooltip" style="background-color:${o.color}">${esc(o.label)}</span></span>`).join('');
       return `\t\t\t\t\t\t\t<div class="variation-swatche">\n\t\t\t\t\t<div class="label"><label for="${name}">\t\n\t\t\t\t\t\t${esc(tax.name)}:</label>\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t</div>\n\t\t\t\t\t<div class="value with-swatches">\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t<div class="pls-swatches" data-attribute="${name}">\n\t\t\t\t\t\t\t\t\t${sw}\t\t\t\t\t\t\t\t</div> \t\t\t\t\t\t<div class="variation-selector pls-hidden">\n\t\t\t\t\t\t\t${select}\t\t\t\t\t\t</div>\n\t\t\t\t\t\t\t\t\t\t\t\t<a class="reset_variations" href="#" aria-label="Clear options">Clear</a>\t\t\t\t\t</div>\n\t\t\t\t</div>\n\t\t\t\t`;
     }
-    return `\t\t\t\t\t\t\t<div class="variation-swatche">\n\t\t\t\t\t<div class="label"><label for="${name}">\t\n\t\t\t\t\t\t${esc(tax ? tax.name : a.name)}:</label>\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t</div>\n\t\t\t\t\t<div class="value">\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t<div class="variation-selector">\n\t\t\t\t\t\t\t${select}\t\t\t\t\t\t</div>\n\t\t\t\t\t\t\t\t\t\t\t\t<a class="reset_variations" href="#" aria-label="Clear options">Clear</a>\t\t\t\t\t</div>\n\t\t\t\t</div>\n\t\t\t\t`;
+    return `\t\t\t\t\t\t\t<div class="variation-swatche">\n\t\t\t\t\t<div class="label"><label for="${name}">\t\n\t\t\t\t\t\t${esc(tax ? tax.name : a.name)}:</label>\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t</div>\n\t\t\t\t\t<div class="value ">\n\t\t\t\t\t\t\t\t\t\t\t\t<div class="variation-selector ">\n\t\t\t\t\t\t\t${select}\t\t\t\t\t\t</div>\n\t\t\t\t\t\t\t\t\t\t\t\t<a class="reset_variations" href="#" aria-label="Clear options">Clear</a>\t\t\t\t\t</div>\n\t\t\t\t</div>\n\t\t\t\t`;
   }).join('');
   const id = uniqid();
-  return `<form class="variations_form cart pls-swatches-wrap" action="${productUrl(p)}" method="post" enctype='multipart/form-data' data-product_id="${p.id}" data-product_variations="${escJsonAttr(phpJson((p.available_variations || []).map((v) => ({ ...v, availability_html: '' }))))}">\n\t\n\t\t\t<div class="variations" role="presentation">\n${rows}\t</div>\t\t\n\t\t<div class="reset_variations_alert screen-reader-text" role="alert" aria-live="polite" aria-relevant="all"></div>\n\t\t\n\t\t<div class="single_variation_wrap">\n\t\t\t<div class="woocommerce-variation single_variation" role="alert" aria-relevant="additions"></div><div class="woocommerce-variation-add-to-cart variations_button">\n\t\n\t\t${quantityNumber(id, esc(p.plain_name), null)}\n\t<button type="submit" class="single_add_to_cart_button button alt">Add to cart</button>\n\n\t${quickBuy(p, 'variable')}\n\t<input type="hidden" name="add-to-cart" value="${p.id}" />\n\t<input type="hidden" name="product_id" value="${p.id}" />\n\t<input type="hidden" name="variation_id" class="variation_id" value="0" />\n</div>\n\t\t</div>\n\t\n\t</form>\n\n\t`;
+  return `<form class="variations_form cart pls-swatches-wrap" action="${productUrl(p)}" method="post" enctype='multipart/form-data' data-product_id="${p.id}" data-product_variations="${escJsonAttr(phpJson((p.available_variations || []).map(({ image_src, image_srcset, image_sizes, ...v }) => ({ ...v, availability_html: '' }))))}">\n\t\n\t\t\t<div class="variations" role="presentation">\n${rows}\t</div>\t\t\n\t\t<div class="reset_variations_alert screen-reader-text" role="alert" aria-live="polite" aria-relevant="all"></div>\n\t\t\n\t\t<div class="single_variation_wrap">\n\t\t\t<div class="woocommerce-variation single_variation" role="alert" aria-relevant="additions"></div><div class="woocommerce-variation-add-to-cart variations_button">\n\t\n\t\t${quantityNumber(id, esc(p.plain_name), null)}\n\t<button type="submit" class="single_add_to_cart_button button alt">Add to cart</button>\n\n\t${quickBuy(p, 'variable')}\n\t<input type="hidden" name="add-to-cart" value="${p.id}" />\n\t<input type="hidden" name="product_id" value="${p.id}" />\n\t<input type="hidden" name="variation_id" class="variation_id" value="0" />\n</div>\n\t\t</div>\n\t\n\t</form>\n`;
 }
 
 /** Estimated delivery: 2 to 6 days from today (shop timezone), "06 October  - 10 October " */
@@ -142,7 +146,7 @@ function summary(p, ctx) {
     ? `\n\t\t\r\n\t\t<div class="pls-product-discount-label">\r\n\t\t\t<span class="on-sale">-${pct}% </span>\t\t</div> \n\t\n\t`
     : p.type === 'variable' ? '\n\n' : '\n\n\t\n\t';
   const form = p.type === 'variable' ? variationForm(p, ctx.taxonomies) : simpleForm(p);
-  return `<div class="summary entry-summary">\n\t\t\t\t\t\t<div class="pls-single-product-title">\r\n\t\t\t\t\t<div class="pls-product-cat">\r\n\t\t\t<span class="posted_in">${catLinks}</span>\t\t</div>\r\n\t<h1 class="product_title entry-title">${texturize(p.name)}</h1>\t\t\r\n\t\t<div class="pls-whishlist-btn">\r\n\t\t\t<a href="?add-to-wishlist=${p.id}" class="woosw-btn woosw-btn-${p.id}" data-id="${p.id}" data-product_name="${escName(p.name)}" data-product_image="${thumb}" rel="nofollow" aria-label="Add to wishlist">Add to wishlist</a>\t\t</div>\t\t\r\n\t\t\t </div>\r\n\t\t ${summaryPrice(p)}${discount}${form}\n\t\t\r\n\t\t<div class="pls-product-compare-share-wrap">\r\n\t\t\t\t\t\r\n\t\t<div class="pls-compare-btn">\r\n\t\t\t<a href="?add-to-compare=${p.id}" class="woosc-btn woosc-btn-${p.id} " rel="nofollow" data-text="Compare" data-text_added="Compare" data-id="${p.id}" data-product_id="${p.id}" data-product_name="${esc(p.name)}" data-product_image="${thumb}">Compare</a>\t\t</div>\r\n\t\t\t\t\r\n\t\t\t\t\t<div class="pls-product-share">\r\n\t\t\t\t<span class="share-label"> Share Products </span>\r\n\t\t\t</div>\r\n\t\t\t<div id="pls-product-share-popup" class="pls-product-share-popup mfp-hide">\r\n\t\t\t\t<h5 class="pls-share-popup-title">Share</h5>\r\n\t\t\t\t\t\t\t\t<div class="pls-social icons-fill-colour icons-shape-circle icons-size-small">\r\n\t\t\t\t\t<span class="pls-social-title">Share:</span>\t\t\t\t\t\r\n\t\t\t\t\t<a href="https://www.facebook.com/sharer/sharer.php?u=${url}" rel="external" class="social-facebook" aria-label="Facebook" target="_blank"><i class="picon-facebook-f"></i> <span class="social-text">Facebook</span></a><a href="https://www.linkedin.com/shareArticle?mini=true&url=${url}&amp;title=${plusEncode(name)}" rel="external" class="social-linkedin" aria-label="LinkedIn" target="_blank"><i class="picon-linkedin-in"></i> <span class="social-text">LinkedIn</span></a><a href="https://twitter.com/share?url=${plusEncode(name)}&amp;url=${url}" rel="external" class="social-twitter" aria-label="Twitter" target="_blank"><i class="picon-x-twitter"></i> <span class="social-text">Twitter</span></a><a href="https://pinterest.com/pin/create/button/?url=${url}&amp;description=${plusEncode(name)}&amp;media=${p.image ? SITE_URL() + p.image.url : ''}" rel="external" class="social-pinterest" aria-label="Pinterest" target="_blank"><i class="picon-pinterest-p"></i> <span class="social-text">Pinterest</span></a><a href="https://telegram.me/share/url?url=${url}" rel="external" class="social-telegram" aria-label="Telegram" target="_blank"><i class="picon-telegram"></i> <span class="social-text">Telegram</span></a>\t\t\t\t</div>\r\n\t\t\t\t\t\t\t<div class="pls-copy-link-wrap">\r\n\t\t\t\t\t<h6 class="pls-copy-link-title">Copy URL</h6>\r\n\t\t\t\t\t<form class="pls-product-share-form">\r\n\t\t\t\t\t\t<input id="pls-product-share-url" type="text" value="${url}" readonly>\r\n\t\t\t\t\t\t<button class="button pls-copy-btn" data-copy="Copy" data-copied="Copied"> \r\n\t\t\t\t\t\t\tCopy\t\t\t\t\t\t</button>\r\n\t\t\t\t\t</form>\r\n\t\t\t\t</div>\r\n\t\t\t</div>\r\n\t\t\t\t </div>\r\n\t\t \t\t<div class="pls-estimated-delivery">\r\n\t\t\t<div class="pls-delivery-label">\r\n\t\t\t\tEstimated Delivery:\t\t\t</div>\r\n\t\t\t<div class="pls-delivery-date">${deliveryDates()}</div>\r\n\t\t</div>\r\n\t\t<div class="pls-visitor-count pls-visitor-change" data-min="2" data-max="8" data-delay="5"><span class="product-visitor-count">${2 + Math.floor(Math.random() * 7)}</span> People viewing this product right now!</div><div class="product_meta">\n\n\t\n\t\n\t\t<span class="sku_wrapper">SKU: <span class="sku">${p.sku ? esc(p.sku) : 'N/A'}</span></span>\n\n\t\n\t<span class="posted_in">${ctx.mine.length > 1 ? 'Categories' : 'Category'}: ${catLinks}</span>\n\t\n\t\n</div>\n\t\t\t</div>`;
+  return `<div class="summary entry-summary">\n\t\t\t\t\t\t<div class="pls-single-product-title">\r\n\t\t\t\t\t<div class="pls-product-cat">\r\n\t\t\t<span class="posted_in">${catLinks}</span>\t\t</div>\r\n\t<h1 class="product_title entry-title">${texturize(p.name)}</h1>\t\t\r\n\t\t<div class="pls-whishlist-btn">\r\n\t\t\t<a href="?add-to-wishlist=${p.id}" class="woosw-btn woosw-btn-${p.id}" data-id="${p.id}" data-product_name="${escName(p.name)}" data-product_image="${thumb}" rel="nofollow" aria-label="Add to wishlist">Add to wishlist</a>\t\t</div>\t\t\r\n\t\t\t </div>\r\n\t\t ${summaryPrice(p)}${discount}${form}\n\t\t\r\n\t\t<div class="pls-product-compare-share-wrap">\r\n\t\t\t\t\t\r\n\t\t<div class="pls-compare-btn">\r\n\t\t\t<a href="?add-to-compare=${p.id}" class="woosc-btn woosc-btn-${p.id} " rel="nofollow" data-text="Compare" data-text_added="Compare" data-id="${p.id}" data-product_id="${p.id}" data-product_name="${esc(p.name)}" data-product_image="${thumb}">Compare</a>\t\t</div>\r\n\t\t\t\t\r\n\t\t\t\t\t<div class="pls-product-share">\r\n\t\t\t\t<span class="share-label"> Share Products </span>\r\n\t\t\t</div>\r\n\t\t\t<div id="pls-product-share-popup" class="pls-product-share-popup mfp-hide">\r\n\t\t\t\t<h5 class="pls-share-popup-title">Share</h5>\r\n\t\t\t\t\t\t\t\t<div class="pls-social icons-fill-colour icons-shape-circle icons-size-small">\r\n\t\t\t\t\t<span class="pls-social-title">Share:</span>\t\t\t\t\t\r\n\t\t\t\t\t<a href="https://www.facebook.com/sharer/sharer.php?u=${url}" rel="external" class="social-facebook" aria-label="Facebook" target="_blank"><i class="picon-facebook-f"></i> <span class="social-text">Facebook</span></a><a href="https://www.linkedin.com/shareArticle?mini=true&url=${url}&amp;title=${plusEncode(name)}" rel="external" class="social-linkedin" aria-label="LinkedIn" target="_blank"><i class="picon-linkedin-in"></i> <span class="social-text">LinkedIn</span></a><a href="https://twitter.com/share?url=${plusEncode(name)}&amp;url=${url}" rel="external" class="social-twitter" aria-label="Twitter" target="_blank"><i class="picon-x-twitter"></i> <span class="social-text">Twitter</span></a><a href="https://pinterest.com/pin/create/button/?url=${url}&amp;description=${plusEncode(name)}&amp;media=${SITE_URL()}${p.image ? p.image.url : '/wp-includes/images/media/default.svg'}" rel="external" class="social-pinterest" aria-label="Pinterest" target="_blank"><i class="picon-pinterest-p"></i> <span class="social-text">Pinterest</span></a><a href="https://telegram.me/share/url?url=${url}" rel="external" class="social-telegram" aria-label="Telegram" target="_blank"><i class="picon-telegram"></i> <span class="social-text">Telegram</span></a>\t\t\t\t</div>\r\n\t\t\t\t\t\t\t<div class="pls-copy-link-wrap">\r\n\t\t\t\t\t<h6 class="pls-copy-link-title">Copy URL</h6>\r\n\t\t\t\t\t<form class="pls-product-share-form">\r\n\t\t\t\t\t\t<input id="pls-product-share-url" type="text" value="${url}" readonly>\r\n\t\t\t\t\t\t<button class="button pls-copy-btn" data-copy="Copy" data-copied="Copied"> \r\n\t\t\t\t\t\t\tCopy\t\t\t\t\t\t</button>\r\n\t\t\t\t\t</form>\r\n\t\t\t\t</div>\r\n\t\t\t</div>\r\n\t\t\t\t </div>\r\n\t\t \t\t<div class="pls-estimated-delivery">\r\n\t\t\t<div class="pls-delivery-label">\r\n\t\t\t\tEstimated Delivery:\t\t\t</div>\r\n\t\t\t<div class="pls-delivery-date">${deliveryDates()}</div>\r\n\t\t</div>\r\n\t\t<div class="pls-visitor-count pls-visitor-change" data-min="2" data-max="8" data-delay="5"><span class="product-visitor-count">${2 + Math.floor(Math.random() * 7)}</span> People viewing this product right now!</div><div class="product_meta">\n\n\t\n\t\n\t\t<span class="sku_wrapper">SKU: <span class="sku">${p.sku ? esc(p.sku) : 'N/A'}</span></span>\n\n\t\n\t<span class="posted_in">${ctx.mine.length > 1 ? 'Categories' : 'Category'}: ${catLinks}</span>\n\t\n\t\n</div>\n\t\t\t</div>`;
 }
 
 let reviewsEmptyTpl;
@@ -150,7 +154,7 @@ function reviewsPanel(p, reviews) {
   const approved = reviews.filter((r) => r.status === 'approved');
   const n = approved.length;
   if (!n && reviewsEmptyTpl) {
-    return fill(reviewsEmptyTpl, { product_name: esc(decodeEntities(p.name)), product_url: productUrl(p), product_id: String(p.id) });
+    return fill(reviewsEmptyTpl, { product_name: texturize(p.name), product_url: productUrl(p), product_id: String(p.id) });
   }
   const avg = n ? (approved.reduce((s, r) => s + (r.rating || 0), 0) / n) : 0;
   const bars = [5, 4, 3, 2, 1].map((star) => {
@@ -179,7 +183,7 @@ function attributesTable(p, taxonomies) {
 
 function tabs(p, reviews, taxonomies) {
   const list = [];
-  if (p.description && p.description.trim()) list.push(['description', 'Description', `\n\n${p.description}\n`]);
+  if (p.description && p.description.trim()) list.push(['description', 'Description', `\n\n${p.description.replace(/\n+$/, '')}\n`]);
   const attrTable = attributesTable(p, taxonomies);
   if (attrTable) list.push(['additional_information', 'Additional information', attrTable]);
   const approved = reviews.filter((r) => r.status === 'approved').length;
@@ -239,13 +243,28 @@ export function schemaJson(p, siteUrl) {
   return JSON.stringify({ '@context': 'https://schema.org/', '@type': 'Product', '@id': `${url}#product`, name: decodeEntities(p.name), url, description: '', image: p.image ? `${siteUrl}${p.image.url}` : '', sku: p.sku || String(p.id), offers: [offer] });
 }
 
+/** wp_filter_content_tags(): adds srcset/sizes to <img class="wp-image-ID"> in post content */
+export async function contentImages(html) {
+  const ids = [...(html || '').matchAll(/<img [^>]*class="[^"]*wp-image-(\d+)[^"]*"[^>]*>/g)].map((m) => Number(m[1]));
+  if (!ids.length) return html;
+  const media = await mediaByIds(ids);
+  return html.replace(/<img ([^>]*class="[^"]*wp-image-(\d+)[^"]*"[^>]*?)\s*\/?>/g, (tag, attrs, id) => {
+    const m = media.get(Number(id));
+    if (!m || /srcset=/.test(attrs)) return tag;
+    const file = (attrs.match(/src="([^"]+)"/) || [])[1]?.split('/').pop();
+    const size = (m.sizes || []).find((s) => s.file === file) || { file: m.url.split('/').pop(), width: m.width, height: m.height };
+    const set = srcset(m, size);
+    return set ? `<img ${attrs} srcset="${set}" sizes="(max-width: ${size.width}px) 100vw, ${size.width}px" />` : tag;
+  });
+}
+
 /** Returns { html, product, category } or null when the product is not viewable. */
 export async function renderProduct(slug, { currentUrl, preview = false } = {}) {
   const [row] = await query(`select id, created_at, description, weight, catalog_visibility, online_visible, status from products where slug = $1`, [slug]);
   if (!row) return null;
   if (!preview && (row.status !== 'publish' || !row.online_visible)) return null;
   const [p] = await productsByIds([row.id]);
-  Object.assign(p, { created_at: row.created_at, description: row.description, weight: row.weight });
+  Object.assign(p, { created_at: row.created_at, description: await contentImages(row.description), weight: row.weight });
   const { cats, main, mine } = await mainCategory(p.id);
   const taxonomies = await attributeTaxonomies();
   const [imagesRows, reviews, nav] = await Promise.all([
