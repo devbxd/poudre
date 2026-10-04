@@ -49,7 +49,8 @@ const HERO_FIX = `<style>
 .pls-home-slides .pls-slide{position:relative;overflow:hidden}
 .pls-home-slides .pls-slide-inner{position:static}
 .pls-home-slides .pls-slide-image{position:absolute!important;inset:0!important;width:100%!important;max-width:none!important;height:100%!important;margin:0!important;background-size:contain!important;background-position:center!important;background-color:#fff;z-index:0}
-.pls-home-slides .pls-slide-content{position:absolute!important;left:0!important;right:0!important;bottom:28px!important;top:auto!important;width:100%!important;max-width:none!important;padding:0!important;transform:none!important;display:flex!important;justify-content:center!important;z-index:1}
+.elementor-widget-pls-home-slides .pls-home-slides .swiper-slide .pls-slide-content{position:absolute!important;left:16px!important;right:auto!important;bottom:16px!important;top:auto!important;height:auto!important;min-height:0!important;width:auto!important;max-width:none!important;margin:0!important;padding:0!important;transform:none!important;display:flex!important;justify-content:flex-start!important;align-items:flex-end!important;z-index:2}
+@media (min-width:768px){.elementor-widget-pls-home-slides .pls-home-slides .swiper-slide .pls-slide-content{left:32px!important;bottom:28px!important}}
 .pls-home-slides .pls-slide-content-bottom,.pls-home-slides .pls-slide-button{position:static!important;margin:0!important;transform:none!important;text-align:center!important;width:100%!important}
 </style>`;
 function fixHero(html) {
