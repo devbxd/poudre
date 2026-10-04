@@ -30,7 +30,7 @@ export async function renderPage(page) {
     ? await cached(key, 30000, async () => buildMenus(menuSets, cats, null))
     : buildMenus(menuSets, cats, ctx);
   let selects = 0;
-  let html = fill(tpl, {
+  let html = fill(withMobileCart(tpl), {
     title: `${esc(page.title)} &#8211; Poudre Beauty`,
     head: page.head || '',
     body_class: page.bodyClass,
@@ -77,3 +77,11 @@ async function withVariationScripts(html) {
     .replace(/(<script id="popup-maker-site-js" src="[^"]*"><\/script>)/, (m) => `${m}\n${scripts}`);
 }
 
+
+// The theme's phone header only had search + account: the cart icon (with its counter) is added next to them,
+// same markup as the desktop one so the theme's mini cart opens the same way.
+const MOBILE_END = '\t</div>\t</div>\n</div>\t\t\t<!-- End Mobile Header-->';
+const MOBILE_CART = `\n<div class="pls-header-cart pls-cart-icon-1 pdr-mobile-cart">\n\t<a href="/cart/" aria-label="Header Cart">\t\t\n\t\t\t\t<div class="pls-header-cart-icon">\n\t\t\t\t\t<!--@cart_count-->\n\t\t\t\t</div>\n\t</a>\t\n</div>`;
+const withMobileCart = (tpl) => (tpl.includes(MOBILE_END) && !tpl.includes('pdr-mobile-cart')
+  ? tpl.replace(MOBILE_END, `\t</div>${MOBILE_CART}\t</div>\n</div>\t\t\t<!-- End Mobile Header-->`)
+  : tpl);
