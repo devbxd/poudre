@@ -292,3 +292,123 @@ export async function renderProduct(slug, { currentUrl, preview = false } = {}) 
   });
   return { html, product: p, mainCategory: main, categories: mine, chain };
 }
+
+async function loadForPopup(productId) {
+  const [p] = await productsByIds([Number(productId)]);
+  if (!p) return null;
+  const { cats, mine } = await mainCategory(p.id);
+  const [imagesRows] = await query('select images from products where id = $1', [p.id]);
+  const refs = json(imagesRows?.images) || [];
+  const media = await mediaByIds(refs.map((r) => r.id));
+  return { p, cats, mine, taxonomies: await attributeTaxonomies(), images: refs.map((r) => media.get(Number(r.id))).filter(Boolean) };
+}
+
+/** Quick view popup (pls_product_quick_view): gallery + short summary, as the theme renders it */
+export async function quickViewHtml(productId) {
+  const d = await loadForPopup(productId);
+  if (!d) return '';
+  const { p, cats, mine, taxonomies, images } = d;
+  const name = decodeEntities(p.name);
+  const catLinks = mine.sort((a, b) => a.name.localeCompare(b.name)).map((c) => `<a href="${categoryUrl(cats, c)}" rel="tag">${esc(c.name)}</a>`).join(', ');
+  const thumb = p.image ? imageUrl(p.image, 'woocommerce_gallery_thumbnail') : '';
+  const galleryClass = images.length > 1 ? 'pls-product-gallery-with-thumbnails' : 'pls-product-gallery-without-thumbnails';
+  const slides = images.length
+    ? images.map((m, i) => galleryImage(m, i, name)).join('')
+    : '<div class="woocommerce-product-gallery__image woocommerce-product-gallery__image--placeholder"><img src="/wp-content/uploads/woocommerce-placeholder-800x800.png" alt="Awaiting product image" class="wp-post-image" /></div>';
+  const low = p.type !== 'variable' && p.manage_stock && p.stock_quantity > 0 && p.stock_quantity <= 5 ? `<p class="stock min-stock">Hurry, Only ${p.stock_quantity} left.</p>\n` : '';
+  const form = p.type === 'variable' ? variationForm(p, taxonomies) : simpleForm(p);
+  return `<div id="product-${p.id}" class="product-quick-view ${productClasses(p, ['first'])}">
+\t<div class="pls-product-gallery">
+\t\t<div class="woocommerce-product-gallery ${galleryClass} is-quick-view images" data-columns="4" style="opacity: 0; transition: opacity .25s ease-in-out;">
+\t<div class="woocommerce-product-gallery__wrapper">
+\t\t<div class="pls-single-product-gallery" >
+\t\t\t${slides}\t\t</div>
+\t\t<div class="pls-product-gallery-btns">
+\t\t\t\t\t</div>
+\t</div>
+</div>
+\t</div>
+\t<div class="pls-product-summary">
+\t\t<div class="summary entry-summary">
+\t\t\t\t\t<div class="pls-single-product-title">
+\t\t\t\t\t<div class="pls-product-cat">
+\t\t\t<span class="posted_in">${catLinks}</span>\t\t</div>
+\t<h1 class="product_title entry-title">${texturize(p.name)}</h1>\t\t
+\t\t<div class="pls-whishlist-btn">
+\t\t\t<a href="?add-to-wishlist=${p.id}" class="woosw-btn woosw-btn-${p.id}" data-id="${p.id}" data-product_name="${escName(p.name)}" data-product_image="${thumb}" rel="nofollow" aria-label="Add to wishlist">Add to wishlist</a>\t\t</div>\t\t
+\t\t\t </div>
+\t\t ${summaryPrice(p)}
+${low}
+\t${form}
+<div class="product_meta">
+
+\t
+\t
+\t\t<span class="sku_wrapper">SKU: <span class="sku">${p.sku ? esc(p.sku) : 'N/A'}</span></span>
+
+\t
+\t<span class="posted_in">${mine.length > 1 ? 'Categories' : 'Category'}: ${catLinks}</span>
+\t
+\t
+</div>
+\t\t</div><!-- .summary -->
+\t</div>
+</div>`;
+}
+
+/** Quick shop panel on product cards (pls_quick_shop_add_to_cart): the variation form only */
+export async function quickShopHtml(productId) {
+  const d = await loadForPopup(productId);
+  if (!d) return '';
+  const form = d.p.type === 'variable' ? variationForm(d.p, d.taxonomies) : simpleForm(d.p);
+  return `\t\t<div class="pls-quick-shop-wrapper">\r\n\t\t\t<div class="pls-quick-shop-close">X</div>\r\n\t\t\t<div class="pls-quick-shop-form">\r\n\t\t\t\t\n${form}\n\t\t\t</div>\r\n\t\t</div>\r\n\t\t`;
+}
+
+/** Compare list (WPC Smart Compare "woosc_load"): bottom bar items and comparison table */
+export async function compareData(ids) {
+  const products = (await productsByIds(ids)).filter(Boolean);
+  const taxonomies = await attributeTaxonomies();
+  const rows = await query('select id, images, short_description, weight from products where id = any($1::int[])', [products.map((p) => p.id)]);
+  const extra = new Map(rows.map((r) => [r.id, r]));
+  const media = await mediaByIds(products.map((p) => (json(extra.get(p.id)?.images) || [])[0]?.id).filter(Boolean));
+  const img = (p, size, px, cls, drag) => {
+    const m = media.get(Number((json(extra.get(p.id)?.images) || [])[0]?.id));
+    if (!m) return '<img src="/wp-content/uploads/woocommerce-placeholder-600x600.png" alt="Placeholder" />';
+    const dir = m.url.slice(0, m.url.lastIndexOf('/') + 1);
+    const base = m.url.slice(dir.length).replace(/(-scaled)?\.([a-z]+)$/i, `-${px}x${px}.$2`);
+    return `<img width="${px}" height="${px}" src="${dir}${base}" class="attachment-${cls} size-${cls}" alt="${esc(decodeEntities(p.name))}"${drag ? ' draggable="false"' : ''} decoding="async" />`;
+  };
+  const stock = (p) => {
+    if (p.stock_status === 'outofstock') return ['<p class="stock out-of-stock">Out of stock</p>\n', 'Out of stock'];
+    if (p.type !== 'variable' && p.manage_stock && p.stock_quantity > 0 && p.stock_quantity <= 5) return [`<p class="stock min-stock">Hurry, Only ${p.stock_quantity} left.</p>\n`, `Hurry, Only ${p.stock_quantity} left.`];
+    return ['<p class="stock in-stock">In Stock</p>\n', 'In Stock'];
+  };
+  const link = (p) => `<a  href="${productUrl(p)}" draggable="false" >${decodeEntities(p.name)}</a> <span class="woosc-remove" data-id="${p.id}">remove</span>`;
+  const atc = (p) => (p.type === 'variable' || p.stock_status === 'outofstock'
+    ? `<p class="product woocommerce add_to_cart_inline " style=""><a href="${productUrl(p)}" data-quantity="1" class="button product_type_${p.type} add_to_cart_button" data-product_id="${p.id}" data-product_sku="${esc(p.sku || '')}" rel="">${p.type === 'variable' ? 'Quick Shop' : 'Read more'}</a></p>`
+    : `<p class="product woocommerce add_to_cart_inline " style=""><a href="?add-to-cart=${p.id}" data-quantity="1" class="button product_type_simple add_to_cart_button ajax_add_to_cart" data-product_id="${p.id}" data-product_sku="${esc(p.sku || '')}" aria-label="Add to cart: &ldquo;${esc(decodeEntities(p.name))}&rdquo;" rel="nofollow" role="button">Add to cart</a></p>`);
+  const price = (p) => summaryPrice(p).replace(/^<p class="price pls-product-price">|<\/p>$/g, '');
+  const fields = [
+    ['image', 'Image', (p) => `<a  href="${productUrl(p)}" draggable="false" >${img(p, 'woosc-large', 600, 'woosc-large', true)}</a>`],
+    ['sku', 'SKU', (p) => esc(p.sku || '')],
+    ['rating', 'Rating', () => ''],
+    ['price', 'Price', price],
+    ['stock', 'Stock', (p) => stock(p)[0]],
+    ['availability', 'Availability', (p) => stock(p)[1]],
+    ['add_to_cart', 'Add to cart', atc],
+    ['description', 'Description', (p) => extra.get(p.id)?.short_description || ''],
+    ['content', 'Content', () => ''],
+    ['weight', 'Weight', (p) => (extra.get(p.id)?.weight ? `${extra.get(p.id).weight} kg` : 'N/A')],
+    ['dimensions', 'Dimensions', () => 'N/A'],
+    ['additional', 'Additional information', (p) => attributesTable(p, taxonomies).trim()],
+  ];
+  const n = products.length;
+  const head = `<thead><tr><th class="th-label"><a href="#settings" class="woosc-table-settings">Settings</a></th>${products.map((p) => `<th class="col">${link(p)}</th>`).join('')}<th class="th-placeholder"></th></tr></thead>`;
+  const body = `<tr class="tr-name tr-print"><td class="td-label">Name</td>${products.map((p) => `<td class="col">${link(p)}</td>`).join('')}<td class="td-placeholder"></td></tr>`
+    + fields.map(([key, label, fn], i) => `<tr class="tr-default tr-${i % 2 ? 'even' : 'odd'} tr-${key} "><td class="td-label">${label}</td>${products.map((p) => `<td class="col">${fn(p)}</td>`).join('')}<td class="td-placeholder"></td></tr>`).join('');
+  return {
+    count: n,
+    bar: products.map((p) => `<div class="woosc-bar-item" data-id="${p.id}"><span class="woosc-bar-item-img hint--top" role="button" aria-label="${esc(decodeEntities(p.name))}">${img(p, 'woosc-small', 96, 'woosc-small', false)}</span><span class="woosc-bar-item-remove hint--top" role="button" aria-label="Remove" data-id="${p.id}"></span></div>`).join(''),
+    table: n ? `<table id="woosc_table" class="woosc_table has-${n}">${head}<tbody>${body}</tbody></table>` : '<div class="woosc-no-result">Click outside to hide the comparison bar</div>',
+  };
+}

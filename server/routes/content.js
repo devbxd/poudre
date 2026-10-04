@@ -5,6 +5,7 @@ import { requireStaff } from '../auth.js';
 import { fail, pick, insertRow, updateRow, uniqueSlug, paging, getSetting, setSetting, audit } from '../lib.js';
 import { saveFile, deleteFile } from '../storage.js';
 import { sizesFor } from '../images.js';
+import { emailSettings, sendMail, layout, EMAIL_TYPES } from '../mail.js';
 
 export const content = new Hono();
 
@@ -110,11 +111,40 @@ content.post('/menus', requireStaff('manager'), async (c) => {
 
 // ---------------- Settings ----------------
 const SETTING_KEYS = ['store', 'shipping', 'payments', 'pos', 'homepage', 'header', 'footer', 'seo', 'notifications', 'popup', 'social', 'checkout'];
+// ---------------- E-mails (owner only; the mailbox password never leaves the server) ----------------
+const publicEmails = async () => {
+  const { smtp_pass, store, ...rest } = await emailSettings();
+  return { ...rest, has_password: !!smtp_pass, types: EMAIL_TYPES };
+};
+content.get('/emails', requireStaff('owner'), async (c) => c.json(await publicEmails()));
+content.put('/emails', requireStaff('owner'), async (c) => {
+  const body = await c.req.json();
+  const cur = await getSetting('emails', {});
+  const next = { ...cur, ...pick(body, ['from_name', 'from_email', 'notify_to', 'smtp_host', 'smtp_port', 'smtp_user', 'enabled']) };
+  if (body.smtp_pass) next.smtp_pass = body.smtp_pass;
+  await setSetting('emails', next);
+  await audit(c.get('staff'), 'update', 'settings', 'emails');
+  return c.json(await publicEmails());
+});
+content.post('/emails/test', requireStaff('owner'), async (c) => {
+  const { to } = await c.req.json();
+  const cfg = await emailSettings();
+  const target = to || cfg.notify_to;
+  if (!target) fail(400, 'Enter an address to send the test to');
+  try {
+    await sendMail({ to: target, subject: `Test e-mail from ${cfg.from_name}`, html: layout(cfg, 'It works!', '<p>Your shop can send e-mails. Order confirmations and new-order alerts will be sent from this address.</p>') }, cfg);
+  } catch (e) { fail(400, `Could not send: ${e.message}`); }
+  return c.json({ ok: true, to: target });
+});
+
 content.get('/settings', requireStaff(), async (c) => {
-  const rows = await query('select key, value from settings');
+  const rows = await query("select key, value from settings where key <> 'emails'");
   return c.json(Object.fromEntries(rows.map((r) => [r.key, typeof r.value === 'string' ? JSON.parse(r.value) : r.value])));
 });
-content.get('/settings/:key', requireStaff(), async (c) => c.json(await getSetting(c.req.param('key'), {})));
+content.get('/settings/:key', requireStaff(), async (c) => {
+  if (c.req.param('key') === 'emails') fail(403, 'Use /emails');
+  return c.json(await getSetting(c.req.param('key'), {}));
+});
 content.put('/settings/:key', requireStaff('manager'), async (c) => {
   const key = c.req.param('key');
   if (!SETTING_KEYS.includes(key)) fail(400, 'Unknown setting');

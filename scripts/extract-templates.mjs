@@ -41,6 +41,8 @@ function replaceElement(html, needle, marker, { all = false, required = true } =
 
 function normalise(html) {
   return html
+    // injected SEO spam (hidden gambling links) found in the WordPress footer widget — never copied
+    .replace(/<div style="display: none;" data-nosnippet>[\s\S]*?<\/div>/g, (m) => (/kokotogel|koko4d|hoqbet|boba288/.test(m) ? '' : m))
     // root-relative URLs so the site works on any domain (staging, then poudrebeauty.com)
     .replaceAll('https://poudrebeauty.com/', '/')
     .replaceAll('https:\\/\\/poudrebeauty.com\\/', '\\/')

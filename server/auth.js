@@ -25,6 +25,18 @@ const publicStaff = (s) => ({ id: s.id, name: s.name, username: s.username, emai
 
 export const ROLES = { owner: 3, manager: 2, cashier: 1 };
 
+/** Password reset link for a customer: valid 24 h and only until the password changes (fingerprint of the current hash). */
+const fingerprint = (hash) => (hash || 'none').slice(-12);
+export async function resetToken(customer) {
+  return new SignJWT({ rid: customer.id, fp: fingerprint(customer.password_hash) }).setProtectedHeader({ alg: 'HS256' }).setIssuedAt().setExpirationTime('24h').sign(secret());
+}
+export async function checkResetToken(token, id) {
+  const p = await verify(token || '');
+  if (!p || Number(p.rid) !== Number(id)) return null;
+  const customer = await one('select * from customers where id = $1', [Number(id)]);
+  return customer && fingerprint(customer.password_hash) === p.fp ? customer : null;
+}
+
 /** Middleware: requires a logged-in staff member with at least `minRole`. */
 export const requireStaff = (minRole = 'cashier') => async (c, next) => {
   const payload = await verify(getCookie(c, COOKIE) || c.req.header('authorization')?.replace(/^Bearer /, '') || '');

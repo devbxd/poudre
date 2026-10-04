@@ -43,8 +43,26 @@ function fillGrid(html, start, products, { slider, images }) {
   return html.slice(0, start) + open + head + cards + tail + '</div>' + html.slice(end);
 }
 
+// The hero slider was misconfigured in WordPress (1.5 slides shown, constantly sliding, image on half the slide),
+// so it mostly showed white space: one full-width banner at a time, changing every 5 seconds.
+const HERO_FIX = `<style>
+.pls-home-slides .pls-slide{position:relative;overflow:hidden}
+.pls-home-slides .pls-slide-inner{position:static}
+.pls-home-slides .pls-slide-image{position:absolute!important;inset:0!important;width:100%!important;max-width:none!important;height:100%!important;margin:0!important;background-size:contain!important;background-position:center!important;background-color:#fff;z-index:0}
+.pls-home-slides .pls-slide-content{position:absolute!important;left:0!important;right:0!important;bottom:28px!important;top:auto!important;width:100%!important;max-width:none!important;padding:0!important;transform:none!important;display:flex!important;justify-content:center!important;z-index:1}
+.pls-home-slides .pls-slide-content-bottom,.pls-home-slides .pls-slide-button{position:static!important;margin:0!important;transform:none!important;text-align:center!important;width:100%!important}
+</style>`;
+function fixHero(html) {
+  return html
+    .replace(/&quot;slider_autoplay_delay&quot;:\d+/, '&quot;slider_autoplay_delay&quot;:5000')
+    .replace(/&quot;slider_autoplay_speed&quot;:\d+/, '&quot;slider_autoplay_speed&quot;:600')
+    .replace(/&quot;slides_to_show&quot;:[\d.]+/, '&quot;slides_to_show&quot;:1')
+    .replace(/&quot;slider_centered&quot;:true/, '&quot;slider_centered&quot;:false')
+    .replace('<div class="elementor-widget-container">\n\t\t\t\t\t<div id="pls-home-slides-', `<div class="elementor-widget-container">${HERO_FIX}\n\t\t\t\t\t<div id="pls-home-slides-`);
+}
+
 export async function renderHome() {
-  let html = await page();
+  let html = fixHero(await page());
   const overrides = (await setting('homepage', {})).sections || [];
   const images = { count: 0 };
   // every tabs widget: the active pane shows the first tab's products

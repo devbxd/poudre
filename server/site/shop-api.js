@@ -9,8 +9,11 @@ import { productUrl, texturize } from './product-card.js';
 import { loadCart, saveCart, addToCart, computeCart, fragments, storeCart, sessionId } from './cart.js';
 import { wishlistIds } from './visitor.js';
 import { categoryTabHtml } from './home.js';
+import { quickViewHtml, quickShopHtml, compareData } from './product-page.js';
+import { getCookie } from 'hono/cookie';
 import { availabilityHtml } from './variations.js';
 import { createOrder } from '../orders.js';
+import { sendOrderEmail, emailSettings, sendMail, layout } from '../mail.js';
 
 export const shopApi = new Hono();
 const siteUrl = (c) => process.env.SITE_URL || new URL(c.req.url).origin;
@@ -159,7 +162,16 @@ const WC_AJAX = {
     return c.html('<div class="woocommerce-message" role="alert">Coupon code applied successfully.</div>');
   },
   ...WISHLIST,
-  async woosc_load(c) { return c.json({}); },
+  async woosc_load(c, b) {
+    // the compare list lives in the visitor's cookie ("woosc_products_<hash>"), as with the plugin
+    const raw = Object.entries(getCookie(c) || {}).find(([k]) => k.startsWith('woosc_products'))?.[1] || '';
+    const ids = decodeURIComponent(raw).split(',').map(Number).filter(Boolean).slice(0, 100);
+    if (!ids.length) return c.json(b.get_data === 'count' ? { count: 0 } : { bar: '', table: '<div class="woosc-no-result">Click outside to hide the comparison bar</div>', filter: '' });
+    const d = await compareData(ids);
+    if (b.get_data === 'count') return c.json({ count: d.count });
+    return c.json({ bar: d.bar, table: d.table, filter: '', sidebar: d.bar, count: d.count });
+  },
+  async woosc_search(c) { return c.html(''); },
 };
 
 export async function wcAjax(c) {
@@ -179,6 +191,12 @@ const flatAttr = (b, name) => {
 };
 
 const ADMIN_AJAX = {
+  async pls_product_quick_view(c, b) {
+    return c.html(await quickViewHtml(b.pid || b.product_id || b.id));
+  },
+  async pls_quick_shop_add_to_cart(c, b) {
+    return c.html(await quickShopHtml(b.product_id || b.pid));
+  },
   async pls_category_tab_product(c, b) {
     return c.json({ html: await categoryTabHtml(flatAttr(b, 'attr')) });
   },
@@ -238,7 +256,7 @@ const ADMIN_AJAX = {
 };
 
 export async function adminAjax(c) {
-  const b = await body(c);
+  const b = { ...c.req.query(), ...(await body(c)) };
   const action = b.action || c.req.query('action');
   const fn = ADMIN_AJAX[action];
   if (!fn) return c.text('0', 400);
@@ -356,6 +374,11 @@ async function placeOrder(c, b) {
   cart.items = [];
   cart.coupons = [];
   await saveCart(c, cart);
+  // like WooCommerce: alert the shop and confirm to the customer (in parallel, failures only logged)
+  const mails = Promise.all([sendOrderEmail('new_order', order.id), sendOrderEmail('customer_processing', order.id)]);
+  // on Netlify the e-mails finish after the response (context.waitUntil), so the customer is not kept waiting
+  const waitUntil = c.env?.context?.waitUntil?.bind(c.env.context);
+  if (waitUntil) waitUntil(mails); else await mails;
   const redirect = `${siteUrl(c)}/checkout/order-received/${order.id}/?key=${orderKey}`;
   return c.json({
     order_id: order.id, status: 'processing', order_key: orderKey, order_number: String(order.id), customer_note: b.customer_note || '', customer_id: 0,
@@ -386,4 +409,45 @@ shopApi.all('/wp-json/wc/store/v1/*', async (c) => {
 
 shopApi.all('/wp-admin/admin-ajax.php', adminAjax);
 
+
+// ---------------- Contact Form 7 (Contact Us page): same REST endpoints and answers as the plugin ----------------
+const CF7_RULES = [
+  { rule: 'required', field: 'your-name', error: 'Please fill out this field.' }, { rule: 'maxlength', field: 'your-name', threshold: 400, error: 'This field has a too long input.' },
+  { rule: 'required', field: 'your-email', error: 'Please fill out this field.' }, { rule: 'email', field: 'your-email', error: 'Please enter an email address.' },
+  { rule: 'maxlength', field: 'your-email', threshold: 400, error: 'This field has a too long input.' },
+  { rule: 'required', field: 'your-subject', error: 'Please fill out this field.' }, { rule: 'maxlength', field: 'your-subject', threshold: 400, error: 'This field has a too long input.' },
+  { rule: 'maxlength', field: 'your-message', threshold: 2000, error: 'This field has a too long input.' },
+];
+shopApi.get('/wp-json/contact-form-7/v1/contact-forms/:id/feedback/schema', (c) => c.json({ version: 'Contact Form 7 SWV Schema 2024-10', locale: 'en_US', rules: CF7_RULES }));
+shopApi.post('/wp-json/contact-form-7/v1/contact-forms/:id/feedback', async (c) => {
+  const id = Number(c.req.param('id'));
+  const f = await c.req.parseBody();
+  const unit = String(f._wpcf7_unit_tag || `wpcf7-f${id}-p39-o1`);
+  const val = (k) => String(f[k] ?? '').trim();
+  const invalid = [];
+  for (const r of CF7_RULES) {
+    if (invalid.some((x) => x.field === r.field)) continue;
+    const v = val(r.field);
+    const bad = r.rule === 'required' ? !v : r.rule === 'email' ? v && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v) : v.length > r.threshold;
+    if (bad) invalid.push({ field: r.field, message: r.error, idref: null, error_id: `${unit}-ve-${r.field}` });
+  }
+  const base = { contact_form_id: id, posted_data_hash: '', into: `#${unit}` };
+  if (invalid.length) return c.json({ ...base, status: 'validation_failed', message: 'One or more fields have an error. Please check and try again.', invalid_fields: invalid });
+  const msg = { name: val('your-name'), email: val('your-email'), subject: val('your-subject'), body: val('your-message') };
+  // bots: obvious link spam is stored as already-read so it does not bother the shop
+  const spammy = (msg.body.match(/https?:\/\//g) || []).length > 2;
+  await query('insert into messages (kind, name, email, subject, body, read) values ($1,$2,$3,$4,$5,$6)', ['contact', msg.name, msg.email, msg.subject, msg.body, spammy]);
+  if (!spammy) {
+    try {
+      const cfg = await emailSettings();
+      if (cfg.enabled.contact_form && cfg.notify_to && cfg.smtp_user && cfg.smtp_pass) {
+        await sendMail({
+          to: cfg.notify_to, replyTo: msg.email, subject: `[${cfg.from_name}] ${msg.subject}`,
+          html: layout(cfg, 'New message from the website', `<p><b>From:</b> ${esc(msg.name)} &lt;${esc(msg.email)}&gt;</p><p><b>Subject:</b> ${esc(msg.subject)}</p><p style="white-space:pre-wrap;border:1px solid #eee;padding:12px">${esc(msg.body)}</p><p style="color:#8a8a8a">Reply to this e-mail to answer the customer. All messages are also in Dashboard → Messages.</p>`),
+        }, cfg);
+      }
+    } catch (e) { console.error('contact mail', e.message); }
+  }
+  return c.json({ ...base, status: 'mail_sent', message: 'Thank you for your message. It has been sent.', invalid_fields: [] });
+});
 export { texturize };

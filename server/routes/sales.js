@@ -3,6 +3,7 @@ import { query, one, tx } from '../db.js';
 import { requireStaff } from '../auth.js';
 import { fail, pick, insertRow, updateRow, paging, Where, audit, toCsv } from '../lib.js';
 import { createOrder, changeStatus, refundOrder } from '../orders.js';
+import { emailsForStatus, sendOrderEmail } from '../mail.js';
 
 export const sales = new Hono();
 
@@ -81,15 +82,17 @@ sales.put('/orders/:id', requireStaff('manager'), async (c) => {
   const id = Number(c.req.param('id'));
   const body = await c.req.json();
   const staff = c.get('staff');
+  let statusChanged = false;
   await tx(async (t) => {
     if (body.status) {
       const [cur] = await t.query('select status from orders where id = $1', [id]);
-      if (cur && cur.status !== body.status) await changeStatus(t, id, body.status, staff);
+      if (cur && cur.status !== body.status) { await changeStatus(t, id, body.status, staff); statusChanged = true; }
     }
     const data = pick(body, ['billing', 'shipping', 'customer_note', 'payment_method', 'payment_title', 'shipping_method', 'customer_id'], ['billing', 'shipping']);
     if (Object.keys(data).length) await updateRow(t, 'orders', id, data);
   });
   await audit(staff, 'update', 'order', id, { status: body.status });
+  if (statusChanged) await emailsForStatus(id, body.status);
   return c.json(await fullOrder(id));
 });
 
@@ -97,6 +100,7 @@ sales.post('/orders/bulk', requireStaff('manager'), async (c) => {
   const { ids, status } = await c.req.json();
   const staff = c.get('staff');
   await tx(async (t) => { for (const id of ids) await changeStatus(t, Number(id), status, staff); });
+  for (const id of ids) await emailsForStatus(Number(id), status);
   return c.json({ ok: true });
 });
 
@@ -104,6 +108,7 @@ sales.post('/orders/:id/notes', requireStaff(), async (c) => {
   const { note, customer_visible } = await c.req.json();
   if (!note?.trim()) fail(400, 'Note is empty');
   const row = await tx((t) => insertRow(t, 'order_notes', { order_id: Number(c.req.param('id')), note, customer_visible: !!customer_visible, author: c.get('staff').name }));
+  if (customer_visible) await sendOrderEmail('customer_note', row.order_id, { note });
   return c.json(row, 201);
 });
 
@@ -112,6 +117,8 @@ sales.post('/orders/:id/refund', requireStaff('manager'), async (c) => {
   const staff = c.get('staff');
   await tx(async (t) => refundOrder(t, id, await c.req.json(), staff));
   await audit(staff, 'refund', 'order', id);
+  const after = await one('select channel, status from orders where id = $1', [id]);
+  if (after?.channel === 'online') await sendOrderEmail('customer_refunded', id, { partial: after.status !== 'refunded' });
   return c.json(await fullOrder(id));
 });
 

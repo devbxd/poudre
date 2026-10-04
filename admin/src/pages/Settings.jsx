@@ -230,10 +230,65 @@ function Activity() {
   );
 }
 
+function Emails() {
+  const { data, setData } = useFetch('/admin/emails');
+  const [pass, setPass] = useState('');
+  const [testTo, setTestTo] = useState('');
+  const [run, busy] = useAction();
+  const [runTest, testing] = useAction();
+  if (!data) return <Spinner />;
+  const set = (patch) => setData({ ...data, ...patch });
+  const f = (k, label, props = {}) => <Field label={label} hint={props.hint}><Input value={data[k] ?? ''} onChange={(e) => set({ [k]: e.target.value })} {...props} /></Field>;
+  const save = () => run(async () => { setData(await api.put('/admin/emails', { ...data, smtp_pass: pass || undefined })); setPass(''); }, 'E-mail settings saved');
+  const ready = data.has_password && data.smtp_user;
+  return (
+    <div className="space-y-4">
+      <div className={cx('rounded-md border px-4 py-3 text-[13px]', ready ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-amber-200 bg-amber-50 text-amber-900')}>
+        {ready ? 'E-mail sending is set up. Use "Send test" below to check it.' : 'E-mails are not being sent yet: enter the mailbox address and its password below.'}
+      </div>
+      <Card title="Mailbox used to send e-mails">
+        <p className="mb-3 text-[13px] text-zinc-500">Customers receive e-mails from this address. Use your shop mailbox (for example info@poudrebeauty.com, hosted by Hostinger).</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {f('smtp_user', 'E-mail address', { placeholder: 'info@poudrebeauty.com' })}
+          <Field label="Mailbox password" hint={data.has_password ? 'Saved. Type a new one only to change it.' : 'The password of this mailbox'}>
+            <Input type="password" autoComplete="new-password" value={pass} placeholder={data.has_password ? '••••••••' : ''} onChange={(e) => setPass(e.target.value)} />
+          </Field>
+          {f('from_name', 'Sender name', { placeholder: 'Poudre Beauty' })}
+          {f('notify_to', 'Send new-order alerts to', { placeholder: 'owner@email.com', hint: 'Separate several addresses with commas' })}
+          {f('smtp_host', 'Mail server', { hint: 'Hostinger: smtp.hostinger.com' })}
+          {f('smtp_port', 'Port', { type: 'number', hint: '465 (recommended) or 587' })}
+        </div>
+      </Card>
+      <Card title="Which e-mails to send">
+        <div className="divide-y divide-zinc-100">
+          {Object.entries(data.types).map(([k, t]) => (
+            <div key={k} className="flex items-center justify-between gap-4 py-2.5">
+              <div>
+                <div className="font-medium">{t.label} <span className="ml-1 text-xs font-normal text-zinc-400">{t.to === 'shop' ? 'to you' : 'to the customer'}</span></div>
+                <div className="text-[13px] text-zinc-500">{t.description}</div>
+              </div>
+              <Toggle checked={data.enabled[k]} onChange={(v) => set({ enabled: { ...data.enabled, [k]: v } })} />
+            </div>
+          ))}
+        </div>
+      </Card>
+      <Card title="Send a test">
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Input value={testTo} onChange={(e) => setTestTo(e.target.value)} placeholder={data.notify_to || 'you@example.com'} className="sm:max-w-xs" />
+          <Button loading={testing} onClick={() => runTest(async () => { const r = await api.post('/admin/emails/test', { to: testTo }); return r; }, 'Test e-mail sent — check the inbox (and spam folder)')}>Send test</Button>
+        </div>
+        <p className="mt-2 text-xs text-zinc-500">Save your changes first.</p>
+      </Card>
+      <SaveBar onSave={save} busy={busy} />
+    </div>
+  );
+}
+
 const SECTIONS = [
   { path: 'store', label: 'Shop', el: Store, role: 'owner' },
   { path: 'shipping', label: 'Delivery', el: Shipping, role: 'owner' },
   { path: 'payments', label: 'Payments', el: Payments, role: 'owner' },
+  { path: 'emails', label: 'Emails', el: Emails, role: 'owner' },
   { path: 'pos', label: 'Point of sale', el: Pos, role: 'manager' },
   { path: 'registers', label: 'Cash registers', el: Registers, role: 'manager' },
   { path: 'team', label: 'Team', el: Staff, role: 'manager' },
