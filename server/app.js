@@ -9,6 +9,8 @@ import { content } from './routes/content.js';
 import { pos } from './routes/pos.js';
 import { serveUpload } from './images.js';
 import { site, searchPage } from './site/routes.js';
+import { shopApi, wcAjax } from './site/shop-api.js';
+import { notFound } from './site/pages.js';
 
 export const app = new Hono();
 
@@ -35,6 +37,12 @@ if (!process.env.NETLIFY) (await import('./dev-static.js')).devStatic(app);
 // Product and media images (WordPress paths, resized on demand)
 app.get('/wp-content/uploads/*', serveUpload);
 
-// Website
-app.get('/', async (c, next) => (c.req.query('s') !== undefined ? searchPage(c) : next()));
+// Website: WooCommerce/theme AJAX endpoints first, then pages
+app.route('/', shopApi);
+app.all('/', async (c, next) => {
+  if (c.req.query('wc-ajax')) return wcAjax(c);
+  if (c.req.method === 'GET' && c.req.query('s') !== undefined) return searchPage(c);
+  return next();
+});
 app.route('/', site);
+app.notFound((c) => (c.req.path.startsWith('/api/') || c.req.path.startsWith('/wp-') ? c.json({ error: 'Not found' }, 404) : notFound(c)));

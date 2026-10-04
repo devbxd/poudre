@@ -1,6 +1,7 @@
 // Imports the WooCommerce / WordPress / ATUM export (data/raw) into the Poudre database.
 // Usage: npm run db:import   (drops and recreates every table — run before go-live for the final sync)
 import { readFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { db } from '../server/db.js';
@@ -38,7 +39,7 @@ async function insert(table, rows, { batch = 200 } = {}) {
 }
 
 console.log('Recreating schema…');
-const tables = ['audit_log', 'messages', 'menus', 'posts', 'pages', 'cash_sessions', 'stock_movements', 'purchase_orders', 'reviews', 'refunds', 'order_notes', 'order_items', 'orders', 'coupons', 'customers', 'variations', 'product_tags', 'product_brands', 'product_categories', 'products', 'suppliers', 'attributes', 'tags', 'brands', 'categories', 'media', 'staff', 'settings'];
+const tables = ['carts', 'wishlists', 'audit_log', 'messages', 'menus', 'posts', 'pages', 'cash_sessions', 'stock_movements', 'purchase_orders', 'reviews', 'refunds', 'order_notes', 'order_items', 'orders', 'coupons', 'customers', 'variations', 'product_tags', 'product_brands', 'product_categories', 'products', 'suppliers', 'attributes', 'tags', 'brands', 'categories', 'media', 'staff', 'settings'];
 await conn.exec(`drop table if exists ${tables.join(',')} cascade`);
 await conn.exec(await readFile('db/schema.sql', 'utf8'));
 
@@ -122,6 +123,8 @@ const productIds = new Set(products.map((p) => p.id));
 const supplierIds = new Set(suppliers.map((s) => s.id));
 const rows = products.map((p) => {
   const hidden = meta(p, '_alg_wc_pvbur_invisible');
+  // "visible only to" roles: when set without 'guest', visitors cannot see the product
+  const onlyFor = meta(p, '_alg_wc_pvbur_visible');
   return {
     id: p.id, type: p.type === 'variable' ? 'variable' : p.type === 'woosb' ? 'bundle' : 'simple',
     status: ['publish', 'draft', 'private'].includes(p.status) ? p.status : 'draft',
@@ -134,7 +137,7 @@ const rows = products.map((p) => {
     stock_status: p.stock_status, backorders: p.backorders || 'no', low_stock_amount: num(p.low_stock_amount),
     weight: num(p.weight), dimensions: p.dimensions || {},
     featured: !!p.featured, catalog_visibility: p.catalog_visibility,
-    online_visible: !(Array.isArray(hidden) && hidden.includes('guest')), pos_visible: true,
+    online_visible: !(Array.isArray(hidden) && hidden.includes('guest')) && !(Array.isArray(onlyFor) && onlyFor.length && !onlyFor.includes('guest')), pos_visible: true,
     supplier_id: supplierIds.has(p.supplier_id) ? p.supplier_id : null, supplier_sku: p.supplier_sku || null,
     tax_status: p.tax_status, menu_order: p.menu_order || 0, reviews_allowed: !!p.reviews_allowed,
     images: p.images.map((i) => ({ id: i.id, url: url(i.src), alt: i.alt || '' })),
@@ -303,8 +306,21 @@ const settingsRows = [
     currency_position: status.settings?.currency_position || 'left', decimals: 2, timezone: wpSettings.timezone || 'Asia/Beirut',
     secondary_currency: { code: 'LBP', rate: 89500, show_in_pos: true },
   }],
-  ['shipping', { zones: zones.map((z) => ({ id: z.id, name: z.name, methods: [] })), methods: [] }],
-  ['payments', gateways.map((g) => ({ id: g.id, title: g.title, description: g.description, enabled: g.enabled, online: true, pos: g.id === 'cod' ? false : true }))],
+  ['shipping', (() => {
+    // WooCommerce "Local" zone (Lebanon) methods + store pickup, in checkout order
+    const zm = JSON.parse(readFileSync('data/raw/shipping_methods.json', 'utf8'));
+    const local = zm.find((z) => z.locations.some((l) => l.code === 'LB')) || zm[0];
+    const methods = local.methods.filter((m) => m.enabled).sort((a, b) => a.order - b.order).map((m) => ({
+      id: `${m.method_id}:${m.instance_id}`, type: m.method_id, title: m.settings.title || m.title,
+      cost: Number(m.settings.cost || 0), min_amount: m.settings.requires === 'min_amount' ? Number(m.settings.min_amount) : null,
+      enabled: true,
+    }));
+    methods.push({ id: 'pickup_location:0', type: 'pickup_location', title: 'Pickup (Poudre&#8217; Beauty)', label: "Pickup (Poudre' Beauty)", cost: 0, enabled: true,
+      pickup: { name: "Poudre' Beauty", address: 'Chekka, Main Road, Fransabank Center, Chekka, 0000', details: '' } });
+    return { country: 'LB', methods };
+  })()],
+  // website: WooCommerce gateways as configured; POS: WCPOS cash & card (always on in the till)
+  ['payments', gateways.map((g) => ({ id: g.id, title: g.title, description: g.description, enabled: g.id.startsWith('pos_') ? true : g.enabled, online: !g.id.startsWith('pos_'), pos: g.id.startsWith('pos_') }))],
   ['pos', { receipt_header: 'Poudre Beauty', receipt_footer: 'Thank you for shopping with us!', invoice_prefix: '', require_session: false, allow_negative_stock: true, default_customer: null }],
   ['homepage', { sections: [] }],
 ];

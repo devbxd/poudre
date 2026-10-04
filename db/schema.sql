@@ -403,3 +403,22 @@ create table if not exists audit_log (
   details jsonb default '{}',
   created_at timestamptz not null default now()
 );
+
+-- Website carts (one per visitor cookie)
+create table if not exists carts (
+  id text primary key,
+  items jsonb not null default '[]',        -- [{key, product_id, variation_id, quantity, variation:{attribute_x: value}}]
+  coupons text[] not null default '{}',
+  shipping_method text,
+  customer jsonb not null default '{}',     -- {billing_address, shipping_address}
+  customer_id int,
+  updated_at timestamptz not null default now()
+);
+
+-- Website wishlists (one per visitor cookie)
+create table if not exists wishlists (
+  id text primary key,
+  items jsonb not null default '{}',        -- {product_id: {time, price}}
+  customer_id int,
+  updated_at timestamptz not null default now()
+);

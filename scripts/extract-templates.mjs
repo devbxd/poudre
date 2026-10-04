@@ -46,6 +46,9 @@ function normalise(html) {
     .replaceAll('https:\\/\\/poudrebeauty.com\\/', '\\/')
     .replaceAll('//poudrebeauty.com/', '/')
     .replaceAll('"https://poudrebeauty.com"', '"/"')
+    // URL-encoded JSON (wcSettings, preloaded API data)
+    .replaceAll('https%3A%5C%2F%5C%2Fpoudrebeauty.com', '')
+    .replaceAll('https%3A%2F%2Fpoudrebeauty.com', '')
     .replaceAll('https://poudrebeauty.com', '');
 }
 
@@ -70,6 +73,12 @@ function skeleton(html, { name, mainNeedle = '<main', keepMain = false }) {
   [h, n] = replaceElement(h, 'id="menu-primary-menu-2"', 'menu_mobile_categories'); log.push(`menu_mobile_categories: ${n}`);
   [h, n] = replaceElement(h, "<select  name='product_cat'", 'search_categories', { all: true }); log.push(`search_categories: ${n}`);
   [h, n] = replaceElement(h, 'class="pls-block pls-block-1247"', 'search_popup_block', { required: false }); log.push(`search_popup_block: ${n}`);
+  // visitor state rendered per request: cart counter, mini cart, wishlist counter
+  sub(/<span class="pls-header-cart-count[^"]*">\d+<\/span>/, '<!--@cart_count-->');
+  sub(/<span class="pls-header-wishlist-count">\d+<\/span>/, '<!--@wishlist_count-->');
+  if (h.includes('<div class="widget_shopping_cart_content">')) { [h, n] = replaceElement(h, '<div class="widget_shopping_cart_content">', 'mini_cart'); log.push(`mini_cart: ${n}`); }
+  // cart & checkout blocks: the cart preloaded for the block scripts
+  h = h.replace(/(createPreloadingMiddleware\( JSON\.parse\( decodeURIComponent\( ')[^']+(' \) \) \))/, '$1<!--@preload-->$2');
   if (name === 'product') {
     // product-specific parts outside <main>: sticky add-to-cart bar and schema.org data
     [h, n] = replaceElement(h, 'class="pls-sticky-add-to-cart"', 'sticky'); log.push(`sticky: ${n}`);
@@ -154,6 +163,7 @@ function productMain(main) {
   return h;
 }
 
+const meta = {};
 for (const [name, file] of PAGES) {
   let html = await readFile(`${SRC}/${file}`, 'utf8');
   if (file.endsWith('.txt')) html = html.slice(html.indexOf('\n\n') + 2);
@@ -161,6 +171,11 @@ for (const [name, file] of PAGES) {
   const norm = normalise(html);
   const ms = norm.indexOf('<main');
   const main = norm.slice(ms, elementEnd(norm, ms));
+  meta[name] = {
+    bodyClass: (norm.match(/<body class="([^"]*)"/) || [])[1],
+    headerClass: (norm.match(/<header id="header" class="([^"]*)"/) || [])[1],
+    title: ((norm.match(/<title>([\s\S]*?)<\/title>/) || [])[1] || '').trim(),
+  };
   await writeFile(`${OUT}/${name}.main.html`, main);
   if (name === 'archive') await writeFile(`${OUT}/archive.main.tpl.html`, archiveMain(main));
   if (name === 'product') {
@@ -179,3 +194,4 @@ for (const [name, file] of PAGES) {
   }
   await writeFile(`${OUT}/${name}.html`, skeleton(html, { name }));
 }
+await writeFile(`${OUT}/pages.json`, JSON.stringify(meta, null, 1));

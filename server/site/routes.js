@@ -6,6 +6,8 @@ import { categories } from './data.js';
 import { renderPage } from './layout.js';
 import { renderArchive, breadcrumbHtml, categoryPath, categoryUrl } from './catalog.js';
 import { renderProduct, stickyBar, schemaJson } from './product-page.js';
+import { renderHome } from './home.js';
+import { registerPages } from './pages.js';
 import { decodeEntities } from './html.js';
 
 export const site = new Hono();
@@ -45,7 +47,7 @@ async function archivePage(c, { title, titleTag = title, woo, crumbs, base, q, b
     currentUrl: currentUrl(c), pageQuery: keptQuery(c),
   });
   if (q.page > res.pages && res.total > 0) return c.notFound();
-  const page = await renderPage({
+  const page = await renderPage({ c,
     template: 'archive', title: res.page > 1 ? `${titleTag} &#8211; Page ${res.page}` : titleTag, main: html, path: new URL(c.req.url).pathname,
     bodyClass: bodyClass(before, { woo: woo || 'woocommerce woocommerce-page', layout: 'pls-has-sidebar left-sidebar pls-catalog-ajax-filter', after: 'pls-catalog-page' }),
     headerClass: OVERLAY_HEADER, menuCtx,
@@ -115,6 +117,16 @@ for (const [prefix, table, link, tax] of [['brand', 'brands', 'product_brands', 
   site.get(`/${prefix}/:slug/page/:page{[0-9]+}/`, handler);
 }
 
+// ---------------- Homepage
+site.get('/', async (c) => {
+  const html = await renderPage({ c,
+    template: 'home', title: 'Poudre Beauty', main: await renderHome(), path: '/',
+    bodyClass: bodyClass('home wp-singular page-template-default page page-id-27', { woo: '', tail: 'elementor-default elementor-kit-8 elementor-page elementor-page-27' }),
+    menuCtx: { objectType: 'page', objectId: 27 },
+  });
+  return c.html(html.replace('<title>Poudre Beauty &#8211; Poudre Beauty</title>', '<title>Poudre Beauty</title>'));
+});
+
 // ---------------- Single product
 site.get('/product/:slug/', async (c) => {
   const preview = c.req.query('preview') === '1';
@@ -122,7 +134,7 @@ site.get('/product/:slug/', async (c) => {
   if (!r) return c.notFound();
   const p = r.product;
   const siteUrl = process.env.SITE_URL || new URL(c.req.url).origin;
-  const html = await renderPage({
+  const html = await renderPage({ c,
     template: 'product', title: decodeEntities(p.name), main: r.html, path: new URL(c.req.url).pathname,
     bodyClass: bodyClass(`wp-singular product-template-default single single-product postid-${p.id}`, { after: 'product-thumbnail-overlay  pls-single-product-quick-buy' }),
     menuCtx: { objectType: 'product', objectId: p.id, productCats: r.categories.map((x) => x.id), productAncestors: r.chain.map((x) => x.id) },
@@ -131,6 +143,9 @@ site.get('/product/:slug/', async (c) => {
   });
   return c.html(html);
 });
+
+// Cart, checkout, account, wishlist, static pages
+registerPages(site);
 
 // WordPress always uses trailing slashes
 site.get('/:path{.*[^/]$}', async (c, next) => {

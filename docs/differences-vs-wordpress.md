@@ -9,3 +9,5 @@ The points below are the only intentional differences: they are bugs of the old 
 | Sidebar: category counts | Cached numbers, some wrong (Accessories showed "-37") | Real number of products visible to customers | WooCommerce count cache was stale |
 | Price filter maximum | Included products hidden from customers (e.g. Bridal Makeup Package, $400) | Only products customers can see | Same plugin issue |
 | Instant search (header) | Returned "No data found." for every search | Returns matching products | The AJAX search was broken |
+| Wishlist | All visitors shared the same wishlist (plugin used one guest key) | Each visitor has their own wishlist | Plugin configuration bug |
+| Order confirmation page | WooCommerce block confirmation | Same information in the theme's classic layout | — |

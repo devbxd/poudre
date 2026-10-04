@@ -1,0 +1,82 @@
+{
+ "home": {
+  "bodyClass": "home wp-singular page-template-default page page-id-27 wp-embed-responsive wp-theme-anvogue theme-anvogue woocommerce-no-js eio-default pls-wrapper-full pls-theme-skin-light pls-no-sidebar pls-widget-default pls-widget-toggle pls-widget-menu-toggle pls-product-hover-mobile pls-slider-navigation-mobile pls-product-image-radio3x4 pls-mobile-canvas-sidebar pls-slider-nav-circle elementor-default elementor-kit-8 elementor-page elementor-page-27",
+  "headerClass": "pls-site-header pls-header-2 pls-header-icon-2 header-sticky",
+  "title": "Poudre Beauty"
+ },
+ "archive": {
+  "bodyClass": "archive post-type-archive post-type-archive-product wp-embed-responsive wp-theme-anvogue theme-anvogue woocommerce-shop woocommerce woocommerce-page woocommerce-no-js eio-default pls-wrapper-full pls-theme-skin-light pls-has-sidebar left-sidebar pls-catalog-ajax-filter pls-widget-default pls-widget-toggle pls-widget-menu-toggle pls-product-hover-mobile pls-slider-navigation-mobile pls-product-image-radio3x4 pls-mobile-canvas-sidebar pls-slider-nav-circle pls-catalog-page elementor-default elementor-kit-8",
+  "headerClass": "pls-site-header pls-header-2 pls-header-icon-2 header-sticky pls-header-overlay header-color-dark",
+  "title": "Shop &#8211; Poudre Beauty"
+ },
+ "product": {
+  "bodyClass": "wp-singular product-template-default single single-product postid-18859 wp-embed-responsive wp-theme-anvogue theme-anvogue woocommerce woocommerce-page woocommerce-no-js eio-default pls-wrapper-full pls-theme-skin-light pls-no-sidebar pls-widget-default pls-widget-toggle pls-widget-menu-toggle pls-product-hover-mobile pls-slider-navigation-mobile pls-product-image-radio3x4 pls-mobile-canvas-sidebar pls-slider-nav-circle product-thumbnail-overlay  pls-single-product-quick-buy elementor-default elementor-kit-8",
+  "headerClass": "pls-site-header pls-header-2 pls-header-icon-2 header-sticky",
+  "title": "Hoody Blanket &#8211; Poudre Beauty"
+ },
+ "page": {
+  "bodyClass": "wp-singular page-template-default page page-id-38 wp-embed-responsive wp-theme-anvogue theme-anvogue woocommerce-no-js eio-default pls-wrapper-full pls-theme-skin-light pls-no-sidebar pls-widget-default pls-widget-toggle pls-widget-menu-toggle pls-product-hover-mobile pls-slider-navigation-mobile pls-product-image-radio3x4 pls-mobile-canvas-sidebar pls-slider-nav-circle elementor-default elementor-kit-8 elementor-page elementor-page-38",
+  "headerClass": "pls-site-header pls-header-2 pls-header-icon-2 header-sticky pls-header-overlay header-color-dark",
+  "title": "About Us &#8211; Poudre Beauty"
+ },
+ "contact": {
+  "bodyClass": "wp-singular page-template-default page page-id-39 wp-embed-responsive wp-theme-anvogue theme-anvogue woocommerce-no-js eio-default pls-wrapper-full pls-theme-skin-light pls-no-sidebar pls-widget-default pls-widget-toggle pls-widget-menu-toggle pls-product-hover-mobile pls-slider-navigation-mobile pls-product-image-radio3x4 pls-mobile-canvas-sidebar pls-slider-nav-circle elementor-default elementor-kit-8 elementor-page elementor-page-39",
+  "headerClass": "pls-site-header pls-header-2 pls-header-icon-2 header-sticky pls-header-overlay header-color-dark",
+  "title": "Contact Us &#8211; Poudre Beauty"
+ },
+ "terms": {
+  "bodyClass": "wp-singular page-template-default page page-id-42 wp-embed-responsive wp-theme-anvogue theme-anvogue woocommerce-no-js eio-default pls-wrapper-full pls-theme-skin-light pls-no-sidebar pls-widget-default pls-widget-toggle pls-widget-menu-toggle pls-product-hover-mobile pls-slider-navigation-mobile pls-product-image-radio3x4 pls-mobile-canvas-sidebar pls-slider-nav-circle elementor-default elementor-kit-8 elementor-page elementor-page-42",
+  "headerClass": "pls-site-header pls-header-2 pls-header-icon-2 header-sticky pls-header-overlay header-color-dark",
+  "title": "Terms &#038; condition &#8211; Poudre Beauty"
+ },
+ "stores": {
+  "bodyClass": "wp-singular page-template-default page page-id-40 wp-embed-responsive wp-theme-anvogue theme-anvogue woocommerce-no-js eio-default pls-wrapper-full pls-theme-skin-light pls-no-sidebar pls-widget-default pls-widget-toggle pls-widget-menu-toggle pls-product-hover-mobile pls-slider-navigation-mobile pls-product-image-radio3x4 pls-mobile-canvas-sidebar pls-slider-nav-circle elementor-default elementor-kit-8 elementor-page elementor-page-40",
+  "headerClass": "pls-site-header pls-header-2 pls-header-icon-2 header-sticky pls-header-overlay header-color-dark",
+  "title": "Store List &#8211; Poudre Beauty"
+ },
+ "tracking": {
+  "bodyClass": "wp-singular page-template-default page page-id-1598 wp-embed-responsive wp-theme-anvogue theme-anvogue woocommerce-no-js eio-default pls-wrapper-full pls-theme-skin-light pls-no-sidebar pls-widget-default pls-widget-toggle pls-widget-menu-toggle pls-product-hover-mobile pls-slider-navigation-mobile pls-product-image-radio3x4 pls-mobile-canvas-sidebar pls-slider-nav-circle elementor-default elementor-kit-8",
+  "headerClass": "pls-site-header pls-header-2 pls-header-icon-2 header-sticky pls-header-overlay header-color-dark",
+  "title": "Order Tracking &#8211; Poudre Beauty"
+ },
+ "cart": {
+  "bodyClass": "wp-singular page-template-default page page-id-1680 wp-embed-responsive wp-theme-anvogue theme-anvogue woocommerce-cart woocommerce-page woocommerce-no-js eio-default pls-wrapper-full pls-theme-skin-light pls-no-sidebar pls-widget-default pls-widget-toggle pls-widget-menu-toggle pls-product-hover-mobile pls-slider-navigation-mobile pls-product-image-radio3x4 pls-mobile-canvas-sidebar pls-slider-nav-circle has-auto-update-cart elementor-default elementor-kit-8",
+  "headerClass": "pls-site-header pls-header-2 pls-header-icon-2 header-sticky pls-header-overlay header-color-dark",
+  "title": "Cart &#8211; Poudre Beauty"
+ },
+ "cart_empty": {
+  "bodyClass": "wp-singular page-template-default page page-id-1680 wp-embed-responsive wp-theme-anvogue theme-anvogue woocommerce-cart woocommerce-page woocommerce-no-js eio-default pls-wrapper-full pls-theme-skin-light pls-no-sidebar pls-widget-default pls-widget-toggle pls-widget-menu-toggle pls-product-hover-mobile pls-slider-navigation-mobile pls-product-image-radio3x4 pls-mobile-canvas-sidebar pls-slider-nav-circle has-auto-update-cart elementor-default elementor-kit-8",
+  "headerClass": "pls-site-header pls-header-2 pls-header-icon-2 header-sticky pls-header-overlay header-color-dark",
+  "title": "Cart &#8211; Poudre Beauty"
+ },
+ "checkout": {
+  "bodyClass": "wp-singular page-template-default page page-id-1681 wp-embed-responsive wp-theme-anvogue theme-anvogue woocommerce-checkout woocommerce-page woocommerce-no-js eio-default pls-wrapper-full pls-theme-skin-light pls-no-sidebar pls-widget-default pls-widget-toggle pls-widget-menu-toggle pls-product-hover-mobile pls-slider-navigation-mobile pls-product-image-radio3x4 pls-mobile-canvas-sidebar pls-slider-nav-circle elementor-default elementor-kit-8",
+  "headerClass": "pls-site-header pls-header-2 pls-header-icon-2 header-sticky pls-header-overlay header-color-dark",
+  "title": "Checkout &#8211; Poudre Beauty"
+ },
+ "account": {
+  "bodyClass": "wp-singular page-template-default page page-id-1682 wp-embed-responsive wp-theme-anvogue theme-anvogue woocommerce-account woocommerce-page woocommerce-no-js eio-default pls-wrapper-full pls-theme-skin-light pls-no-sidebar pls-widget-default pls-widget-toggle pls-widget-menu-toggle pls-product-hover-mobile pls-slider-navigation-mobile pls-product-image-radio3x4 pls-mobile-canvas-sidebar pls-slider-nav-circle elementor-default elementor-kit-8",
+  "headerClass": "pls-site-header pls-header-2 pls-header-icon-2 header-sticky pls-header-overlay header-color-dark",
+  "title": "My account &#8211; Poudre Beauty"
+ },
+ "wishlist": {
+  "bodyClass": "wp-singular page-template-default page page-id-1876 wp-embed-responsive wp-theme-anvogue theme-anvogue woocommerce-no-js eio-default pls-wrapper-full pls-theme-skin-light pls-no-sidebar pls-widget-default pls-widget-toggle pls-widget-menu-toggle pls-product-hover-mobile pls-slider-navigation-mobile pls-product-image-radio3x4 pls-mobile-canvas-sidebar pls-slider-nav-circle elementor-default elementor-kit-8",
+  "headerClass": "pls-site-header pls-header-2 pls-header-icon-2 header-sticky pls-header-overlay header-color-dark",
+  "title": "Wishlist &#8211; Poudre Beauty"
+ },
+ "blog": {
+  "bodyClass": "blog wp-embed-responsive wp-theme-anvogue theme-anvogue woocommerce-no-js eio-default pls-wrapper-full pls-theme-skin-light pls-has-sidebar right-sidebar pls-widget-default pls-widget-toggle pls-widget-menu-toggle pls-product-hover-mobile pls-slider-navigation-mobile pls-product-image-radio3x4 pls-mobile-canvas-sidebar pls-slider-nav-circle elementor-default elementor-kit-8",
+  "headerClass": "pls-site-header pls-header-2 pls-header-icon-2 header-sticky pls-header-overlay header-color-dark",
+  "title": "Blog &#8211; Poudre Beauty"
+ },
+ "post": {
+  "bodyClass": "wp-singular post-template-default single single-post postid-74 single-format-standard wp-embed-responsive wp-theme-anvogue theme-anvogue woocommerce-no-js eio-default pls-wrapper-full pls-theme-skin-light pls-has-sidebar right-sidebar pls-widget-default pls-widget-toggle pls-widget-menu-toggle pls-product-hover-mobile pls-slider-navigation-mobile pls-product-image-radio3x4 pls-mobile-canvas-sidebar pls-slider-nav-circle elementor-default elementor-kit-8",
+  "headerClass": "pls-site-header pls-header-2 pls-header-icon-2 header-sticky pls-header-overlay header-color-dark",
+  "title": "I Couldn’t Help But Splurge On These Epic Fall Finds &#8211; Poudre Beauty"
+ },
+ "notfound": {
+  "bodyClass": "error404 wp-embed-responsive wp-theme-anvogue theme-anvogue woocommerce-no-js eio-default pls-wrapper-full pls-theme-skin-light pls-no-sidebar pls-widget-default pls-widget-toggle pls-widget-menu-toggle pls-product-hover-mobile pls-slider-navigation-mobile pls-product-image-radio3x4 pls-mobile-canvas-sidebar pls-slider-nav-circle elementor-default elementor-kit-8",
+  "headerClass": "pls-site-header pls-header-2 pls-header-icon-2 header-sticky",
+  "title": "Page not found &#8211; Poudre Beauty"
+ }
+}

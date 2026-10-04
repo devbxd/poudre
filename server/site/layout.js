@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { fill, esc } from './html.js';
 import { categories, menus, cached } from './data.js';
 import { renderMenu, renderCategorySelect } from './menus.js';
+import { visitorVars } from './visitor.js';
 
 const skeletons = new Map();
 export async function skeleton(name) {
@@ -37,6 +38,7 @@ export async function renderPage(page) {
     search_popup_block: await searchPopupBlock(),
     main: page.main,
     path: esc(page.path || '/'),
+    ...(page.c ? await visitorVars(page.c) : {}),
     ...(page.vars || {}),
   });
   // each search form gets its own select id, like WordPress

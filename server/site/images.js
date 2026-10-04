@@ -32,7 +32,9 @@ export function srcset(media, src) {
   const dir = dirOf(media.url);
   const sources = new Map();
   sources.set(src.width, `${dir}${src.file} ${src.width}w`);
-  const all = [...(media.sizes || []), { file: media.url.split('/').pop(), width: media.width, height: media.height }];
+  // the full-size file of a GIF is never offered in srcset (it may be animated)
+  const full = /\.gif$/i.test(media.url) ? [] : [{ file: media.url.split('/').pop(), width: media.width, height: media.height }];
+  const all = [...(media.sizes || []), ...full];
   for (const s of all) {
     if (!s?.file || !s.width || s.width > 2048 || sources.has(s.width)) continue;
     if (!sameRatio(src.width, src.height, s.width, s.height)) continue;
