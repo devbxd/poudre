@@ -269,10 +269,10 @@ export function Modal({ open, onClose, title, children, footer, width = 520 }) {
   if (!open) return null;
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:pt-[8vh]" onMouseDown={onClose}>
-      <div className="w-full rounded-lg bg-white shadow-xl" style={{ maxWidth: width }} onMouseDown={(e) => e.stopPropagation()}>
+      <div role="dialog" aria-modal="true" aria-label={typeof title === "string" ? title : undefined} className="w-full rounded-lg bg-white shadow-xl" style={{ maxWidth: width }} onMouseDown={(e) => e.stopPropagation()}>
         <header className="flex items-center justify-between border-b border-zinc-200 px-5 py-3.5">
           <h3 className="font-semibold">{title}</h3>
-          <button onClick={onClose} className="rounded p-1 text-zinc-500 hover:bg-zinc-100"><X size={17} /></button>
+          <button type="button" aria-label="Close" onClick={onClose} className="rounded p-1 text-zinc-500 hover:bg-zinc-100"><X size={17} /></button>
         </header>
         <div className="max-h-[70vh] overflow-y-auto p-5">{children}</div>
         {footer && <footer className="flex justify-end gap-2 border-t border-zinc-200 px-5 py-3">{footer}</footer>}

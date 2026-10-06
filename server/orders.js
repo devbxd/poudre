@@ -45,7 +45,7 @@ export async function priceLines(t, items, { allowOverride = false } = {}) {
       // POS custom/quick item without a catalogue product
       if (!allowOverride) fail(400, 'Custom items are not allowed');
       const price = money(it.price) ?? 0;
-      lines.push({ product_id: null, variation_id: null, name: it.name || 'Custom item', sku: null, quantity: qty, price, regular: price, on_sale: false, purchase_price: null, subtotal: money(price * qty), category_ids: [], manage_stock: false });
+      lines.push({ product_id: null, variation_id: null, name: it.name || 'Custom item', sku: null, quantity: qty, price, regular: price, on_sale: false, purchase_price: null, subtotal: money(price * qty), category_ids: [], manage_stock: false, line_discount: money(it.discount) || 0 });
       continue;
     }
     const [p] = await t.query(

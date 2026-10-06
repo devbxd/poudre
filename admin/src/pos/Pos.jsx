@@ -108,6 +108,11 @@ function OrdersDrawer({ onClose, settings }) {
     return () => clearTimeout(t);
   }, [q]);
   const open = async (id) => { setOrder(await api.get(`/pos/orders/${id}`)); setRefund({}); };
+  useEffect(() => {
+    const onKey = (e) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
   const doRefund = async () => {
     const items = Object.entries(refund).filter(([, n]) => n > 0).map(([order_item_id, quantity]) => ({ order_item_id: Number(order_item_id), quantity }));
     if (!items.length) return;
@@ -116,7 +121,7 @@ function OrdersDrawer({ onClose, settings }) {
   };
   return (
     <div className="fixed inset-0 z-40 flex justify-end bg-black/30" onMouseDown={onClose}>
-      <div className="flex h-full w-full max-w-3xl bg-white shadow-xl" onMouseDown={(e) => e.stopPropagation()}>
+      <div role="dialog" aria-modal="true" aria-label="Sales" className="flex h-full w-full max-w-3xl bg-white shadow-xl" onMouseDown={(e) => e.stopPropagation()}>
         <div className="flex w-72 shrink-0 flex-col border-r border-zinc-200">
           <div className="border-b border-zinc-200 p-3"><Input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Order #, phone, name…" /></div>
           <div className="flex-1 overflow-y-auto">
