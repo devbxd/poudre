@@ -41,14 +41,35 @@ pos.post('/stock', requireStaff(), async (c) => {
 pos.post('/orders', requireStaff(), async (c) => {
   const body = await c.req.json();
   const staff = c.get('staff');
+  // Every sale carries a unique reference made by the till. If the same sale arrives twice (connection lost after the
+  // server saved it, retry, or an offline sale synced again), the first order is returned and nothing is counted twice.
+  const ref = body.client_ref ? String(body.client_ref).slice(0, 64) : null;
+  const existing = async () => (ref ? one(`select id from orders where meta->>'client_ref' = $1`, [ref]) : null);
+  const already = await existing();
+  if (already) return c.json(await fullOrder(already.id), 200);
   const settings = await getSetting('pos', {});
   const session = await one('select id from cash_sessions where closed_at is null order by opened_at desc limit 1');
-  if (settings.require_session && !session) fail(400, 'Open the cash register first');
+  // sales made offline are always accepted when they sync (the money is already in the drawer)
+  if (settings.require_session && !session && !body.offline_at) fail(400, 'Open the cash register first');
   // cashiers may change prices / give discounts only if the owner allows it
   const allowOverride = ROLES[staff.role] >= ROLES.manager || settings.cashier_discounts !== false;
-  const order = await tx((t) => createOrder(t, { ...body, cash_session_id: session?.id }, {
-    channel: 'pos', staff, allowOverride, enforceStock: settings.allow_negative_stock === false,
-  }));
+  const offlineAt = body.offline_at && !isNaN(Date.parse(body.offline_at)) && Date.now() - Date.parse(body.offline_at) < 30 * 86400000 ? new Date(body.offline_at).toISOString() : null;
+  let order;
+  try {
+    order = await tx(async (t) => {
+      const o = await createOrder(t, { ...body, cash_session_id: session?.id, meta: { ...(body.meta || {}), ...(ref ? { client_ref: ref } : {}), ...(offlineAt ? { offline_at: offlineAt } : {}) } }, {
+        channel: 'pos', staff, allowOverride, enforceStock: settings.allow_negative_stock === false && !offlineAt,
+      });
+      // a sale made offline keeps the time it really happened
+      if (offlineAt) await t.query('update orders set created_at = $2, paid_at = $2, completed_at = case when completed_at is null then null else $2::timestamptz end where id = $1', [o.id, offlineAt]);
+      return o;
+    });
+  } catch (e) {
+    // two copies of the same sale arriving at the same moment: the unique index lets only one through
+    const dup = e?.code === '23505' && await existing();
+    if (dup) return c.json(await fullOrder(dup.id), 200);
+    throw e;
+  }
   return c.json(await fullOrder(order.id), 201);
 });
 

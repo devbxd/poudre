@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import './index.css';
 import { AuthProvider, useAuth } from './lib/auth.jsx';
-import { ToastProvider, Spinner } from './components/ui.jsx';
+import { ToastProvider, Spinner, ErrorBoundary } from './components/ui.jsx';
 import Layout from './components/Layout.jsx';
 import Login from './pages/Login.jsx';
 
@@ -40,7 +40,7 @@ function Guard() {
   return (
     <Suspense fallback={<Spinner className="h-screen items-center" />}>
       <Routes>
-        <Route path="/pos" element={<Pos />} />
+        <Route path="/pos" element={<ErrorBoundary><Pos /></ErrorBoundary>} />
         <Route element={<Layout />}>
           <Route index element={<Overview />} />
           <Route path="orders" element={<Orders />} />
@@ -84,3 +84,8 @@ createRoot(document.getElementById('root')).render(
     </BrowserRouter>
   </StrictMode>,
 );
+
+// offline shell for the dashboard / POS (see public/sw.js)
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  window.addEventListener('load', () => navigator.serviceWorker.register('/dashboard/sw.js', { scope: '/dashboard/' }).catch(() => {}));
+}

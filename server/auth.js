@@ -44,6 +44,10 @@ export const requireStaff = (minRole = 'cashier') => async (c, next) => {
   const staff = await one('select * from staff where id = $1 and active', [payload.sid]);
   if (!staff) fail(401, 'Account disabled');
   if (ROLES[staff.role] < ROLES[minRole]) fail(403, 'You do not have permission to do this');
+  // sliding session: a till in daily use never gets logged out in the middle of a sale
+  if (payload.iat && Date.now() / 1000 - payload.iat > 86400 && getCookie(c, COOKIE)) {
+    setCookie(c, COOKIE, await sign({ sid: staff.id }, 30), cookieOpts(c, 30));
+  }
   c.set('staff', staff);
   await next();
 };

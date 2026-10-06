@@ -428,3 +428,4 @@ create table if not exists wishlists (
 );
 create index if not exists reviews_product_idx on reviews (product_id);
 create index if not exists order_items_variation_idx on order_items (variation_id);
+create unique index if not exists orders_client_ref_idx on orders ((meta->>'client_ref')) where meta ? 'client_ref';

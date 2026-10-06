@@ -20,6 +20,8 @@ const initials = (name) => (name || '').split(/\s+/).filter((w) => /^[a-z0-9]/i.
 const optionLabel = (v) => (typeof v.attributes === 'string' ? JSON.parse(v.attributes) : v.attributes).map((a) => a.option).filter(Boolean).join(' / ');
 const norm = (s) => (s || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '');
 
+import { newRef, readCart, saveCart, readCachedCatalog, cacheCatalog, readQueue, queueSale, postSale, syncQueue, offlineReceipt } from './offline.js';
+
 const HELD_KEY = 'poudre_pos_held';
 const readHeld = () => { try { return JSON.parse(localStorage.getItem(HELD_KEY)) || []; } catch { return []; } };
 const writeHeld = (v) => { try { localStorage.setItem(HELD_KEY, JSON.stringify(v)); } catch { /* storage unavailable */ } };
@@ -56,6 +58,7 @@ function PaymentModal({ total, payments, lbpRate, onClose, onPay, busy }) {
   const change = Number(given) - total;
   const quick = [...new Set([Math.ceil(total), Math.ceil(total / 5) * 5, Math.ceil(total / 10) * 10, Math.ceil(total / 20) * 20, 50, 100].filter((v) => v >= total))].slice(0, 5);
   const submit = () => {
+    if (busy) return; // one sale at a time (Enter key + button)
     if (isCash && given !== '' && Number(given) < total - 0.001) return;
     const p = payments.find((x) => x.id === method);
     onPay({ payment_method: method, payment_title: p?.title || method, cash_tendered: isCash ? (given === '' ? total : Number(given)) : null });
@@ -239,10 +242,17 @@ export default function Pos() {
   const [cat, setCat] = useState(null);
   // phones: one panel at a time (products or cart)
   const [mobileView, setMobileView] = useState('products');
-  const [cart, setCart] = useState([]);
-  const [customer, setCustomer] = useState(null);
-  const [discount, setDiscount] = useState(null); // {type, amount}
-  const [note, setNote] = useState('');
+  // the sale in progress survives a reload or a restart of the device
+  const saved = useMemo(readCart, []);
+  const [cart, setCart] = useState(saved?.cart || []);
+  const [customer, setCustomer] = useState(saved?.customer || null);
+  const [discount, setDiscount] = useState(saved?.discount || null); // {type, amount}
+  const [note, setNote] = useState(saved?.note || '');
+  const [sending, setSending] = useState(false);
+  const [queued, setQueued] = useState(() => readQueue().length);
+  const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
+  const saleRef = useRef(null);
+  const sendingRef = useRef(false);
   const [picker, setPicker] = useState(null);
   const [paying, setPaying] = useState(false);
   const [done, setDone] = useState(null);
@@ -259,7 +269,29 @@ export default function Pos() {
   const search = useRef();
   const [run, busy] = useAction();
 
-  const loadCatalog = useCallback(() => api.get('/pos/catalog').then(setCatalog).catch((e) => toast(e.message, 'error')), [toast]);
+  const loadCatalog = useCallback(() => api.get('/pos/catalog').then((c) => { setCatalog(c); cacheCatalog(c); }).catch(async (e) => {
+    const cached = await readCachedCatalog();
+    if (cached) { setCatalog((cur) => cur || cached); if (!navigator.onLine || !(e.status >= 400 && e.status < 500)) toast('No connection — using the products saved on this device', 'error'); }
+    else toast(e.message, 'error');
+  }), [toast]);
+  useEffect(() => { saveCart({ cart, customer, discount, note }); }, [cart, customer, discount, note]);
+  // sales kept on the device are sent as soon as the connection is back
+  const sync = useCallback(async () => {
+    if (!readQueue().length) { setQueued(0); return; }
+    const r = await syncQueue();
+    setQueued(r.left);
+    if (r.sent) { toast(`${r.sent} offline sale${r.sent > 1 ? 's' : ''} sent to the server`); loadCatalog(); }
+    if (r.failed.length) toast(`A saved sale was refused: ${r.failed[0].error}`, 'error');
+  }, [toast, loadCatalog]);
+  useEffect(() => {
+    const up = () => { setOnline(true); sync(); };
+    const down = () => setOnline(false);
+    window.addEventListener('online', up);
+    window.addEventListener('offline', down);
+    sync();
+    const t = setInterval(sync, 20000);
+    return () => { window.removeEventListener('online', up); window.removeEventListener('offline', down); clearInterval(t); };
+  }, [sync]);
   const loadSession = useCallback(() => api.get('/pos/session').then(setSession).catch(() => setSession(null)), []);
   useEffect(() => { loadCatalog(); loadSession(); }, [loadCatalog, loadSession]);
   useEffect(() => { setLimit(60); }, [q, cat]);
@@ -337,23 +369,43 @@ export default function Pos() {
 
   const reset = () => { setCart([]); setCustomer(null); setDiscount(null); setNote(''); };
 
-  const pay = async (payment) => {
-    const order = await run(() => api.post('/pos/orders', {
-      items: cart.map((l) => ({ product_id: l.product_id, variation_id: l.variation_id, quantity: l.quantity, price: l.price, custom: l.custom, name: l.name })),
-      customer_id: customer?.id || null,
-      billing: customer ? { first_name: customer.first_name, last_name: customer.last_name, phone: customer.phone, email: customer.email } : {},
-      discount: discountValue ? { type: 'fixed', amount: discountValue } : null,
-      note, ...payment,
-    }));
+  const finishSale = (order, offline) => {
+    saleRef.current = null;
     setPaying(false);
     setDone(order);
     setMobileView('products');
     reset();
     if (settings.auto_print !== false) printOrder(order, { store: catalog.store, pos: settings });
-    // refresh stock numbers in the background
-    loadCatalog();
-    loadSession();
+    if (!offline) { loadCatalog(); loadSession(); }
     search.current?.focus();
+  };
+
+  const pay = async (payment) => {
+    if (sendingRef.current) return; // never two submissions of the same sale
+    sendingRef.current = true;
+    setSending(true);
+    saleRef.current ??= newRef();
+    const payload = {
+      client_ref: saleRef.current,
+      items: cart.map((l) => ({ product_id: l.product_id, variation_id: l.variation_id, quantity: l.quantity, price: l.price, custom: l.custom, name: l.name })),
+      customer_id: customer?.id || null,
+      billing: customer ? { first_name: customer.first_name, last_name: customer.last_name, phone: customer.phone, email: customer.email } : {},
+      discount: discountValue ? { type: 'fixed', amount: discountValue } : null,
+      note, ...payment,
+    };
+    try {
+      const r = await postSale(payload);
+      if (r.ok) { finishSale(r.order, false); return; }
+      if (!r.network) { toast(r.error, 'error'); return; } // refused: nothing saved, the sale stays on screen
+      // no connection: keep the sale on this device, print the receipt, send it automatically later
+      const offline = { ...payload, offline_at: new Date().toISOString() };
+      setQueued(queueSale({ payload: offline }));
+      finishSale(offlineReceipt(offline, cart, { subtotal: Math.round(subtotal * 100) / 100, discount: Math.round(discountValue * 100) / 100, total }, staff.name), true);
+      toast('No connection — sale saved on this device, it will be sent automatically', 'error');
+    } finally {
+      sendingRef.current = false;
+      setSending(false);
+    }
   };
 
   const hold = () => {
@@ -386,6 +438,13 @@ export default function Pos() {
           {q && <button onClick={() => setQ('')} className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-400 hover:text-zinc-900"><X size={15} /></button>}
         </div>
         <div className="hidden flex-1 sm:block" />
+        {(!online || queued > 0) && (
+          <button type="button" onClick={sync} title="Send the sales saved on this device"
+            className={cx('flex items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-[13px] font-medium', online ? 'bg-amber-50 text-amber-800' : 'bg-red-50 text-red-700')}>
+            <span className={cx('h-2 w-2 rounded-full', online ? 'bg-amber-500' : 'bg-red-500')} />
+            {!online ? 'Offline' : ''}{!online && queued > 0 ? ' · ' : ''}{queued > 0 ? `${queued} to send` : ''}
+          </button>
+        )}
         <Button variant="ghost" icon={ReceiptText} title="Sales" onClick={() => setDrawer(true)}><span className="hidden sm:inline">Sales</span></Button>
         {held.length > 0 && <Button variant="ghost" icon={Clock} onClick={() => setHeldOpen(true)}>On hold ({held.length})</Button>}
         <Button variant="ghost" icon={Wallet} onClick={() => setRegisterOpen(true)}>
@@ -409,7 +468,7 @@ export default function Pos() {
           <div className="flex-1 overflow-y-auto p-3" onScroll={(e) => { const el = e.currentTarget; if (el.scrollTop + el.clientHeight > el.scrollHeight - 400) setLimit((l) => l + 60); }}>
             {done && (
               <div className="mb-3 flex items-center justify-between rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-900">
-                <span>Sale <b>#{done.number}</b> completed · {money(done.total)}{done.cash_change > 0 && <> · change <b>{money(done.cash_change)}</b></>}</span>
+                <span>Sale <b>#{done.number}</b> {done.offline ? 'saved on this device (no connection)' : 'completed'} · {money(done.total)}{done.cash_change > 0 && <> · change <b>{money(done.cash_change)}</b></>}</span>
                 <div className="flex gap-2"><Button size="sm" icon={Printer} onClick={() => printOrder(done, { store: catalog.store, pos: settings })}>Receipt</Button><Button size="sm" variant="ghost" onClick={() => setDone(null)}><X size={14} /></Button></div>
               </div>
             )}
@@ -512,7 +571,7 @@ export default function Pos() {
       </div>
 
       {picker && <VariationPicker product={picker} onClose={() => setPicker(null)} onPick={(v) => { addLine(picker, v); setPicker(null); search.current?.focus(); }} />}
-      {paying && <PaymentModal total={total} payments={posPayments} lbpRate={lbpRate} busy={busy} onClose={() => setPaying(false)} onPay={pay} />}
+      {paying && <PaymentModal total={total} payments={posPayments} lbpRate={lbpRate} busy={sending} onClose={() => !sending && setPaying(false)} onPay={pay} />}
       {drawer && <OrdersDrawer settings={catalog} onClose={() => { setDrawer(false); loadCatalog(); }} />}
       {registerOpen && <RegisterModal session={session} onClose={() => setRegisterOpen(false)} onChange={loadSession} />}
 
