@@ -11,8 +11,11 @@ const write = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); retu
 
 export const newRef = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
-export const readCart = () => read(CART_KEY, null);
-export const saveCart = (state) => write(CART_KEY, state);
+export const TILL = (() => { try { return new URLSearchParams(location.search).get('till') || 'main'; } catch { return 'main'; } })();
+const cartKey = TILL === 'main' ? CART_KEY : `${CART_KEY}_${TILL}`;
+export const readCart = () => read(cartKey, null);
+export const saveCart = (state) => write(cartKey, state);
+export const newTillUrl = () => `${location.origin}/dashboard/pos?till=${Math.random().toString(36).slice(2, 8)}`;
 // the catalogue (~2 MB and growing) goes to IndexedDB: localStorage is limited to about 5 MB
 function idb() {
   return new Promise((resolve, reject) => {

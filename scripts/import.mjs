@@ -43,7 +43,7 @@ const tables = ['carts', 'wishlists', 'audit_log', 'messages', 'menus', 'posts',
 // kept across a re-import (final sync before go-live): connections set up in the dashboard and staff logins
 const kept = { settings: [], staff: [] };
 try {
-  kept.settings = await q("select key, value from settings where key in ('emails', 'icarry')");
+  kept.settings = await q("select key, value from settings where key in ('emails', 'icarry', 'store', 'pos', 'shipping', 'payments')");
   kept.staff = await q('select username, password_hash, pin_hash from staff');
 } catch { /* first import: nothing to keep */ }
 await conn.exec(`drop table if exists ${tables.join(',')} cascade`);
@@ -311,7 +311,7 @@ const settingsRows = [
     name: wpSettings.title || 'Poudre Beauty', tagline: wpSettings.description || '', email: wpSettings.email || 'info@poudrebeauty.com',
     phone: '', whatsapp: '', address: '', currency: status.settings?.currency || 'USD', currency_symbol: '$',
     currency_position: status.settings?.currency_position || 'left', decimals: 2, timezone: wpSettings.timezone || 'Asia/Beirut',
-    secondary_currency: { code: 'LBP', rate: 89500, show_in_pos: true },
+    secondary_currency: { code: 'LBP', rate: 90000, show_in_pos: true },
   }],
   ['shipping', (() => {
     // WooCommerce "Local" zone (Lebanon) methods + store pickup, in checkout order

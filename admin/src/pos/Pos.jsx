@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  ArrowLeft, Banknote, Clock, Lock, Minus, PauseCircle, Plus, Printer, ReceiptText, RotateCcw, Search, Trash2, User, UserPlus, X, Percent, PackagePlus, Wallet,
+  ArrowLeft, Banknote, Clock, Lock, Minus, PauseCircle, Plus, Printer, ReceiptText, RotateCcw, Search, Trash2, User, UserPlus, X, Percent, PackagePlus, Wallet, LayoutGrid, List, AppWindow,
 } from 'lucide-react';
 import { api } from '../lib/api.js';
 import { money, dateTime, time, fullName } from '../lib/format.js';
@@ -20,7 +20,7 @@ const initials = (name) => (name || '').split(/\s+/).filter((w) => /^[a-z0-9]/i.
 const optionLabel = (v) => (typeof v.attributes === 'string' ? JSON.parse(v.attributes) : v.attributes).map((a) => a.option).filter(Boolean).join(' / ');
 const norm = (s) => (s || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '');
 
-import { newRef, readCart, saveCart, readCachedCatalog, cacheCatalog, readQueue, queueSale, postSale, syncQueue, offlineReceipt } from './offline.js';
+import { newTillUrl, newRef, readCart, saveCart, readCachedCatalog, cacheCatalog, readQueue, queueSale, postSale, syncQueue, offlineReceipt } from './offline.js';
 
 const HELD_KEY = 'poudre_pos_held';
 const readHeld = () => { try { return JSON.parse(localStorage.getItem(HELD_KEY)) || []; } catch { return []; } };
@@ -39,7 +39,8 @@ function VariationPicker({ product, onPick, onClose }) {
               className={cx('flex items-center gap-2 rounded-md border p-2 text-left hover:border-zinc-900', out ? 'border-zinc-200 opacity-60' : 'border-zinc-300')}>
               <Thumb src={v.image || product.image} size={40} />
               <div className="min-w-0">
-                <div className="truncate font-medium">{optionLabel(v) || 'Option'}</div>
+                <div className="truncate font-medium">{optionLabel(v) || "Option"}</div>
+                {(v.barcode || v.sku) && <div className="num truncate text-[11px] text-zinc-400">{v.barcode || v.sku}</div>}
                 <div className="num text-[13px]">{money(price)} · <span className={out ? 'text-red-600' : 'text-zinc-500'}>{v.manage_stock ? `${v.stock_quantity} left` : out ? 'Out' : 'In stock'}</span></div>
               </div>
             </button>
@@ -249,6 +250,8 @@ export default function Pos() {
   const [discount, setDiscount] = useState(saved?.discount || null); // {type, amount}
   const [note, setNote] = useState(saved?.note || '');
   const [sending, setSending] = useState(false);
+  const [view, setViewState] = useState(() => { try { return localStorage.getItem('poudre_pos_view') || 'grid'; } catch { return 'grid'; } });
+  const setView = (v) => { setViewState(v); try { localStorage.setItem('poudre_pos_view', v); } catch { /* storage unavailable */ } };
   const [queued, setQueued] = useState(() => readQueue().length);
   const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
   const saleRef = useRef(null);
@@ -296,12 +299,19 @@ export default function Pos() {
   useEffect(() => { loadCatalog(); loadSession(); }, [loadCatalog, loadSession]);
   useEffect(() => { setLimit(60); }, [q, cat]);
 
-  // Barcode index: SKU / barcode -> {product, variation}
+  // Barcode index: SKU / barcode -> every product / option carrying it
   const index = useMemo(() => {
     const m = new Map();
+    const add = (code, hit) => {
+      if (!code) return;
+      const k = String(code).trim().toLowerCase();
+      const list = m.get(k) || [];
+      if (!list.some((x) => x.product.id === hit.product.id && x.variation?.id === hit.variation?.id)) list.push(hit);
+      m.set(k, list);
+    };
     for (const p of catalog?.products || []) {
-      for (const code of [p.sku, p.barcode]) if (code) m.set(String(code).trim().toLowerCase(), { product: p });
-      for (const v of p.variations || []) for (const code of [v.sku, v.barcode]) if (code) m.set(String(code).trim().toLowerCase(), { product: p, variation: v });
+      for (const code of [p.sku, p.barcode]) add(code, { product: p });
+      for (const v of p.variations || []) for (const code of [v.sku, v.barcode]) add(code, { product: p, variation: v });
     }
     return m;
   }, [catalog]);
@@ -343,8 +353,15 @@ export default function Pos() {
   const onSearchKey = (e) => {
     if (e.key !== 'Enter') return;
     const code = q.trim().toLowerCase();
-    const hit = index.get(code);
-    if (hit) { addLine(hit.product, hit.variation); setQ(''); return; }
+    const hits = index.get(code);
+    if (hits?.length) {
+      // the product's own barcode, or one barcode shared by several options → choose the option in the small window
+      const one = hits.length === 1 ? hits[0] : null;
+      if (one && (one.variation || one.product.type !== 'variable')) addLine(one.product, one.variation);
+      else setPicker(hits[0].product);
+      setQ('');
+      return;
+    }
     if (results.length === 1) { addLine(results[0]); setQ(''); return; }
     if (code && !results.length) toast(`No product with code "${q}"`, 'error');
   };
@@ -445,6 +462,11 @@ export default function Pos() {
             {!online ? 'Offline' : ''}{!online && queued > 0 ? ' · ' : ''}{queued > 0 ? `${queued} to send` : ''}
           </button>
         )}
+        <div className="hidden items-center rounded-md border border-zinc-200 p-0.5 sm:flex" role="group" aria-label="View">
+          <button type="button" title="Grid view" onClick={() => setView('grid')} className={cx('rounded p-1.5', view === 'grid' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-100')}><LayoutGrid size={16} /></button>
+          <button type="button" title="Table view" onClick={() => setView('table')} className={cx('rounded p-1.5', view === 'table' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-100')}><List size={16} /></button>
+        </div>
+        <Button variant="ghost" icon={AppWindow} title="Open another till in a new window" onClick={() => window.open(newTillUrl(), '_blank', 'popup,width=1400,height=900')}><span className="hidden xl:inline">New window</span></Button>
         <Button variant="ghost" icon={ReceiptText} title="Sales" onClick={() => setDrawer(true)}><span className="hidden sm:inline">Sales</span></Button>
         {held.length > 0 && <Button variant="ghost" icon={Clock} onClick={() => setHeldOpen(true)}>On hold ({held.length})</Button>}
         <Button variant="ghost" icon={Wallet} onClick={() => setRegisterOpen(true)}>
@@ -472,7 +494,29 @@ export default function Pos() {
                 <div className="flex gap-2"><Button size="sm" icon={Printer} onClick={() => printOrder(done, { store: catalog.store, pos: settings })}>Receipt</Button><Button size="sm" variant="ghost" onClick={() => setDone(null)}><X size={14} /></Button></div>
               </div>
             )}
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+            {view === 'table' ? (
+              <table className="w-full border-collapse bg-white text-left text-[14px]">
+                <thead className="sticky top-0 z-10 bg-zinc-50 text-xs font-medium text-zinc-500">
+                  <tr><th className="w-12 px-2 py-2" /><th className="px-2 py-2">Product</th><th className="px-2 py-2">SKU / barcode</th><th className="px-2 py-2 text-right">Stock</th><th className="px-2 py-2 text-right">Price</th></tr>
+                </thead>
+                <tbody>
+                  {results.slice(0, limit).map((p) => {
+                    const pr = p.type === 'variable' ? Math.min(...(p.variations || []).filter((v) => v.regular_price != null).map((v) => priceOf(v).price), Infinity) : priceOf(p).price;
+                    const stock = p.type === 'variable' ? (p.variations || []).reduce((s, v) => s + (v.manage_stock ? Math.max(0, v.stock_quantity) : 0), 0) : p.manage_stock ? p.stock_quantity : null;
+                    return (
+                      <tr key={p.id} onClick={() => addLine(p)} className="cursor-pointer border-b border-zinc-100 hover:bg-zinc-50">
+                        <td className="px-2 py-1.5">{p.image ? <img src={sized(p.image, 150)} alt="" loading="lazy" className="h-10 w-10 rounded border border-zinc-200 object-contain" /> : <span className="flex h-10 w-10 items-center justify-center rounded border border-zinc-200 bg-zinc-50 text-xs font-semibold text-zinc-400">{initials(p.name)}</span>}</td>
+                        <td className="px-2 py-1.5"><div className="font-medium leading-snug">{p.name}</div>{p.type === 'variable' && <div className="text-xs text-zinc-500">{p.variations?.length} options</div>}</td>
+                        <td className="num px-2 py-1.5 text-[13px] text-zinc-600">{p.barcode || p.sku || '—'}</td>
+                        <td className={cx('num px-2 py-1.5 text-right', stock !== null && stock <= 0 ? 'text-red-600' : 'text-zinc-500')}>{stock ?? '—'}</td>
+                        <td className="num px-2 py-1.5 text-right font-semibold">{Number.isFinite(pr) ? money(pr) : '—'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            ) : (
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
               {results.slice(0, limit).map((p) => {
                 const pr = p.type === 'variable' ? Math.min(...(p.variations || []).filter((v) => v.regular_price != null).map((v) => priceOf(v).price), Infinity) : priceOf(p).price;
                 const stock = p.type === 'variable' ? (p.variations || []).reduce((s, v) => s + (v.manage_stock ? Math.max(0, v.stock_quantity) : 0), 0) : p.manage_stock ? p.stock_quantity : null;
@@ -487,6 +531,7 @@ export default function Pos() {
                     </div>
                     <div className="flex flex-1 flex-col p-2">
                       <div className="line-clamp-2 text-[13px] leading-snug">{p.name}</div>
+                      {(p.barcode || p.sku) && <div className="num mt-0.5 truncate text-[11px] text-zinc-400">{p.barcode || p.sku}</div>}
                       <div className="mt-auto flex items-end justify-between pt-1">
                         <span className="num font-semibold">{Number.isFinite(pr) ? money(pr) : '—'}</span>
                         {stock !== null && <span className={cx('num text-[11px]', stock <= 0 ? 'text-red-600' : 'text-zinc-400')}>{stock}</span>}
@@ -496,6 +541,7 @@ export default function Pos() {
                 );
               })}
             </div>
+            )}
             {!results.length && <p className="py-16 text-center text-zinc-400">No products found</p>}
           </div>
           {cart.length > 0 && (
@@ -506,7 +552,7 @@ export default function Pos() {
         </section>
 
         {/* Cart */}
-        <aside className={cx('w-full shrink-0 flex-col border-l border-zinc-200 bg-white md:w-[340px] lg:w-[380px] xl:w-[420px]', mobileView === 'products' ? 'hidden md:flex' : 'flex')}>
+        <aside className={cx('w-full shrink-0 flex-col border-l border-zinc-200 bg-white md:w-[380px] lg:w-[440px] xl:w-[500px] 2xl:w-[560px]', mobileView === 'products' ? 'hidden md:flex' : 'flex')}>
           <div className="border-b border-zinc-200 p-3">
             <button onClick={() => setMobileView('products')} className="mb-2 flex items-center gap-1.5 text-[13px] font-medium text-zinc-600 md:hidden"><ArrowLeft size={14} />Add more products</button>
             {customer ? (
