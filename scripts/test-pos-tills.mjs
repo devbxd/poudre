@@ -42,13 +42,25 @@ if (await reg.isVisible().catch(() => false)) { await reg.locator('input').fill(
 const search = page.locator('header input').first();
 const scan = async (code) => { await search.fill(code); await search.press('Enter'); await page.waitForTimeout(600); };
 
+const cart = async () => (await page.locator('aside').innerText()).replace(/\s+/g, ' ');
 await scan(shared);
 const picker1 = page.locator('[role=dialog]', { hasText: `ZZ TEST Shoe ${stamp}` });
 check('Scan the barcode shared by the colours → choose window opens', await picker1.isVisible(), 'no picker');
 check('…showing both colours', (await picker1.innerText()).includes('Black') && (await picker1.innerText()).includes('White'), await picker1.innerText().catch(() => ''));
 await picker1.locator('button:has-text("White")').click();
+await page.waitForTimeout(300);
+// scanning one colour's own barcode opens the options with that colour highlighted; Enter adds it
+const blackCode = `88${stamp}`.slice(0, 13);
+await api('PUT', `/api/admin/products/${shoe.id}`, { ...shoe, variations: shoe.variations.map((v) => (JSON.stringify(v.attributes).includes('Black') ? { ...v, sku: blackCode, barcode: blackCode } : v)) });
+await page.reload({ waitUntil: 'networkidle' });
+await page.waitForTimeout(1500);
+await scan(blackCode);
+const picker2 = page.locator('[role=dialog]', { hasText: `ZZ TEST Shoe ${stamp}` });
+check('Scan one colour → its options open, scanned colour highlighted', await picker2.isVisible() && (await picker2.innerText()).includes('Scanned option highlighted'), await picker2.innerText().catch(() => 'no picker'));
+await page.keyboard.press('Enter');
 await page.waitForTimeout(400);
-const cart = async () => (await page.locator('aside').innerText()).replace(/\s+/g, ' ');
+check('…Enter adds the scanned colour', /Shoe.*Black/.test(await cart()), (await cart()).slice(0, 150));
+await page.waitForTimeout(400);
 check('…and the chosen colour goes to the sale', /Shoe.*White/.test(await cart()), (await cart()).slice(0, 150));
 await scan(parentCode);
 check("Scan the product's own barcode → choose window opens", await page.locator('[role=dialog]', { hasText: `ZZ TEST Shoe ${stamp}` }).isVisible(), 'no picker');
@@ -56,7 +68,7 @@ await page.keyboard.press('Escape');
 
 await search.fill(`ZZ TEST Balm ${stamp}`);
 await page.waitForTimeout(500);
-check('SKU / barcode shown on the product card', (await page.locator('section button:has-text("ZZ TEST Balm")').first().innerText()).includes(lip.sku), lip.sku);
+check('SKU / barcode shown next to the price on the card', (await page.locator('section button:has-text("ZZ TEST Balm")').first().innerText()).includes(lip.sku), lip.sku);
 await page.locator('button[title="Table view"]').click();
 await page.waitForTimeout(400);
 const row = page.locator('tr', { hasText: `ZZ TEST Balm ${stamp}` });
@@ -69,7 +81,7 @@ check('Window 1 sale: shoe + balm', /Shoe/.test(await cart()) && /Balm/.test(awa
 await page.screenshot({ path: 'data/shots/pos-grid.png' });
 
 // second till in a new window
-const [win2] = await Promise.all([ctx.waitForEvent('page'), page.locator('button[title="Open another till in a new window"]').click()]);
+const [win2] = await Promise.all([ctx.waitForEvent('page'), page.locator('button[title="Open another till in a new tab"]').click()]);
 await win2.waitForLoadState('networkidle');
 await win2.waitForTimeout(1500);
 const cart2 = async () => (await win2.locator('aside').innerText()).replace(/\s+/g, ' ');

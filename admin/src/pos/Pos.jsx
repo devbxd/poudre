@@ -17,6 +17,8 @@ const priceOf = (x) => {
   return { price: sale ? x.sale_price : x.regular_price ?? 0, regular: x.regular_price ?? 0, on_sale: sale };
 };
 const initials = (name) => (name || '').split(/\s+/).filter((w) => /^[a-z0-9]/i.test(w)).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
+// code shown on a product: its own SKU / barcode, or the one shared by its options
+const code = (p) => p.barcode || p.sku || (p.variations?.length && p.variations.every((v) => (v.barcode || v.sku) && (v.barcode || v.sku) === (p.variations[0].barcode || p.variations[0].sku)) ? p.variations[0].barcode || p.variations[0].sku : '');
 const optionLabel = (v) => (typeof v.attributes === 'string' ? JSON.parse(v.attributes) : v.attributes).map((a) => a.option).filter(Boolean).join(' / ');
 const norm = (s) => (s || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '');
 
@@ -27,16 +29,24 @@ const readHeld = () => { try { return JSON.parse(localStorage.getItem(HELD_KEY))
 const writeHeld = (v) => { try { localStorage.setItem(HELD_KEY, JSON.stringify(v)); } catch { /* storage unavailable */ } };
 
 // ---------------------------------------------------------------- Variation picker
-function VariationPicker({ product, onPick, onClose }) {
+function VariationPicker({ product, highlight, onPick, onClose }) {
+  useEffect(() => {
+    if (!highlight) return undefined;
+    const onKey = (e) => { if (e.key === 'Enter') { e.preventDefault(); onPick(highlight); } };
+    // listen only after the scanner's own "Enter" (the one that opened this window) has finished
+    const t = setTimeout(() => window.addEventListener('keydown', onKey), 0);
+    return () => { clearTimeout(t); window.removeEventListener('keydown', onKey); };
+  }, [highlight, onPick]);
   return (
     <Modal open onClose={onClose} title={product.name} width={640}>
+      {highlight && <p className="mb-3 text-[13px] text-zinc-500">Scanned option highlighted — press Enter or tap it to add, or choose another one.</p>}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {product.variations.map((v) => {
           const { price } = priceOf(v);
           const out = v.manage_stock ? v.stock_quantity <= 0 : v.stock_status === 'outofstock';
           return (
             <button key={v.id} onClick={() => onPick(v)}
-              className={cx('flex items-center gap-2 rounded-md border p-2 text-left hover:border-zinc-900', out ? 'border-zinc-200 opacity-60' : 'border-zinc-300')}>
+              className={cx('flex items-center gap-2 rounded-md border p-2 text-left hover:border-zinc-900', highlight?.id === v.id ? 'border-2 border-zinc-900 bg-zinc-50' : out ? 'border-zinc-200 opacity-60' : 'border-zinc-300')}>
               <Thumb src={v.image || product.image} size={40} />
               <div className="min-w-0">
                 <div className="truncate font-medium">{optionLabel(v) || "Option"}</div>
@@ -257,6 +267,7 @@ export default function Pos() {
   const saleRef = useRef(null);
   const sendingRef = useRef(false);
   const [picker, setPicker] = useState(null);
+  const [pickerHighlight, setPickerHighlight] = useState(null);
   const [paying, setPaying] = useState(false);
   const [done, setDone] = useState(null);
   const [drawer, setDrawer] = useState(false);
@@ -356,9 +367,9 @@ export default function Pos() {
     const hits = index.get(code);
     if (hits?.length) {
       // the product's own barcode, or one barcode shared by several options → choose the option in the small window
-      const one = hits.length === 1 ? hits[0] : null;
-      if (one && (one.variation || one.product.type !== 'variable')) addLine(one.product, one.variation);
-      else setPicker(hits[0].product);
+      const first = hits[0];
+      if (first.product.type !== 'variable') addLine(first.product);
+      else { setPicker(first.product); setPickerHighlight(hits.length === 1 ? first.variation || null : null); }
       setQ('');
       return;
     }
@@ -466,7 +477,7 @@ export default function Pos() {
           <button type="button" title="Grid view" onClick={() => setView('grid')} className={cx('rounded p-1.5', view === 'grid' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-100')}><LayoutGrid size={16} /></button>
           <button type="button" title="Table view" onClick={() => setView('table')} className={cx('rounded p-1.5', view === 'table' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-100')}><List size={16} /></button>
         </div>
-        <Button variant="ghost" icon={AppWindow} title="Open another till in a new window" onClick={() => window.open(newTillUrl(), '_blank', 'popup,width=1400,height=900')}><span className="hidden xl:inline">New window</span></Button>
+        <Button variant="ghost" icon={AppWindow} title="Open another till in a new tab" onClick={() => window.open(newTillUrl(), '_blank')}><span className="hidden xl:inline">New tab</span></Button>
         <Button variant="ghost" icon={ReceiptText} title="Sales" onClick={() => setDrawer(true)}><span className="hidden sm:inline">Sales</span></Button>
         {held.length > 0 && <Button variant="ghost" icon={Clock} onClick={() => setHeldOpen(true)}>On hold ({held.length})</Button>}
         <Button variant="ghost" icon={Wallet} onClick={() => setRegisterOpen(true)}>
@@ -507,7 +518,7 @@ export default function Pos() {
                       <tr key={p.id} onClick={() => addLine(p)} className="cursor-pointer border-b border-zinc-100 hover:bg-zinc-50">
                         <td className="px-2 py-1.5">{p.image ? <img src={sized(p.image, 150)} alt="" loading="lazy" className="h-10 w-10 rounded border border-zinc-200 object-contain" /> : <span className="flex h-10 w-10 items-center justify-center rounded border border-zinc-200 bg-zinc-50 text-xs font-semibold text-zinc-400">{initials(p.name)}</span>}</td>
                         <td className="px-2 py-1.5"><div className="font-medium leading-snug">{p.name}</div>{p.type === 'variable' && <div className="text-xs text-zinc-500">{p.variations?.length} options</div>}</td>
-                        <td className="num px-2 py-1.5 text-[13px] text-zinc-600">{p.barcode || p.sku || '—'}</td>
+                        <td className="num px-2 py-1.5 text-[13px] text-zinc-600">{code(p) || '—'}</td>
                         <td className={cx('num px-2 py-1.5 text-right', stock !== null && stock <= 0 ? 'text-red-600' : 'text-zinc-500')}>{stock ?? '—'}</td>
                         <td className="num px-2 py-1.5 text-right font-semibold">{Number.isFinite(pr) ? money(pr) : '—'}</td>
                       </tr>
@@ -531,9 +542,11 @@ export default function Pos() {
                     </div>
                     <div className="flex flex-1 flex-col p-2">
                       <div className="line-clamp-2 text-[13px] leading-snug">{p.name}</div>
-                      {(p.barcode || p.sku) && <div className="num mt-0.5 truncate text-[11px] text-zinc-400">{p.barcode || p.sku}</div>}
-                      <div className="mt-auto flex items-end justify-between pt-1">
-                        <span className="num font-semibold">{Number.isFinite(pr) ? money(pr) : '—'}</span>
+                      <div className="mt-auto flex items-end justify-between gap-2 pt-1">
+                        <span className="flex min-w-0 items-baseline gap-2">
+                          <span className="num shrink-0 font-semibold">{Number.isFinite(pr) ? money(pr) : '—'}</span>
+                          {code(p) && <span className="num truncate text-[11px] text-zinc-500" title="SKU / barcode">{code(p)}</span>}
+                        </span>
                         {stock !== null && <span className={cx('num text-[11px]', stock <= 0 ? 'text-red-600' : 'text-zinc-400')}>{stock}</span>}
                       </div>
                     </div>
@@ -616,7 +629,7 @@ export default function Pos() {
         </aside>
       </div>
 
-      {picker && <VariationPicker product={picker} onClose={() => setPicker(null)} onPick={(v) => { addLine(picker, v); setPicker(null); search.current?.focus(); }} />}
+      {picker && <VariationPicker product={picker} highlight={pickerHighlight} onClose={() => { setPicker(null); setPickerHighlight(null); }} onPick={(v) => { addLine(picker, v); setPicker(null); setPickerHighlight(null); search.current?.focus(); }} />}
       {paying && <PaymentModal total={total} payments={posPayments} lbpRate={lbpRate} busy={sending} onClose={() => !sending && setPaying(false)} onPay={pay} />}
       {drawer && <OrdersDrawer settings={catalog} onClose={() => { setDrawer(false); loadCatalog(); }} />}
       {registerOpen && <RegisterModal session={session} onClose={() => setRegisterOpen(false)} onChange={loadSession} />}
