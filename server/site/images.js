@@ -56,8 +56,11 @@ export function imageTag(media, size, { className = '', counter, hover = false, 
   else if (hover || n > 2) loading = 'loading="lazy" decoding="async" ';
   const set = srcset(media, src);
   const cls = `attachment-${size} size-${size}${className ? ` ${className}` : ''}`;
+  // product cards are half the screen wide on phones (2 columns): without this, phones (3x screens) picked the
+  // full-size originals (WordPress' "100vw" default) — 15 MB for the homepage. Display is unchanged.
+  const sizes = size === 'woocommerce_thumbnail' ? `(max-width: 767px) 50vw, ${src.width}px` : `(max-width: ${src.width}px) 100vw, ${src.width}px`;
   if (mode === 'attachment') {
-    return `<img width="${src.width}" height="${src.height}" src="${dirOf(media.url)}${src.file}" class="${cls}" alt="${(media.alt || '').replace(/"/g, '&quot;')}" decoding="async"${set ? ` srcset="${set}" sizes="(max-width: ${src.width}px) 100vw, ${src.width}px"` : ''} />`;
+    return `<img width="${src.width}" height="${src.height}" src="${dirOf(media.url)}${src.file}" class="${cls}" alt="${(media.alt || '').replace(/"/g, '&quot;')}" decoding="async"${set ? ` srcset="${set}" sizes="${sizes}"` : ''} />`;
   }
-  return `<img ${loading}width="${src.width}" height="${src.height}" src="${dirOf(media.url)}${src.file}" class="${cls}" alt="${(media.alt || '').replace(/"/g, '&quot;')}"${attrs}${set ? ` srcset="${set}" sizes="(max-width: ${src.width}px) 100vw, ${src.width}px"` : ''} />`;
+  return `<img ${loading}width="${src.width}" height="${src.height}" src="${dirOf(media.url)}${src.file}" class="${cls}" alt="${(media.alt || '').replace(/"/g, '&quot;')}"${attrs}${set ? ` srcset="${set}" sizes="${sizes}"` : ''} />`;
 }
