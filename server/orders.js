@@ -26,8 +26,9 @@ export async function applyCoupon(t, code, lines, customerEmail = null) {
   });
   const base = eligible.reduce((s, l) => s + l.subtotal, 0);
   const cartTotal = lines.reduce((s, l) => s + l.subtotal, 0);
-  if (coupon.min_amount && cartTotal < Number(coupon.min_amount)) fail(400, `Minimum spend for "${code}" is ${coupon.min_amount}`);
-  if (coupon.max_amount && cartTotal > Number(coupon.max_amount)) fail(400, `Maximum spend for "${code}" is ${coupon.max_amount}`);
+  // WooCommerce stores "0.00" for "no minimum / no maximum"
+  if (Number(coupon.min_amount) > 0 && cartTotal < Number(coupon.min_amount)) fail(400, `Minimum spend for "${code}" is ${coupon.min_amount}`);
+  if (Number(coupon.max_amount) > 0 && cartTotal > Number(coupon.max_amount)) fail(400, `Maximum spend for "${code}" is ${coupon.max_amount}`);
   if (!eligible.length) fail(400, `Coupon "${code}" does not apply to these products`);
   let discount = 0;
   if (coupon.type === 'percent') discount = (base * Number(coupon.amount)) / 100;

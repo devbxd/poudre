@@ -245,7 +245,7 @@ await insert('order_items', orders.flatMap((o) => o.line_items.map((li) => ({
 // ---------- Coupons / reviews ----------
 await insert('coupons', (await raw('coupons')).map((c) => ({
   id: c.id, code: c.code.toLowerCase(), type: c.discount_type, amount: num(c.amount) || 0, description: c.description || '',
-  expires_at: date(c.date_expires_gmt), min_amount: num(c.minimum_amount), max_amount: num(c.maximum_amount),
+  expires_at: date(c.date_expires_gmt), min_amount: num(c.minimum_amount) || null, max_amount: num(c.maximum_amount) || null,
   usage_limit: c.usage_limit, usage_limit_per_user: c.usage_limit_per_user, usage_count: c.usage_count || 0,
   individual_use: c.individual_use, free_shipping: c.free_shipping, exclude_sale_items: c.exclude_sale_items,
   product_ids: c.product_ids, excluded_product_ids: c.excluded_product_ids,
