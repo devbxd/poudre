@@ -99,7 +99,7 @@ pos.post('/orders/:id/refund', requireStaff(), async (c) => {
 // ---------------- Cash register sessions ----------------
 async function sessionTotals(session) {
   const [cash] = await query(`select coalesce(sum(total - refunded_total), 0)::float8 cash from orders
-    where cash_session_id = $1 and payment_method = 'cash' and status in ('completed','processing','on-hold')`, [session.id]);
+    where cash_session_id = $1 and payment_method in ('cash','pos_cash') and status in ('completed','processing','on-hold')`, [session.id]);
   const byMethod = await query(`select coalesce(payment_title, payment_method) method, count(*)::int orders, sum(total - refunded_total)::float8 total
     from orders where cash_session_id = $1 and status in ('completed','processing','on-hold') group by 1`, [session.id]);
   const moves = typeof session.cash_in_out === 'string' ? JSON.parse(session.cash_in_out) : session.cash_in_out || [];
