@@ -374,10 +374,12 @@ export default function Pos() {
     const code = q.trim().toLowerCase();
     const hits = index.get(codeKey(q));
     if (hits?.length) {
-      // the product's own barcode, or one barcode shared by several options → choose the option in the small window
+      // an option's own barcode → straight into the sale; the product's own barcode, or one barcode
+      // shared by several options → choose the option in the small window
       const first = hits[0];
       if (first.product.type !== 'variable') addLine(first.product);
-      else { setPicker(first.product); setPickerHighlight(hits.length === 1 ? first.variation || null : null); }
+      else if (hits.length === 1 && first.variation) addLine(first.product, first.variation);
+      else { setPicker(first.product); setPickerHighlight(null); }
       setQ('');
       return;
     }
