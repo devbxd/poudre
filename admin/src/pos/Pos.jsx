@@ -21,6 +21,14 @@ const initials = (name) => (name || '').split(/\s+/).filter((w) => /^[a-z0-9]/i.
 const code = (p) => p.barcode || p.sku || (p.variations?.length && p.variations.every((v) => (v.barcode || v.sku) && (v.barcode || v.sku) === (p.variations[0].barcode || p.variations[0].sku)) ? p.variations[0].barcode || p.variations[0].sku : '');
 const optionLabel = (v) => (typeof v.attributes === 'string' ? JSON.parse(v.attributes) : v.attributes).map((a) => a.option).filter(Boolean).join(' / ');
 const norm = (s) => (s || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '');
+// scanned / typed code → comparable key: Arabic digits, a scanner typing on a French (AZERTY) keyboard,
+// and EAN-13 vs UPC-A (leading 0) all match the same product
+const AZERTY = { '&': '1', 'é': '2', '"': '3', "'": '4', '(': '5', '-': '6', 'è': '7', '_': '8', 'ç': '9', 'à': '0' };
+const codeKey = (s) => {
+  let k = String(s ?? '').trim().toLowerCase().replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x660)).replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x6f0));
+  if (/[&é"'(è_çà]/.test(k)) { const mapped = k.replace(/[&é"'(\-è_çà]/g, (ch) => AZERTY[ch]); if (/^\d+$/.test(mapped)) k = mapped; }
+  return /^\d+$/.test(k) ? k.replace(/^0+(?=\d)/, '') : k;
+};
 
 import { newTillUrl, newRef, readCart, saveCart, readCachedCatalog, cacheCatalog, readQueue, queueSale, postSale, syncQueue, offlineReceipt } from './offline.js';
 
@@ -315,7 +323,7 @@ export default function Pos() {
     const m = new Map();
     const add = (code, hit) => {
       if (!code) return;
-      const k = String(code).trim().toLowerCase();
+      const k = codeKey(code);
       const list = m.get(k) || [];
       if (!list.some((x) => x.product.id === hit.product.id && x.variation?.id === hit.variation?.id)) list.push(hit);
       m.set(k, list);
@@ -337,7 +345,7 @@ export default function Pos() {
     if (q.trim()) {
       const words = norm(q).split(/\s+/).filter(Boolean);
       list = list.filter((p) => {
-        const hay = norm(`${p.name} ${p.sku || ''} ${p.brand || ''}`);
+        const hay = norm(`${p.name} ${p.sku || ''} ${p.barcode || ''} ${p.brand || ''} ${(p.variations || []).map((v) => `${v.sku || ''} ${v.barcode || ''}`).join(' ')}`);
         return words.every((w) => hay.includes(w));
       });
     }
@@ -364,7 +372,7 @@ export default function Pos() {
   const onSearchKey = (e) => {
     if (e.key !== 'Enter') return;
     const code = q.trim().toLowerCase();
-    const hits = index.get(code);
+    const hits = index.get(codeKey(q));
     if (hits?.length) {
       // the product's own barcode, or one barcode shared by several options → choose the option in the small window
       const first = hits[0];
