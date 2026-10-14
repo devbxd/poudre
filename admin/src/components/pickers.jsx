@@ -5,15 +5,16 @@ import { money, fullName } from '../lib/format.js';
 import { Thumb, cx } from './ui.jsx';
 
 /** Generic async search box with a dropdown. */
-function AsyncSearch({ placeholder, load, renderItem, onPick, clearOnPick = true, className, autoFocus }) {
+function AsyncSearch({ placeholder, load, renderItem, onPick, clearOnPick = true, className, autoFocus, exact, onNoMatch }) {
   const [q, setQ] = useState('');
+  const [loadedFor, setLoadedFor] = useState('');
   const [items, setItems] = useState([]);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const box = useRef();
   useEffect(() => {
     if (!q.trim()) { setItems([]); return; }
-    const t = setTimeout(() => load(q.trim()).then((r) => { setItems(r); setActive(0); setOpen(true); }).catch(() => {}), 200);
+    const t = setTimeout(() => load(q.trim()).then((r) => { setItems(r); setActive(0); setOpen(true); setLoadedFor(q.trim()); }).catch(() => {}), 200);
     return () => clearTimeout(t);
   }, [q]); // eslint-disable-line
   useEffect(() => {
@@ -31,7 +32,19 @@ function AsyncSearch({ placeholder, load, renderItem, onPick, clearOnPick = true
         onKeyDown={(e) => {
           if (e.key === 'ArrowDown') { e.preventDefault(); setActive((a) => Math.min(a + 1, items.length - 1)); }
           if (e.key === 'ArrowUp') { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)); }
-          if (e.key === 'Enter' && items[active]) { e.preventDefault(); pick(items[active]); }
+          if (e.key !== 'Enter') return;
+          e.preventDefault();
+          const term = q.trim();
+          if (!term) return;
+          if (loadedFor === term && items[active] && !exact) { pick(items[active]); return; }
+          // a barcode scanner types the code then Enter at once: look it up now and add the exact match directly
+          load(term).then((r) => {
+            const same = exact ? r.filter((x) => exact(x, term)) : [];
+            const hit = same.length === 1 ? same[0] : r.length === 1 ? r[0] : loadedFor === term ? r[active] : null;
+            if (hit) { pick(hit); return; }
+            setItems(r); setActive(0); setOpen(true); setLoadedFor(term);
+            if (!r.length) onNoMatch?.(term, () => setQ(''));
+          }).catch(() => {});
         }}
         className="h-9 w-full rounded-md border border-zinc-300 bg-white pl-9 pr-3 outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900"
       />
@@ -49,9 +62,11 @@ function AsyncSearch({ placeholder, load, renderItem, onPick, clearOnPick = true
   );
 }
 
+const sameCode = (a, b) => String(a || '').trim().toLowerCase().replace(/^0+(?=d)/, '') === String(b || '').trim().toLowerCase().replace(/^0+(?=d)/, '');
 export function ProductSearch({ onPick, variations = true, placeholder = 'Search products by name or SKU…', ...props }) {
   return (
     <AsyncSearch
+      exact={(p, term) => sameCode(p.sku, term) || sameCode(p.barcode, term)}
       {...props} placeholder={placeholder} onPick={onPick}
       load={(q) => api.get(`/admin/lookup${qs({ q, variations: variations ? 1 : '' })}`)}
       renderItem={(p) => (

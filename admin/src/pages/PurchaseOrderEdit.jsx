@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, PackageCheck, Printer, Trash2 } from 'lucide-react';
+import { ArrowLeft, PackageCheck, PackagePlus, Printer, Trash2 } from 'lucide-react';
 import { api } from '../lib/api.js';
 import { useFetch } from '../lib/hooks.js';
 import { money, dateTime } from '../lib/format.js';
@@ -8,21 +8,63 @@ import { Badge, Button, Card, Field, Input, Modal, PageHeader, Select, Spinner, 
 import { ProductSearch } from '../components/pickers.jsx';
 import { PO_STATUS } from './PurchaseOrders.jsx';
 
+const lineKey = (it) => `${it.product_id}-${it.variation_id || 0}`;
+
 export default function PurchaseOrderEdit() {
   const { id } = useParams();
   const isNew = id === 'new';
   const navigate = useNavigate();
-  const { confirm } = useToast();
+  const { confirm, toast } = useToast();
   const { data, setData } = useFetch(isNew ? null : `/admin/purchase-orders/${id}`);
   const { data: suppliers } = useFetch('/admin/suppliers');
   const [po, setPo] = useState(isNew ? { supplier_id: '', items: [], notes: '', expected_at: '', status: 'draft' } : null);
   const [receive, setReceive] = useState(null);
   const [run, busy] = useAction();
+  // current stock of each line, editable on the spot (saved straight to the product, independent of the order)
+  const [stock, setStock] = useState({});
+  const [stockEdit, setStockEdit] = useState({});
+  const [newItem, setNewItem] = useState(null);
   useEffect(() => { if (data) setPo({ ...data, expected_at: data.expected_at?.slice(0, 10) || '' }); }, [data]);
+  useEffect(() => {
+    const ids = [...new Set((po?.items || []).filter((i) => i.product_id && stock[lineKey(i)] === undefined).map((i) => i.product_id))];
+    if (!ids.length) return;
+    api.post('/pos/stock', { ids }).then((rows) => setStock((s) => ({ ...Object.fromEntries(rows.map((r) => [`${r.id}-${r.variation_id || 0}`, r.stock_quantity])), ...s }))).catch(() => {});
+  }, [po?.items?.length]); // eslint-disable-line
   if (!po) return <Spinner />;
   const locked = ['received', 'cancelled', 'partial'].includes(po.status);
   const total = po.items.reduce((s, i) => s + Number(i.qty) * Number(i.cost || 0), 0);
   const setItem = (i, patch) => setPo({ ...po, items: po.items.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
+
+  const addItem = (p) => {
+    const key = `${p.id}-${p.variation_id || 0}`;
+    if (p.stock_quantity !== undefined) setStock((s) => ({ ...s, [key]: p.stock_quantity }));
+    setPo((cur) => {
+      // scanning the same product again adds one more instead of a new line
+      if (cur.items.some((x) => lineKey(x) === key)) return { ...cur, items: cur.items.map((x) => (lineKey(x) === key ? { ...x, qty: Number(x.qty) + 1 } : x)) };
+      return { ...cur, items: [...cur.items, { product_id: p.id, variation_id: p.variation_id, name: p.name, sku: p.sku, qty: p.qty || 1, received_qty: 0, cost: p.purchase_price || '' }] };
+    });
+  };
+  const saveStock = async (it) => {
+    const key = lineKey(it);
+    const res = await run(() => api.post('/admin/stock/adjust', { lines: [{ product_id: it.product_id, variation_id: it.variation_id || null, set: Number(stockEdit[key]) }], reason: 'count' }), 'Stock saved');
+    if (!res) return;
+    setStock((s) => ({ ...s, [key]: res[0]?.quantity_after ?? Number(stockEdit[key]) }));
+    setStockEdit(({ [key]: _, ...rest }) => rest);
+  };
+  const openNewItem = (code = '') => setNewItem({ name: '', sku: code, price: '', cost: '', stock: 0, qty: 1, online: false });
+  const createItem = async () => {
+    const n = newItem;
+    if (!n.name.trim()) { toast('Give the new item a name', 'error'); return; }
+    const code = n.sku.trim() || null;
+    const created = await run(() => api.post('/admin/products', {
+      name: n.name.trim(), type: 'simple', status: 'publish', sku: code, barcode: code,
+      regular_price: n.price === '' ? null : Number(n.price), purchase_price: n.cost === '' ? null : Number(n.cost),
+      manage_stock: true, stock_quantity: Number(n.stock) || 0, pos_visible: true, online_visible: n.online, supplier_id: po.supplier_id || null,
+    }), 'Item created');
+    if (!created?.id) return;
+    addItem({ id: created.id, variation_id: null, name: created.name, sku: created.sku, purchase_price: n.cost, stock_quantity: Number(n.stock) || 0, qty: Number(n.qty) || 1 });
+    setNewItem(null);
+  };
 
   const save = async (status) => {
     const body = { supplier_id: po.supplier_id || null, items: po.items, notes: po.notes, expected_at: po.expected_at || null, status: status || po.status };
@@ -34,6 +76,7 @@ export default function PurchaseOrderEdit() {
     const saved = await run(() => api.post(`/admin/purchase-orders/${id}/receive`, body), 'Stock added');
     setData(saved);
     setReceive(null);
+    setStock({});
   };
 
   return (
@@ -55,24 +98,43 @@ export default function PurchaseOrderEdit() {
         </>}
       />
       <div className="print-area grid gap-4 lg:grid-cols-3">
-        <Card title="Products" className="lg:col-span-2" padded={false}>
-          {!locked && <div className="border-b border-zinc-200 p-3"><ProductSearch onPick={(p) => setPo({ ...po, items: [...po.items, { product_id: p.id, variation_id: p.variation_id, name: p.name, sku: p.sku, qty: 1, received_qty: 0, cost: p.purchase_price || '' }] })} /></div>}
+        <Card title="Products" className="lg:col-span-2" padded={false} actions={!locked && <Button size="sm" icon={PackagePlus} onClick={() => openNewItem()}>New item</Button>}>
+          {!locked && (
+            <div className="border-b border-zinc-200 p-3">
+              <ProductSearch autoFocus placeholder="Scan or search products by name or SKU…" onPick={addItem}
+                onNoMatch={(code, clear) => { if (/^[\w-]{4,}$/.test(code) && /\d/.test(code)) { clear(); openNewItem(code); } }} />
+            </div>
+          )}
           <table className="w-full text-left">
             <thead className="border-b border-zinc-200 text-xs text-zinc-500"><tr>
               <th className="px-4 py-2 font-medium">Product</th><th className="px-2 py-2 text-right font-medium">Qty</th><th className="px-2 py-2 text-right font-medium">Unit cost</th>
-              <th className="px-2 py-2 text-right font-medium">Received</th><th className="px-4 py-2 text-right font-medium">Total</th><th /></tr></thead>
+              <th className="px-2 py-2 text-right font-medium">In stock</th><th className="px-2 py-2 text-right font-medium">Received</th><th className="px-4 py-2 text-right font-medium">Total</th><th /></tr></thead>
             <tbody>
-              {po.items.map((it, i) => (
-                <tr key={i} className="border-b border-zinc-100">
-                  <td className="px-4 py-2"><div className="max-w-[320px] truncate">{it.name}</div><div className="text-xs text-zinc-500">{it.sku}</div></td>
-                  <td className="px-2 py-2 text-right">{locked ? it.qty : <Input type="number" min="1" className="ml-auto h-8 w-20 text-right" value={it.qty} onChange={(e) => setItem(i, { qty: Number(e.target.value) })} />}</td>
-                  <td className="px-2 py-2 text-right">{locked ? money(it.cost) : <Input type="number" step="0.01" className="ml-auto h-8 w-24 text-right" value={it.cost} onChange={(e) => setItem(i, { cost: e.target.value })} />}</td>
-                  <td className="num px-2 py-2 text-right text-zinc-500">{it.received_qty || 0}</td>
-                  <td className="num px-4 py-2 text-right">{money(Number(it.qty) * Number(it.cost || 0))}</td>
-                  <td className="pr-3">{!locked && <button onClick={() => setPo({ ...po, items: po.items.filter((_, j) => j !== i) })} className="text-zinc-400 hover:text-red-600"><Trash2 size={14} /></button>}</td>
-                </tr>
-              ))}
-              {!po.items.length && <tr><td colSpan={6} className="py-10 text-center text-zinc-400">Search and add the products you are ordering</td></tr>}
+              {po.items.map((it, i) => {
+                const key = lineKey(it);
+                const edited = stockEdit[key] !== undefined && String(stockEdit[key]) !== String(stock[key] ?? '');
+                return (
+                  <tr key={i} className="border-b border-zinc-100">
+                    <td className="px-4 py-2"><div className="max-w-[320px] truncate">{it.name}</div><div className="text-xs text-zinc-500">{it.sku}</div></td>
+                    <td className="px-2 py-2 text-right">{locked ? it.qty : <Input type="number" min="1" className="ml-auto h-8 w-20 text-right" value={it.qty} onChange={(e) => setItem(i, { qty: Number(e.target.value) })} />}</td>
+                    <td className="px-2 py-2 text-right">{locked ? money(it.cost) : <Input type="number" step="0.01" className="ml-auto h-8 w-24 text-right" value={it.cost} onChange={(e) => setItem(i, { cost: e.target.value })} />}</td>
+                    <td className="px-2 py-2 text-right">
+                      {it.product_id && (
+                        <div className="flex items-center justify-end gap-1">
+                          <Input type="number" className="h-8 w-20 text-right" value={stockEdit[key] ?? stock[key] ?? ''} placeholder="—" title="Current stock: change it, then Save"
+                            onChange={(e) => setStockEdit({ ...stockEdit, [key]: e.target.value })}
+                            onKeyDown={(e) => { if (e.key === 'Enter' && edited) saveStock(it); }} />
+                          {edited && <Button size="sm" variant="primary" loading={busy} onClick={() => saveStock(it)}>Save</Button>}
+                        </div>
+                      )}
+                    </td>
+                    <td className="num px-2 py-2 text-right text-zinc-500">{it.received_qty || 0}</td>
+                    <td className="num px-4 py-2 text-right">{money(Number(it.qty) * Number(it.cost || 0))}</td>
+                    <td className="pr-3">{!locked && <button onClick={() => setPo({ ...po, items: po.items.filter((_, j) => j !== i) })} className="text-zinc-400 hover:text-red-600"><Trash2 size={14} /></button>}</td>
+                  </tr>
+                );
+              })}
+              {!po.items.length && <tr><td colSpan={7} className="py-10 text-center text-zinc-400">Scan or search the products you are ordering</td></tr>}
             </tbody>
           </table>
           <div className="flex justify-between px-4 py-3 text-base font-semibold"><span>Total</span><span className="num">{money(total)}</span></div>
@@ -89,6 +151,21 @@ export default function PurchaseOrderEdit() {
           </div>
         </Card>
       </div>
+      <Modal open={!!newItem} onClose={() => setNewItem(null)} title="New item" width={520}
+        footer={<><Button onClick={() => setNewItem(null)}>Cancel</Button><Button variant="primary" loading={busy} onClick={createItem}>Create and add to the order</Button></>}>
+        {newItem && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Name" className="sm:col-span-2"><Input autoFocus value={newItem.name} onChange={(e) => setNewItem({ ...newItem, name: e.target.value })} /></Field>
+            <Field label="SKU / barcode" className="sm:col-span-2"><Input value={newItem.sku} placeholder="Scan the barcode" onChange={(e) => setNewItem({ ...newItem, sku: e.target.value })} /></Field>
+            <Field label="Selling price ($)"><Input type="number" step="0.01" value={newItem.price} onChange={(e) => setNewItem({ ...newItem, price: e.target.value })} /></Field>
+            <Field label="Unit cost ($)"><Input type="number" step="0.01" value={newItem.cost} onChange={(e) => setNewItem({ ...newItem, cost: e.target.value })} /></Field>
+            <Field label="Quantity ordered"><Input type="number" min="1" value={newItem.qty} onChange={(e) => setNewItem({ ...newItem, qty: e.target.value })} /></Field>
+            <Field label="Current stock"><Input type="number" value={newItem.stock} onChange={(e) => setNewItem({ ...newItem, stock: e.target.value })} /></Field>
+            <label className="flex items-center gap-2 text-[13px] sm:col-span-2"><input type="checkbox" checked={newItem.online} onChange={(e) => setNewItem({ ...newItem, online: e.target.checked })} /> Show on the website (add photos later in Products)</label>
+            <p className="text-xs text-zinc-500 sm:col-span-2">The item is created in Products and shows in the POS right away. Photos, category and brand can be added later.</p>
+          </div>
+        )}
+      </Modal>
       <Modal open={!!receive} onClose={() => setReceive(null)} title="Receive goods" width={560}
         footer={<><Button onClick={() => setReceive(null)}>Cancel</Button><Button onClick={() => doReceive(false)} loading={busy}>Receive these quantities</Button><Button variant="primary" loading={busy} onClick={() => doReceive(true)}>Receive everything</Button></>}>
         <p className="mb-3 text-[13px] text-zinc-500">Enter what actually arrived. Stock and cost prices are updated right away.</p>

@@ -245,12 +245,12 @@ catalog.get('/lookup', requireStaff(), async (c) => {
   const q = (c.req.query('q') || '').trim();
   if (!q) return c.json([]);
   const rows = await query(`
-    select p.id, null::int variation_id, p.name, p.sku, p.type, p.regular_price, p.sale_price, p.purchase_price, p.stock_quantity, p.images->0->>'url' image
-      from products p where p.status <> 'archived' and (lower(p.name) like $1 or p.sku = $2 or p.barcode = $2)
+    select p.id, null::int variation_id, p.name, p.sku, p.barcode, p.type, p.regular_price, p.sale_price, p.purchase_price, p.stock_quantity, p.images->0->>'url' image
+      from products p where p.status <> 'archived' and (lower(p.name) like $1 or p.sku = $2 or p.barcode = $2 or (ltrim($2, '0') <> '' and (ltrim(p.sku, '0') = ltrim($2, '0') or ltrim(p.barcode, '0') = ltrim($2, '0'))))
     union all
-    select p.id, v.id, p.name || ' - ' || coalesce((select string_agg(a->>'option', ', ') from jsonb_array_elements(v.attributes) a), ''), v.sku, 'variation',
+    select p.id, v.id, p.name || ' - ' || coalesce((select string_agg(a->>'option', ', ') from jsonb_array_elements(v.attributes) a), ''), v.sku, v.barcode, 'variation',
       coalesce(v.regular_price, p.regular_price), v.sale_price, coalesce(v.purchase_price, p.purchase_price), v.stock_quantity, coalesce(v.image->>'url', p.images->0->>'url')
-      from variations v join products p on p.id = v.product_id where p.status <> 'archived' and (v.sku = $2 or v.barcode = $2 or (lower(p.name) like $1 and $3))
+      from variations v join products p on p.id = v.product_id where p.status <> 'archived' and (v.sku = $2 or v.barcode = $2 or (ltrim($2, '0') <> '' and (ltrim(v.sku, '0') = ltrim($2, '0') or ltrim(v.barcode, '0') = ltrim($2, '0'))) or (lower(p.name) like $1 and $3))
     limit 30`, [`%${q.toLowerCase()}%`, q, c.req.query('variations') === '1']);
   return c.json(rows);
 });
