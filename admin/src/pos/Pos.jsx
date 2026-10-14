@@ -73,7 +73,8 @@ function VariationPicker({ product, highlight, onPick, onClose }) {
 function PaymentModal({ total, payments, lbpRate, onClose, onPay, busy }) {
   const [method, setMethod] = useState(payments[0]?.id || 'cash');
   const [given, setGiven] = useState('');
-  const isCash = /cash/i.test(method);
+  const refund = total < 0;
+  const isCash = /cash/i.test(method) && !refund;
   const change = Number(given) - total;
   const quick = [...new Set([Math.ceil(total), Math.ceil(total / 5) * 5, Math.ceil(total / 10) * 10, Math.ceil(total / 20) * 20, 50, 100].filter((v) => v >= total))].slice(0, 5);
   const submit = () => {
@@ -89,11 +90,11 @@ function PaymentModal({ total, payments, lbpRate, onClose, onPay, busy }) {
   });
   return (
     <Modal open onClose={onClose} title="Payment" width={520}
-      footer={<Button variant="primary" size="lg" className="w-full" loading={busy} disabled={isCash && given !== '' && Number(given) < total - 0.001} onClick={submit}>Complete sale · {money(total)}</Button>}>
+      footer={<Button variant="primary" size="lg" className="w-full" loading={busy} disabled={isCash && given !== '' && Number(given) < total - 0.001} onClick={submit}>{refund ? `Complete return · give back ${money(-total)}` : `Complete sale · ${money(total)}`}</Button>}>
       <div className="text-center">
-        <div className="text-[13px] text-zinc-500">Amount due</div>
-        <div className="num text-4xl font-semibold tracking-tight">{money(total)}</div>
-        {lbpRate > 0 && <div className="num text-zinc-500">{Math.round(total * lbpRate).toLocaleString('en-US')} LBP</div>}
+        <div className="text-[13px] text-zinc-500">{refund ? 'Give back to the customer' : 'Amount due'}</div>
+        <div className={cx('num text-4xl font-semibold tracking-tight', refund && 'text-red-600')}>{money(refund ? -total : total)}</div>
+        {lbpRate > 0 && <div className="num text-zinc-500">{Math.round(Math.abs(total) * lbpRate).toLocaleString('en-US')} LBP</div>}
       </div>
       <div className="mt-5 grid grid-cols-3 gap-2">
         {payments.map((p) => (
@@ -255,7 +256,7 @@ function RegisterModal({ session, onClose, onChange }) {
 // ---------------------------------------------------------------- Main POS
 export default function Pos() {
   const { staff, can, login, logout } = useAuth();
-  const { toast } = useToast();
+  const { toast, confirm } = useToast();
   const [catalog, setCatalog] = useState(null);
   const [q, setQ] = useState('');
   const [cat, setCat] = useState(null);
@@ -398,8 +399,9 @@ export default function Pos() {
   }, [cart.length]);
 
   const subtotal = cart.reduce((s, l) => s + l.price * l.quantity, 0);
-  const discountValue = discount ? Math.min(subtotal, discount.type === 'percent' ? (subtotal * discount.amount) / 100 : discount.amount) : 0;
-  const total = Math.max(0, Math.round((subtotal - discountValue) * 100) / 100);
+  const soldValue = cart.reduce((s, l) => s + Math.max(0, l.price * l.quantity), 0);
+  const discountValue = discount ? Math.max(0, Math.min(soldValue, discount.type === 'percent' ? (soldValue * discount.amount) / 100 : discount.amount)) : 0;
+  const total = Math.round((subtotal - discountValue) * 100) / 100;
   const lbpRate = catalog?.store?.secondary_currency?.rate || 0;
   const payments = (catalog?.payments || []).filter((p) => p.enabled !== false && p.pos !== false && p.id !== 'cod');
   const posPayments = payments.length ? payments : [{ id: 'cash', title: 'Cash' }, { id: 'card', title: 'Card' }];
@@ -598,15 +600,20 @@ export default function Pos() {
                   <div className="line-clamp-2 text-[13px] leading-snug">{l.name}</div>
                   <div className="mt-1 flex items-center gap-2">
                     <div className="flex items-center rounded-md border border-zinc-300">
-                      <button className="px-2 py-1 hover:bg-zinc-100" onClick={() => setCart(cart.map((x) => (x.key === l.key ? { ...x, quantity: Math.max(1, x.quantity - 1) } : x)))}><Minus size={12} /></button>
-                      <input value={l.quantity} onChange={(e) => setCart(cart.map((x) => (x.key === l.key ? { ...x, quantity: Math.max(1, Number(e.target.value) || 1) } : x)))} className="num w-8 text-center outline-none" />
-                      <button className="px-2 py-1 hover:bg-zinc-100" onClick={() => setCart(cart.map((x) => (x.key === l.key ? { ...x, quantity: x.quantity + 1 } : x)))}><Plus size={12} /></button>
+                      <button className="px-2 py-1 hover:bg-zinc-100" onClick={async () => {
+                        // going below 1 turns the line into a returned item: ask first
+                        if (l.quantity === 1 && !(await confirm({ title: 'Return this item?', message: `"${l.name}" will be refunded to the customer (-${money(l.price)}) and put back in stock.`, confirmLabel: 'Yes, return it' }))) return;
+                        setCart((c) => c.map((x) => (x.key === l.key ? { ...x, quantity: x.quantity === 1 ? -1 : x.quantity - 1 } : x)));
+                      }} title="Below 1 = item returned"><Minus size={12} /></button>
+                      <input value={l.quantity} onChange={(e) => setCart(cart.map((x) => (x.key === l.key ? { ...x, quantity: parseInt(e.target.value, 10) || x.quantity } : x)))} className={cx('num w-8 text-center outline-none', l.quantity < 0 && 'font-semibold text-red-600')} />
+                      <button className="px-2 py-1 hover:bg-zinc-100" onClick={() => setCart(cart.map((x) => (x.key === l.key ? { ...x, quantity: x.quantity === -1 ? 1 : x.quantity + 1 } : x)))}><Plus size={12} /></button>
                     </div>
                     {can('manager') || settings.cashier_discounts !== false ? (
                       <input type="number" step="0.01" value={l.price} title="Unit price"
                         onChange={(e) => setCart(cart.map((x) => (x.key === l.key ? { ...x, price: Number(e.target.value) } : x)))}
                         className={cx('num h-7 w-20 rounded border px-1.5 text-right text-[13px] outline-none focus:border-zinc-900', l.price < l.regular ? 'border-amber-300 bg-amber-50' : 'border-zinc-200')} />
                     ) : <span className="num text-[13px] text-zinc-500">{money(l.price)}</span>}
+                    {l.quantity < 0 && <span className="rounded bg-red-50 px-1.5 py-0.5 text-[11px] font-medium text-red-700">Return</span>}
                     {l.stock !== null && l.quantity > l.stock && <span className="text-[11px] text-red-600">only {l.stock}</span>}
                   </div>
                 </div>
@@ -634,7 +641,7 @@ export default function Pos() {
               <span className="text-base font-semibold">Total</span>
               <span className="text-right"><span className="num block text-2xl font-semibold">{money(total)}</span>{lbpRate > 0 && total > 0 && <span className="num text-xs text-zinc-500">{Math.round(total * lbpRate).toLocaleString('en-US')} LBP</span>}</span>
             </div>
-            <Button variant="primary" size="lg" className="mt-3 w-full" disabled={!cart.length} onClick={() => setPaying(true)}>Charge {money(total)} <span className="ml-1 text-xs opacity-60">F9</span></Button>
+            <Button variant="primary" size="lg" className="mt-3 w-full" disabled={!cart.length} onClick={() => setPaying(true)}>{total < 0 ? `Refund ${money(-total)}` : `Charge ${money(total)}`} <span className="ml-1 text-xs opacity-60">F9</span></Button>
           </div>
         </aside>
       </div>

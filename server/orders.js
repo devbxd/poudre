@@ -41,7 +41,8 @@ export async function applyCoupon(t, code, lines, customerEmail = null) {
 export async function priceLines(t, items, { allowOverride = false } = {}) {
   const lines = [];
   for (const it of items) {
-    const qty = Math.max(1, Math.floor(Number(it.quantity) || 1));
+    const asked = Math.trunc(Number(it.quantity) || 0);
+    const qty = allowOverride && asked < 0 ? asked : Math.max(1, asked || 1);
     if (it.custom) {
       // POS custom/quick item without a catalogue product
       if (!allowOverride) fail(400, 'Custom items are not allowed');
@@ -104,16 +105,17 @@ export async function createOrder(t, input, { channel, staff = null, allowOverri
     await t.query('update coupons set usage_count = usage_count + 1 where id = $1', [r.coupon.id]);
   }
   if (input.discount && allowOverride) {
-    const d = input.discount.type === 'percent' ? ((subtotal - discount) * Number(input.discount.amount)) / 100 : Number(input.discount.amount);
+    const d = input.discount.type === 'percent' ? ((soldValue - discount) * Number(input.discount.amount)) / 100 : Number(input.discount.amount);
     discount += money(Math.max(0, d));
   }
-  discount = Math.min(discount, subtotal);
+  const soldValue = money(lines.reduce((s, l) => s + Math.max(0, l.subtotal), 0));
+  discount = Math.max(0, Math.min(discount, soldValue));
   const shippingTotal = freeShipping ? 0 : money(input.shipping_total) || 0;
   const feeTotal = money(input.fee_total) || 0;
   const total = money(subtotal - discount + shippingTotal + feeTotal);
 
   // spread the order-level discount over the lines so per-product reports stay correct
-  const lineDiscountBase = subtotal || 1;
+  const lineDiscountBase = soldValue || 1;
   const status = input.status || (channel === 'pos' ? 'completed' : 'processing');
   const now = new Date().toISOString();
 
@@ -143,14 +145,14 @@ export async function createOrder(t, input, { channel, staff = null, allowOverri
   order.number = String(order.id);
 
   for (const l of lines) {
-    const share = l.subtotal - l.line_discount - ((discount - lines.reduce((s, x) => s + x.line_discount, 0)) * l.subtotal) / lineDiscountBase;
+    const share = l.subtotal - l.line_discount - ((discount - lines.reduce((s, x) => s + x.line_discount, 0)) * Math.max(0, l.subtotal)) / lineDiscountBase;
     await insertRow(t, 'order_items', {
       order_id: order.id, product_id: l.product_id, variation_id: l.variation_id, name: l.name, sku: l.sku,
       quantity: l.quantity, unit_price: l.price, purchase_price: l.purchase_price, subtotal: l.subtotal, total: money(share),
       meta: JSON.stringify(l.regular > l.price ? { regular_price: l.regular } : {}),
     });
     if (REDUCES_STOCK.has(status) && l.product_id) {
-      await moveStock(t, { product_id: l.product_id, variation_id: l.variation_id, change: -l.quantity, reason: 'sale', ref_type: 'order', ref_id: order.id, staff_id: staff?.id });
+      await moveStock(t, { product_id: l.product_id, variation_id: l.variation_id, change: -l.quantity, reason: l.quantity < 0 ? 'return' : 'sale', ref_type: 'order', ref_id: order.id, staff_id: staff?.id });
     }
     if (l.product_id) await t.query('update products set total_sales = total_sales + $2 where id = $1', [l.product_id, l.quantity]);
   }
