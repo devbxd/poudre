@@ -163,21 +163,27 @@ inventory.get('/purchase-orders/:id', requireStaff(), async (c) => {
   return c.json(po);
 });
 
-function poTotals(items) {
+/** Lines + VAT % on the products + other charges (delivery, tips…) as on the supplier's invoice */
+function poTotals(items, meta = {}) {
   const clean = (items || []).map((i) => ({
     product_id: i.product_id ? Number(i.product_id) : null, variation_id: i.variation_id ? Number(i.variation_id) : null,
     name: i.name, sku: i.sku || null, qty: Math.max(0, Number(i.qty) || 0), received_qty: Number(i.received_qty) || 0, cost: money(i.cost) || 0,
   }));
-  return { items: clean, total: money(clean.reduce((s, i) => s + i.qty * i.cost, 0)) };
+  const subtotal = clean.reduce((s, i) => s + i.qty * i.cost, 0);
+  const vat_rate = Math.max(0, Number(meta.vat_rate) || 0);
+  const extras = (meta.extras || []).map((x) => ({ label: String(x.label || '').slice(0, 200), amount: money(x.amount) || 0 })).filter((x) => x.label || x.amount);
+  const vat = money((subtotal * vat_rate) / 100);
+  const total = money(subtotal + vat + extras.reduce((s, x) => s + x.amount, 0));
+  return { items: clean, total, meta: { vat_rate, vat, extras, subtotal: money(subtotal) } };
 }
 
 inventory.post('/purchase-orders', requireStaff('manager'), async (c) => {
   const body = await c.req.json();
-  const { items, total } = poTotals(body.items);
+  const { items, total, meta } = poTotals(body.items, body.meta);
   const row = await tx(async (t) => {
     const po = await insertRow(t, 'purchase_orders', {
       supplier_id: body.supplier_id || null, status: body.status === 'ordered' ? 'ordered' : 'draft', expected_at: body.expected_at || null,
-      notes: body.notes || '', items: JSON.stringify(items), total,
+      notes: body.notes || '', items: JSON.stringify(items), total, meta: JSON.stringify(meta),
     });
     await t.query('update purchase_orders set number = $2 where id = $1', [po.id, `PO-${po.id}`]);
     return po;
@@ -195,9 +201,10 @@ inventory.put('/purchase-orders/:id', requireStaff('manager'), async (c) => {
     const data = pick(body, ['supplier_id', 'expected_at', 'notes']);
     if (body.items) {
       if (po.status === 'received') fail(400, 'This purchase order is already received');
-      const { items, total } = poTotals(body.items);
+      const { items, total, meta } = poTotals(body.items, body.meta);
       data.items = JSON.stringify(items);
       data.total = total;
+      data.meta = JSON.stringify({ ...(typeof po.meta === 'string' ? JSON.parse(po.meta) : po.meta || {}), ...meta });
     }
     if (body.status && ['draft', 'ordered', 'cancelled'].includes(body.status)) data.status = body.status;
     return updateRow(t, 'purchase_orders', id, data);

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, PackageCheck, PackagePlus, Printer, Trash2 } from 'lucide-react';
+import { ArrowLeft, PackageCheck, PackagePlus, Plus, Printer, Trash2 } from 'lucide-react';
 import { api } from '../lib/api.js';
 import { useFetch } from '../lib/hooks.js';
 import { money, dateTime } from '../lib/format.js';
@@ -17,14 +17,18 @@ export default function PurchaseOrderEdit() {
   const { confirm, toast } = useToast();
   const { data, setData } = useFetch(isNew ? null : `/admin/purchase-orders/${id}`);
   const { data: suppliers } = useFetch('/admin/suppliers');
-  const [po, setPo] = useState(isNew ? { supplier_id: '', items: [], notes: '', expected_at: '', status: 'draft' } : null);
+  const [po, setPo] = useState(isNew ? { supplier_id: '', items: [], notes: '', expected_at: '', status: 'draft', meta: { vat_rate: 0, extras: [] } } : null);
   const [receive, setReceive] = useState(null);
   const [run, busy] = useAction();
   // current stock of each line, editable on the spot (saved straight to the product, independent of the order)
   const [stock, setStock] = useState({});
   const [stockEdit, setStockEdit] = useState({});
   const [newItem, setNewItem] = useState(null);
-  useEffect(() => { if (data) setPo({ ...data, expected_at: data.expected_at?.slice(0, 10) || '' }); }, [data]);
+  useEffect(() => {
+    if (!data) return;
+    const meta = typeof data.meta === 'string' ? JSON.parse(data.meta) : data.meta || {};
+    setPo({ ...data, expected_at: data.expected_at?.slice(0, 10) || '', meta: { vat_rate: meta.vat_rate || 0, extras: meta.extras || [] } });
+  }, [data]);
   useEffect(() => {
     const ids = [...new Set((po?.items || []).filter((i) => i.product_id && stock[lineKey(i)] === undefined).map((i) => i.product_id))];
     if (!ids.length) return;
@@ -32,7 +36,12 @@ export default function PurchaseOrderEdit() {
   }, [po?.items?.length]); // eslint-disable-line
   if (!po) return <Spinner />;
   const locked = ['received', 'cancelled', 'partial'].includes(po.status);
-  const total = po.items.reduce((s, i) => s + Number(i.qty) * Number(i.cost || 0), 0);
+  const meta = po.meta || { vat_rate: 0, extras: [] };
+  const subtotal = po.items.reduce((s, i) => s + Number(i.qty) * Number(i.cost || 0), 0);
+  const vat = Math.round(subtotal * (Number(meta.vat_rate) || 0)) / 100;
+  const total = subtotal + vat + meta.extras.reduce((s, x) => s + (Number(x.amount) || 0), 0);
+  const setMeta = (patch) => setPo((cur) => ({ ...cur, meta: { ...(cur.meta || { vat_rate: 0, extras: [] }), ...patch } }));
+  const setExtra = (i, patch) => setMeta({ extras: meta.extras.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
   const setItem = (i, patch) => setPo({ ...po, items: po.items.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
 
   const addItem = (p) => {
@@ -67,9 +76,20 @@ export default function PurchaseOrderEdit() {
   };
 
   const save = async (status) => {
-    const body = { supplier_id: po.supplier_id || null, items: po.items, notes: po.notes, expected_at: po.expected_at || null, status: status || po.status };
+    const body = { supplier_id: po.supplier_id || null, items: po.items, notes: po.notes, expected_at: po.expected_at || null, status: status || po.status, meta };
     const saved = await run(() => (isNew ? api.post('/admin/purchase-orders', body) : api.put(`/admin/purchase-orders/${id}`, body)), 'Purchase order saved');
     if (isNew) navigate(`/purchase-orders/${saved.id}`, { replace: true }); else setData(saved);
+    return saved;
+  };
+  // the goods are here: save the order and add every quantity to the stock in one go
+  const saveAndReceive = async () => {
+    if (!po.items.length) { toast('Add the products first', 'error'); return; }
+    if (!(await confirm({ title: 'Add everything to the stock?', message: 'All the quantities of this purchase order are added to the stock now.', confirmLabel: 'Add to stock' }))) return;
+    const body = { supplier_id: po.supplier_id || null, items: po.items, notes: po.notes, expected_at: po.expected_at || null, status: 'ordered', meta };
+    const saved = await run(() => (isNew ? api.post('/admin/purchase-orders', body) : api.put(`/admin/purchase-orders/${id}`, body)));
+    const received = await run(() => api.post(`/admin/purchase-orders/${saved.id}/receive`, { all: true }), 'Saved — stock added');
+    setStock({});
+    if (isNew) navigate(`/purchase-orders/${saved.id}`, { replace: true }); else setData(received);
   };
   const doReceive = async (all) => {
     const body = all ? { all: true } : { lines: Object.entries(receive).map(([index, qty]) => ({ index: Number(index), qty: Number(qty) })) };
@@ -94,7 +114,8 @@ export default function PurchaseOrderEdit() {
           }} />}
           {!locked && <Button loading={busy} onClick={() => save()}>Save</Button>}
           {po.status === 'draft' && !isNew && <Button loading={busy} onClick={() => save('ordered')}>Mark as ordered</Button>}
-          {!isNew && ['draft', 'ordered', 'partial'].includes(po.status) && <Button variant="primary" icon={PackageCheck} onClick={() => setReceive({})}>Receive goods</Button>}
+          {!isNew && ['draft', 'ordered', 'partial'].includes(po.status) && <Button icon={PackageCheck} onClick={() => setReceive({})}>Receive part</Button>}
+          {['draft', 'ordered'].includes(po.status) && <Button variant="primary" icon={PackageCheck} loading={busy} onClick={saveAndReceive}>Save & add to stock</Button>}
         </>}
       />
       <div className="print-area grid gap-4 lg:grid-cols-3">
@@ -137,7 +158,27 @@ export default function PurchaseOrderEdit() {
               {!po.items.length && <tr><td colSpan={7} className="py-10 text-center text-zinc-400">Scan or search the products you are ordering</td></tr>}
             </tbody>
           </table>
-          <div className="flex justify-between px-4 py-3 text-base font-semibold"><span>Total</span><span className="num">{money(total)}</span></div>
+          <div className="space-y-2 px-4 py-3 text-[13px]">
+            <div className="flex justify-between text-zinc-600"><span>Products</span><span className="num">{money(subtotal)}</span></div>
+            <div className="flex items-center justify-between gap-3 text-zinc-600">
+              <span className="flex items-center gap-2">VAT {locked ? `${meta.vat_rate || 0}%` : <><Input type="number" min="0" step="0.01" className="h-8 w-20 text-right" value={meta.vat_rate || ''} placeholder="0" onChange={(e) => setMeta({ vat_rate: e.target.value })} /> %</>}</span>
+              <span className="num">{money(vat)}</span>
+            </div>
+            {meta.extras.map((x, i) => (
+              <div key={i} className="flex items-center justify-between gap-3 text-zinc-600">
+                {locked ? <span>{x.label}</span> : <Input className="h-8 flex-1" value={x.label} placeholder="Description (delivery, tips…)" onChange={(e) => setExtra(i, { label: e.target.value })} />}
+                <span className="flex items-center gap-2">
+                  {locked ? <span className="num">{money(x.amount)}</span> : <Input type="number" step="0.01" className="h-8 w-24 text-right" value={x.amount} placeholder="0.00" onChange={(e) => setExtra(i, { amount: e.target.value })} />}
+                  {!locked && <button onClick={() => setMeta({ extras: meta.extras.filter((_, j) => j !== i) })} className="text-zinc-400 hover:text-red-600"><Trash2 size={14} /></button>}
+                </span>
+              </div>
+            ))}
+            {!locked && <Button size="sm" icon={Plus} onClick={() => setMeta({ extras: [...meta.extras, { label: '', amount: '' }] })}>Add other</Button>}
+          </div>
+          <div className="flex justify-between border-t border-zinc-200 px-4 py-3 text-base font-semibold"><span>Total</span><span className="num">{money(total)}</span></div>
+          {['draft', 'ordered'].includes(po.status) && po.items.length > 0 && (
+            <div className="border-t border-amber-200 bg-amber-50 px-4 py-2 text-[13px] text-amber-800">Stock is added only when you click <b>Save & add to stock</b> (or <b>Receive part</b> if only some items arrived).</div>
+          )}
         </Card>
         <Card title="Details">
           <div className="space-y-3">

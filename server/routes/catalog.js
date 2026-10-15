@@ -22,7 +22,10 @@ catalog.get('/products', requireStaff(), async (c) => {
   if (f.q) {
     const p = w.param(`%${f.q.trim().toLowerCase()}%`);
     const exact = w.param(f.q.trim());
+    // every word typed, in any order: "samoa brus" finds "Samoa Buffing Foundation Brush"
+    const words = w.param(f.q.trim().toLowerCase().split(/\s+/).filter(Boolean));
     w.parts.push(`(lower(p.name) like ${p} or p.sku = ${exact} or p.barcode = ${exact} or lower(p.sku) like ${p}
+      or (select bool_and(lower(p.name) like '%' || x || '%') from unnest(${words}::text[]) x)
       or exists (select 1 from variations v where v.product_id = p.id and (v.sku = ${exact} or v.barcode = ${exact})))`);
   }
   if (f.status) w.add('p.status = ?', f.status); else w.parts.push(`p.status <> 'archived'`);
@@ -246,12 +249,12 @@ catalog.get('/lookup', requireStaff(), async (c) => {
   if (!q) return c.json([]);
   const rows = await query(`
     select p.id, null::int variation_id, p.name, p.sku, p.barcode, p.type, p.regular_price, p.sale_price, p.purchase_price, p.stock_quantity, p.images->0->>'url' image
-      from products p where p.status <> 'archived' and (lower(p.name) like $1 or p.sku = $2 or p.barcode = $2 or (ltrim($2, '0') <> '' and (ltrim(p.sku, '0') = ltrim($2, '0') or ltrim(p.barcode, '0') = ltrim($2, '0'))))
+      from products p where p.status <> 'archived' and (lower(p.name) like $1 or (select bool_and(lower(p.name) like '%' || x || '%') from unnest($4::text[]) x) or p.sku = $2 or p.barcode = $2 or (ltrim($2, '0') <> '' and (ltrim(p.sku, '0') = ltrim($2, '0') or ltrim(p.barcode, '0') = ltrim($2, '0'))))
     union all
     select p.id, v.id, p.name || ' - ' || coalesce((select string_agg(a->>'option', ', ') from jsonb_array_elements(v.attributes) a), ''), v.sku, v.barcode, 'variation',
       coalesce(v.regular_price, p.regular_price), v.sale_price, coalesce(v.purchase_price, p.purchase_price), v.stock_quantity, coalesce(v.image->>'url', p.images->0->>'url')
-      from variations v join products p on p.id = v.product_id where p.status <> 'archived' and (v.sku = $2 or v.barcode = $2 or (ltrim($2, '0') <> '' and (ltrim(v.sku, '0') = ltrim($2, '0') or ltrim(v.barcode, '0') = ltrim($2, '0'))) or (lower(p.name) like $1 and $3))
-    limit 30`, [`%${q.toLowerCase()}%`, q, c.req.query('variations') === '1']);
+      from variations v join products p on p.id = v.product_id where p.status <> 'archived' and (v.sku = $2 or v.barcode = $2 or (ltrim($2, '0') <> '' and (ltrim(v.sku, '0') = ltrim($2, '0') or ltrim(v.barcode, '0') = ltrim($2, '0'))) or ((lower(p.name) like $1 or (select bool_and(lower(p.name || ' ' || v.attributes::text) like '%' || x || '%') from unnest($4::text[]) x)) and $3))
+    limit 30`, [`%${q.toLowerCase()}%`, q, c.req.query('variations') === '1', q.toLowerCase().split(/s+/).filter(Boolean)]);
   return c.json(rows);
 });
 

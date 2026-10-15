@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Copy, ExternalLink, ImagePlus, Plus, Star, Trash2, Wand2, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { api } from '../lib/api.js';
@@ -84,6 +84,7 @@ function Attributes({ attributes, onChange, variable }) {
 
 function Variations({ product, setProduct }) {
   const [picker, setPicker] = useState(null);
+  const body = useRef();
   const attrs = product.attributes.filter((a) => a.variation);
   const vars = product.variations;
   const setVar = (i, patch) => setProduct({ ...product, variations: vars.map((v, j) => (j === i ? { ...v, ...patch } : v)) });
@@ -96,6 +97,14 @@ function Variations({ product, setProduct }) {
     }));
     setProduct({ ...product, variations: [...vars, ...added] });
   };
+  const addOne = () => {
+    setProduct({ ...product, variations: [...vars, { attributes: attrs.map((a) => ({ name: a.name, option: a.options[0] || '' })), manage_stock: true, stock_quantity: 0, status: 'publish', regular_price: product.regular_price || '' }] });
+    setTimeout(() => {
+      const row = body.current?.lastElementChild;
+      row?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      row?.querySelector('input')?.focus({ preventScroll: true });
+    }, 50);
+  };
   const applyAll = (field) => {
     const value = prompt(`Set ${field.replace('_', ' ')} for all options:`);
     if (value !== null) setProduct({ ...product, variations: vars.map((v) => ({ ...v, [field]: value, ...(field === 'stock_quantity' ? { manage_stock: true } : {}) })) });
@@ -104,7 +113,7 @@ function Variations({ product, setProduct }) {
     <Card title={`Options (${vars.length})`} padded={false}
       actions={<>
         <Button size="sm" icon={Wand2} disabled={!attrs.length} onClick={generate}>Create all combinations</Button>
-        <Button size="sm" icon={Plus} onClick={() => setProduct({ ...product, variations: [...vars, { attributes: attrs.map((a) => ({ name: a.name, option: a.options[0] || '' })), manage_stock: true, stock_quantity: 0, status: 'publish', regular_price: product.regular_price || '' }] })}>Add one</Button>
+        <Button size="sm" icon={Plus} onClick={addOne}>Add one</Button>
       </>}>
       {!attrs.length && <p className="p-4 text-zinc-500">First add an attribute above (for example “Shade” or “Size”) and tick “Options”.</p>}
       {vars.length > 0 && (
@@ -123,7 +132,7 @@ function Variations({ product, setProduct }) {
                 <th />
               </tr>
             </thead>
-            <tbody>
+            <tbody ref={body}>
               {vars.map((v, i) => (
                 <tr key={v.id || `new-${i}`} className="border-b border-zinc-100">
                   <td className="px-3 py-1.5">
@@ -156,6 +165,7 @@ function Variations({ product, setProduct }) {
               ))}
             </tbody>
           </table>
+          <div className="px-3 pt-2"><Button size="sm" icon={Plus} onClick={addOne}>Add one</Button></div>
           <p className="px-4 py-2 text-xs text-zinc-500">Tip: click a column title (Price, Sale, Cost, Stock) to fill it for every option at once.</p>
         </div>
       )}

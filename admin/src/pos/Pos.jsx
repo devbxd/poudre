@@ -16,6 +16,7 @@ const priceOf = (x) => {
     && (!x.sale_from || new Date(x.sale_from).getTime() <= now) && (!x.sale_to || new Date(x.sale_to).getTime() >= now);
   return { price: sale ? x.sale_price : x.regular_price ?? 0, regular: x.regular_price ?? 0, on_sale: sale };
 };
+const onSale = (p) => (p.type === 'variable' ? (p.variations || []).some((v) => priceOf(v).on_sale) : priceOf(p).on_sale);
 const initials = (name) => (name || '').split(/\s+/).filter((w) => /^[a-z0-9]/i.test(w)).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
 // code shown on a product: its own SKU / barcode, or the one shared by its options
 const code = (p) => p.barcode || p.sku || (p.variations?.length && p.variations.every((v) => (v.barcode || v.sku) && (v.barcode || v.sku) === (p.variations[0].barcode || p.variations[0].sku)) ? p.variations[0].barcode || p.variations[0].sku : '');
@@ -50,7 +51,7 @@ function VariationPicker({ product, highlight, onPick, onClose }) {
       {highlight && <p className="mb-3 text-[13px] text-zinc-500">Scanned option highlighted — press Enter or tap it to add, or choose another one.</p>}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {product.variations.map((v) => {
-          const { price } = priceOf(v);
+          const { price, regular, on_sale: promo } = priceOf(v);
           const out = v.manage_stock ? v.stock_quantity <= 0 : v.stock_status === 'outofstock';
           return (
             <button key={v.id} onClick={() => onPick(v)}
@@ -59,7 +60,7 @@ function VariationPicker({ product, highlight, onPick, onClose }) {
               <div className="min-w-0">
                 <div className="truncate font-medium">{optionLabel(v) || "Option"}</div>
                 {(v.barcode || v.sku) && <div className="num truncate text-[11px] text-zinc-400">{v.barcode || v.sku}</div>}
-                <div className="num text-[13px]">{money(price)} · <span className={out ? 'text-red-600' : 'text-zinc-500'}>{v.manage_stock ? `${v.stock_quantity} left` : out ? 'Out' : 'In stock'}</span></div>
+                <div className="num text-[13px]">{promo && <s className="mr-1 text-zinc-400">{money(regular)}</s>}<span className={promo ? 'font-semibold text-red-600' : ''}>{money(price)}</span> · <span className={out ? 'text-red-600' : 'text-zinc-500'}>{v.manage_stock ? `${v.stock_quantity} left` : out ? 'Out' : 'In stock'}</span></div>
               </div>
             </button>
           );
@@ -532,7 +533,7 @@ export default function Pos() {
                         <td className="px-2 py-1.5"><div className="font-medium leading-snug">{p.name}</div>{p.type === 'variable' && <div className="text-xs text-zinc-500">{p.variations?.length} options</div>}</td>
                         <td className="num px-2 py-1.5 text-[13px] text-zinc-600">{code(p) || '—'}</td>
                         <td className={cx('num px-2 py-1.5 text-right', stock !== null && stock <= 0 ? 'text-red-600' : 'text-zinc-500')}>{stock ?? '—'}</td>
-                        <td className="num px-2 py-1.5 text-right font-semibold">{Number.isFinite(pr) ? money(pr) : '—'}</td>
+                        <td className={cx('num px-2 py-1.5 text-right font-semibold', onSale(p) && 'text-red-600')}>{p.type !== 'variable' && priceOf(p).on_sale && <s className="mr-1 text-[11px] font-normal text-zinc-400">{money(priceOf(p).regular)}</s>}{Number.isFinite(pr) ? money(pr) : '—'}{onSale(p) && <span className="ml-1 rounded bg-red-600 px-1 text-[10px] text-white">SALE</span>}</td>
                       </tr>
                     );
                   })}
@@ -550,13 +551,15 @@ export default function Pos() {
                       {p.image ? <img src={sized(p.image, 500)} alt="" loading="lazy" className="h-full w-full object-contain p-1" />
                         : <span className="flex h-full w-full items-center justify-center text-2xl font-semibold tracking-wide text-zinc-300">{initials(p.name)}</span>}
                       {out && <span className="absolute left-1.5 top-1.5 rounded bg-white/90 px-1.5 text-[11px] font-medium text-red-600">Out of stock</span>}
+                      {onSale(p) && <span className="absolute bottom-1.5 left-1.5 rounded bg-red-600 px-1.5 text-[11px] font-semibold text-white">SALE</span>}
                       {p.type === 'variable' && <span className="absolute right-1.5 top-1.5 rounded bg-white/90 px-1.5 text-[11px] text-zinc-600">{p.variations?.length} options</span>}
                     </div>
                     <div className="flex flex-1 flex-col p-2">
                       <div className="line-clamp-2 text-[13px] leading-snug">{p.name}</div>
                       <div className="mt-auto flex items-end justify-between gap-2 pt-1">
                         <span className="flex min-w-0 items-baseline gap-2">
-                          <span className="num shrink-0 font-semibold">{Number.isFinite(pr) ? money(pr) : '—'}</span>
+                          {p.type !== 'variable' && priceOf(p).on_sale && <s className="num shrink-0 text-[11px] text-zinc-400">{money(priceOf(p).regular)}</s>}
+                          <span className={cx('num shrink-0 font-semibold', onSale(p) && 'text-red-600')}>{Number.isFinite(pr) ? money(pr) : '—'}</span>
                           {code(p) && <span className="num truncate text-[11px] text-zinc-500" title="SKU / barcode">{code(p)}</span>}
                         </span>
                         {stock !== null && <span className={cx('num text-[11px]', stock <= 0 ? 'text-red-600' : 'text-zinc-400')}>{stock}</span>}
@@ -614,6 +617,7 @@ export default function Pos() {
                         className={cx('num h-7 w-20 rounded border px-1.5 text-right text-[13px] outline-none focus:border-zinc-900', l.price < l.regular ? 'border-amber-300 bg-amber-50' : 'border-zinc-200')} />
                     ) : <span className="num text-[13px] text-zinc-500">{money(l.price)}</span>}
                     {l.quantity < 0 && <span className="rounded bg-red-50 px-1.5 py-0.5 text-[11px] font-medium text-red-700">Return</span>}
+                    {l.regular > l.price && <span className="whitespace-nowrap rounded bg-red-600 px-1.5 py-0.5 text-[11px] font-medium text-white" title="Already discounted">Promo <s className="opacity-80">{money(l.regular)}</s></span>}
                     {l.stock !== null && l.quantity > l.stock && <span className="text-[11px] text-red-600">only {l.stock}</span>}
                   </div>
                 </div>
