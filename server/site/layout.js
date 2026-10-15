@@ -57,9 +57,30 @@ function withoutHidden(items, hidden) {
     .map((it) => (it.children?.length ? { ...it, children: withoutHidden(it.children, hidden) } : it));
 }
 
+/** A sub-category switched "on the website" in the dashboard shows in its parent's drop-down menu even if the old
+ *  WordPress menu did not list it (only under items that already have a drop-down). */
+function withNewCategories(items, cats) {
+  const byId = new Map(cats.map((c) => [c.id, c]));
+  const url = (c) => { const path = []; for (let x = c, n = 0; x && n < 10; x = byId.get(x.parent_id), n++) path.unshift(x.slug); return `/product-category/${path.join('/')}/`; };
+  const walk = (list) => list.map((it) => {
+    if (!it.children?.length) return it;
+    const children = walk(it.children);
+    if (it.type === 'product_cat') {
+      const listed = new Set(children.filter((ch) => ch.type === 'product_cat').map((ch) => Number(ch.object_id)));
+      const titles = new Set(children.map((ch) => String(ch.title).trim().toLowerCase()));
+      for (const c of cats) {
+        if (c.parent_id !== Number(it.object_id) || !c.visible || listed.has(c.id) || titles.has(c.name.trim().toLowerCase()) || !c.total_count) continue;
+        children.push({ id: `cat-${c.id}`, url: url(c), type: 'product_cat', title: c.name, object_id: c.id, children: [] });
+      }
+    }
+    return { ...it, children };
+  });
+  return walk(items);
+}
+
 function buildMenus(allMenuSets, cats, ctx) {
   const hidden = new Set(cats.filter((c) => !c.visible).map((c) => c.id));
-  const menuSets = hidden.size ? Object.fromEntries(Object.entries(allMenuSets).map(([k, v]) => [k, withoutHidden(v, hidden)])) : allMenuSets;
+  const menuSets = Object.fromEntries(Object.entries(allMenuSets).map(([k, v]) => [k, withNewCategories(hidden.size ? withoutHidden(v, hidden) : v, cats)]));
   return {
     menu_topbar: renderMenu(menuSets['topbar-menu'] || [], { id: 'menu-topbar-menu', className: 'menu', style: 'plain', ctx }),
     menu_primary: renderMenu(menuSets.primary || [], { id: 'menu-primary-menu', className: 'menu', ctx }),
