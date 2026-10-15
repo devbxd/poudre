@@ -6,6 +6,7 @@ import { categories, productsByIds, setting } from './data.js';
 import { productCard } from './product-card.js';
 import { descendants } from './catalog.js';
 import { elementEnd } from './dom.js';
+import { esc } from './html.js';
 
 const json = (v) => (typeof v === 'string' ? JSON.parse(v) : v);
 let source;
@@ -87,8 +88,73 @@ document.addEventListener('DOMContentLoaded',function(){
 });
 </script>`;
 
+// ---------- Images editable from the dashboard (Website → Homepage) ----------
+// Hero slides came from Elementor's CSS (desktop + phone image); not bundled with the function, so kept here.
+const SLIDE_IMAGES = {
+  fd7aa42: { image: '/wp-content/uploads/2025/09/IMG_7552.jpeg', mobile: '/wp-content/uploads/2025/09/IMG_7562.jpeg' },
+  f7b0210: { image: '/wp-content/uploads/2025/09/IMG_7552.jpeg', mobile: '/wp-content/uploads/2025/09/IMG_7552.jpeg' },
+};
+const SLIDE_RE = /<div class="pls-slide swiper-slide elementor-repeater-item-(\w+)[^"]*"/g;
+const BANNER_RE = /<div id="(pls-banner-\d+)" class="pls-element pls-banner/g;
+const BUTTON_RE = /<a href="([^"]*)"([^>]*class="button btn-style-flat")>([^<]*)<\/a>/;
+let defaultsCache;
+/** The homepage's slides and banners as on the original site: { slides: [{key,image,mobile,link,button}], banners: [{key,image,link,label}] } */
+export async function homeDefaults() {
+  if (defaultsCache) return defaultsCache;
+  const html = await page();
+  const slides = [...html.matchAll(SLIDE_RE)].map((m) => {
+    const a = html.slice(m.index, elementEnd(html, m.index)).match(BUTTON_RE);
+    return { key: m[1], ...(SLIDE_IMAGES[m[1]] || { image: '', mobile: '' }), link: a ? unquote(a[1]) : '', button: a ? unquote(a[3]) : '' };
+  });
+  const banners = [...html.matchAll(BANNER_RE)].map((m) => {
+    const block = html.slice(m.index, elementEnd(html, m.index));
+    const a = block.match(BUTTON_RE);
+    return { key: m[1], image: block.match(/<img[^>]*\ssrc="([^"]+)"/)?.[1] || '', link: a ? unquote(a[1]) : '', label: a ? unquote(a[3]) : '' };
+  });
+  return (defaultsCache = { slides, banners });
+}
+
+/** Slides (any number, in the saved order) and banner images / buttons chosen in the dashboard */
+export function applyHomeImages(html, saved) {
+  const attr = (s) => esc(s);
+  if (Array.isArray(saved.slides) && saved.slides.length) {
+    const starts = [...html.matchAll(SLIDE_RE)].map((m) => m.index);
+    if (starts.length) {
+      const first = starts[0];
+      const last = elementEnd(html, starts[starts.length - 1]);
+      const model = html.slice(first, elementEnd(html, first));
+      const slides = saved.slides.filter((s) => s.image);
+      const css = slides.map((s, i) => `.pdr-slide-${i} .pls-slide-image{background-image:url("${attr(s.image)}")!important}`
+        + (s.mobile ? `@media(max-width:767px){.pdr-slide-${i} .pls-slide-image{background-image:url("${attr(s.mobile)}")!important}}` : '')).join('');
+      const blocks = slides.map((s, i) => {
+        let b = model.replace(/elementor-repeater-item-\w+/, `pdr-slide-${i}`);
+        b = s.button
+          ? b.replace(BUTTON_RE, (_, href, rest) => `<a href="${attr(s.link || '#')}"${rest}>${esc(s.button)}</a>`)
+          : b.replace(/<div class="pls-slide-button pls-button">[\s\S]*?<\/div>/, '');
+        return b;
+      });
+      html = html.slice(0, first) + blocks.join('\n\t\t\t\t\t') + html.slice(last);
+      html = html.replace('<div id="pls-home-slides-', () => `<style>${css}</style><div id="pls-home-slides-`);
+    }
+  }
+  for (const b of saved.banners || []) {
+    const at = html.indexOf(`<div id="${b.key}"`);
+    if (at < 0 || !b.image) continue;
+    const end = elementEnd(html, at);
+    let block = html.slice(at, end)
+      .replace(/<img([^>]*?)\ssrc="([^"]*)"([^>]*?)>/, (m, x, src, y) => (src === b.image ? m
+        : `<img${x.replace(/\s(srcset|sizes)="[^"]*"/g, '')} src="${attr(b.image)}"${y.replace(/\s(srcset|sizes)="[^"]*"/g, '')}>`));
+    block = b.label
+      ? block.replace(BUTTON_RE, (_, href, rest) => `<a href="${attr(b.link || '#')}"${rest}>${esc(b.label)}</a>`)
+      : block;
+    html = html.slice(0, at) + block + html.slice(end);
+  }
+  return html;
+}
+
 export async function renderHome() {
   let html = fixHero(await page());
+  html = applyHomeImages(html, await setting('homepage', {}));
   html = html.replace('<main', `${TABS_SCROLL}<main`);
   const overrides = (await setting('homepage', {})).sections || [];
   const images = { count: 0 };

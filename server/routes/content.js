@@ -7,6 +7,7 @@ import { saveFile, deleteFile } from '../storage.js';
 import { sizesFor } from '../images.js';
 import { emailSettings, sendMail, layout, EMAIL_TYPES } from '../mail.js';
 import { icarrySettings, testIcarry } from '../icarry.js';
+import { homeDefaults } from '../site/home.js';
 
 export const content = new Hono();
 
@@ -158,6 +159,8 @@ content.get('/settings', requireStaff(), async (c) => {
   const rows = await query("select key, value from settings where key not in ('emails', 'icarry')");
   return c.json(Object.fromEntries(rows.map((r) => [r.key, typeof r.value === 'string' ? JSON.parse(r.value) : r.value])));
 });
+// homepage slides / banners as on the original site (the dashboard shows them until they are changed)
+content.get('/homepage-defaults', requireStaff(), async (c) => c.json(await homeDefaults()));
 content.get('/settings/:key', requireStaff(), async (c) => {
   if (['emails', 'icarry'].includes(c.req.param('key'))) fail(403, 'Not available here');
   return c.json(await getSetting(c.req.param('key'), {}));
