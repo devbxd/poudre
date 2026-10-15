@@ -244,14 +244,15 @@ export function Table({ columns, rows, onRowClick, selectable, selected, onSelec
 
 export function Tabs({ tabs, value, onChange, className }) {
   return (
-    <div className={cx('flex gap-1 overflow-x-auto border-b border-zinc-200', className)}>
+    <div className={cx('flex gap-2 overflow-x-auto border-b border-zinc-200 py-2.5', className)}>
+      {/* real buttons (bold, black, outlined) so nobody misses that they can be clicked */}
       {tabs.map((t) => (
         <button
           key={t.value} type="button" onClick={() => onChange(t.value)}
-          className={cx('-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-[13px] font-medium',
-            value === t.value ? 'border-zinc-900 text-zinc-900' : 'border-transparent text-zinc-500 hover:text-zinc-800')}
+          className={cx('whitespace-nowrap rounded-md border px-3.5 py-1.5 text-sm font-semibold shadow-sm transition',
+            value === t.value ? 'border-zinc-900 bg-zinc-900 text-white' : 'border-zinc-300 bg-white text-zinc-900 hover:border-zinc-900 hover:bg-zinc-50')}
         >
-          {t.label}{t.count !== undefined && <span className="num ml-1.5 text-zinc-400">{t.count.toLocaleString()}</span>}
+          {t.label}{t.count !== undefined && <span className={cx('num ml-1.5 font-normal', value === t.value ? 'text-zinc-300' : 'text-zinc-500')}>{t.count.toLocaleString()}</span>}
         </button>
       ))}
     </div>
