@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Download } from 'lucide-react';
 import { qs } from '../lib/api.js';
 import { useFetch } from '../lib/hooks.js';
@@ -61,6 +62,61 @@ function DayReport() {
   );
 }
 
+/** Supplier invoices received in the period: products, VAT, other charges, by supplier and one by one */
+function Purchases() {
+  const [range, setRange] = useState('30d');
+  const r = RANGES.find((x) => x.value === range);
+  const params = qs({ from: r.from(), to: r.to() });
+  const { data } = useFetch(`/admin/reports/purchases${params}`);
+  const sum = (k) => (data || []).reduce((t, x) => t + (x[k] || 0), 0);
+  const bySupplier = Object.values((data || []).reduce((m, x) => {
+    const k = x.supplier || '—';
+    m[k] ??= { supplier: k, invoices: 0, units: 0, products: 0, vat: 0, other: 0, total: 0 };
+    for (const f of ['units', 'products', 'vat', 'other', 'total']) m[k][f] += x[f] || 0;
+    m[k].invoices++;
+    return m;
+  }, {})).sort((a, b) => b.total - a.total);
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-2 border-b border-zinc-200 p-3">
+        <Select value={range} onChange={(e) => setRange(e.target.value)} className="w-40">{RANGES.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}</Select>
+        <Button icon={Download} className="ml-auto" onClick={() => { window.location.href = `/api/admin/reports/purchases/export${params}`; }}>Export CSV</Button>
+      </div>
+      {!data ? <Spinner /> : (
+        <>
+          <div className="grid grid-cols-2 border-b border-zinc-200 text-center sm:grid-cols-5">
+            {[['Invoices', int(data.length)], ['Products', money(sum('products'))], ['VAT paid', money(sum('vat'))], ['Other charges', money(sum('other'))], ['Total bought', money(sum('total'))]].map(([k, v]) => (
+              <div key={k} className="border-b border-r border-zinc-200 py-3 sm:border-b-0"><div className="text-xs text-zinc-500">{k}</div><div className="num font-semibold">{v}</div></div>
+            ))}
+          </div>
+          <h3 className="px-4 pb-1 pt-4 font-medium">By supplier</h3>
+          <Table dense rows={bySupplier} rowKey="supplier" columns={[
+            { key: 'supplier', label: 'Supplier' },
+            { key: 'invoices', label: 'Invoices', align: 'right', render: (x) => int(x.invoices) },
+            { key: 'units', label: 'Units', align: 'right', render: (x) => int(x.units) },
+            { key: 'products', label: 'Products', align: 'right', render: (x) => money(x.products) },
+            { key: 'vat', label: 'VAT', align: 'right', render: (x) => money(x.vat) },
+            { key: 'other', label: 'Other', align: 'right', render: (x) => money(x.other) },
+            { key: 'total', label: 'Total', align: 'right', render: (x) => <span className="font-medium">{money(x.total)}</span> },
+          ]} />
+          <h3 className="px-4 pb-1 pt-5 font-medium">Invoices</h3>
+          <Table dense rows={data} rowKey="id" columns={[
+            { key: 'number', label: 'Number', render: (x) => <Link to={`/purchase-orders/${x.id}`} className="font-medium hover:underline">{x.number}</Link> },
+            { key: 'date', label: 'Received', render: (x) => date(x.date) },
+            { key: 'supplier', label: 'Supplier', render: (x) => x.supplier || '—' },
+            { key: 'notes', label: 'Invoice / notes', render: (x) => <span className="block max-w-[180px] truncate text-zinc-500">{x.notes}</span> },
+            { key: 'products', label: 'Products', align: 'right', render: (x) => money(x.products) },
+            { key: 'vat', label: 'VAT', align: 'right', render: (x) => (x.vat ? `${money(x.vat)} (${x.vat_rate}%)` : '—') },
+            { key: 'other', label: 'Other', align: 'right', render: (x) => (x.other ? <span title={x.other_details}>{money(x.other)}</span> : '—') },
+            { key: 'total', label: 'Total', align: 'right', render: (x) => <span className="font-medium">{money(x.total)}</span> },
+          ]} />
+          <p className="p-3 text-xs text-zinc-400">Received purchase orders only (drafts are not counted). Dates are the day the goods were received.</p>
+        </>
+      )}
+    </>
+  );
+}
+
 export default function Reports() {
   const [tab, setTab] = useState('sales');
   const [group, setGroup] = useState('product');
@@ -74,7 +130,8 @@ export default function Reports() {
     <>
       <PageHeader title="Reports" />
       <Card padded={false}>
-        <Tabs className="px-2" value={tab} onChange={setTab} tabs={[{ value: 'sales', label: 'Sales' }, { value: 'day', label: 'End of day' }, { value: 'dead', label: 'Slow movers' }]} />
+        <Tabs className="px-2" value={tab} onChange={setTab} tabs={[{ value: 'sales', label: 'Sales' }, { value: 'day', label: 'End of day' }, { value: 'purchases', label: 'Purchases' }, { value: 'dead', label: 'Slow movers' }]} />
+        {tab === 'purchases' && <Purchases />}
         {tab === 'day' && <DayReport />}
         {tab === 'dead' && <DeadStock />}
         {tab === 'sales' && (

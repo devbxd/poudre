@@ -109,6 +109,27 @@ reports.get('/sales/export', requireStaff('manager'), async (c) => {
   return c.body(toCsv(rows), 200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="sales-${c.req.query('group') || 'product'}.csv"` });
 });
 
+/** Supplier invoices received in the period: products, VAT, other charges (delivery, tips…), total */
+async function purchasesReport(c) {
+  const { from, to } = range(c);
+  const day = `(coalesce(po.received_at, po.created_at) at time zone ${TZ})`;
+  return query(`
+    select po.id, po.number, ${day}::date::text date, coalesce(s.name, '') supplier, po.status, coalesce(po.notes, '') notes,
+      (select coalesce(sum((i->>'qty')::numeric), 0) from jsonb_array_elements(po.items) i)::int units,
+      coalesce((po.meta->>'vat_rate')::numeric, 0)::float8 vat_rate, coalesce((po.meta->>'vat')::numeric, 0)::float8 vat,
+      coalesce((select sum((x->>'amount')::numeric) from jsonb_array_elements(case when jsonb_typeof(po.meta->'extras') = 'array' then po.meta->'extras' else '[]'::jsonb end) x), 0)::float8 other,
+      coalesce((select string_agg((x->>'label') || ' ' || (x->>'amount'), ', ') from jsonb_array_elements(case when jsonb_typeof(po.meta->'extras') = 'array' then po.meta->'extras' else '[]'::jsonb end) x), '') other_details,
+      po.total::float8 total
+    from purchase_orders po left join suppliers s on s.id = po.supplier_id
+    where po.status in ('received', 'partial') and ${day}::date between $1::date and $2::date
+    order by ${day} desc, po.id desc`, [from, to]).then((rows) => rows.map((r) => ({ ...r, products: Math.round((r.total - r.vat - r.other) * 100) / 100 })));
+}
+reports.get('/purchases', requireStaff('manager'), async (c) => c.json(await purchasesReport(c)));
+reports.get('/purchases/export', requireStaff('manager'), async (c) => {
+  const rows = (await purchasesReport(c)).map(({ id, ...r }) => r);
+  return c.body(toCsv(rows), 200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="purchases.csv"' });
+});
+
 /** Products that did not sell in the period (dead stock) */
 reports.get('/dead-stock', requireStaff('manager'), async (c) => {
   const days = Number(c.req.query('days')) || 90;
