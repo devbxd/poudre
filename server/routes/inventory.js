@@ -200,8 +200,30 @@ inventory.put('/purchase-orders/:id', requireStaff('manager'), async (c) => {
     if (!po) fail(404, 'Purchase order not found');
     const data = pick(body, ['supplier_id', 'expected_at', 'notes']);
     if (body.items) {
-      if (po.status === 'received') fail(400, 'This purchase order is already received');
+      if (po.status === 'cancelled') fail(400, 'This purchase order is cancelled');
       const { items, total, meta } = poTotals(body.items, body.meta);
+      const key = (i) => `${i.product_id || 0}-${i.variation_id || 0}`;
+      const before = typeof po.items === 'string' ? JSON.parse(po.items) : po.items || [];
+      if (po.status === 'received') {
+        // invoice corrected after the goods were received: the stock follows the new quantities
+        const delta = new Map();
+        for (const o of before) if (o.product_id) delta.set(key(o), { o, n: (delta.get(key(o))?.n || 0) - (o.received_qty || 0) });
+        for (const i of items) {
+          i.received_qty = i.qty;
+          if (i.product_id) delta.set(key(i), { o: i, n: (delta.get(key(i))?.n || 0) + i.qty });
+        }
+        for (const { o, n } of delta.values()) {
+          if (!n) continue;
+          const table = o.variation_id ? 'variations' : 'products';
+          await t.query(`update ${table} set manage_stock = true, stock_quantity = coalesce(stock_quantity, 0) where id = $1 and not manage_stock`, [o.variation_id || o.product_id]);
+          await moveStock(t, { product_id: o.product_id, variation_id: o.variation_id, change: n, reason: 'purchase', ref_type: 'purchase_order', ref_id: id, note: 'purchase order edited', staff_id: c.get('staff').id });
+        }
+        for (const i of items) if (i.product_id && i.cost) await t.query(`update ${i.variation_id ? 'variations' : 'products'} set purchase_price = $2 where id = $1`, [i.variation_id || i.product_id, i.cost]);
+      } else {
+        // partly received: what already arrived stays counted
+        const got = new Map(before.map((o) => [key(o), o.received_qty || 0]));
+        for (const i of items) { i.received_qty = Math.min(i.qty, got.get(key(i)) || 0); got.delete(key(i)); }
+      }
       data.items = JSON.stringify(items);
       data.total = total;
       data.meta = JSON.stringify({ ...(typeof po.meta === 'string' ? JSON.parse(po.meta) : po.meta || {}), ...meta });

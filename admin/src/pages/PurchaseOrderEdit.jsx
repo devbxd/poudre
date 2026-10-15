@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, PackageCheck, PackagePlus, Plus, Printer, Trash2 } from 'lucide-react';
+import { ArrowLeft, PackageCheck, PackagePlus, Pencil, Plus, Printer, Trash2 } from 'lucide-react';
 import { api } from '../lib/api.js';
 import { useFetch } from '../lib/hooks.js';
 import { money, dateTime } from '../lib/format.js';
@@ -24,6 +24,7 @@ export default function PurchaseOrderEdit() {
   const [stock, setStock] = useState({});
   const [stockEdit, setStockEdit] = useState({});
   const [newItem, setNewItem] = useState(null);
+  const [editing, setEditing] = useState(false);
   useEffect(() => {
     if (!data) return;
     const meta = typeof data.meta === 'string' ? JSON.parse(data.meta) : data.meta || {};
@@ -35,7 +36,8 @@ export default function PurchaseOrderEdit() {
     api.post('/pos/stock', { ids }).then((rows) => setStock((s) => ({ ...Object.fromEntries(rows.map((r) => [`${r.id}-${r.variation_id || 0}`, r.stock_quantity])), ...s }))).catch(() => {});
   }, [po?.items?.length]); // eslint-disable-line
   if (!po) return <Spinner />;
-  const locked = ['received', 'cancelled', 'partial'].includes(po.status);
+  const done = ['received', 'cancelled', 'partial'].includes(po.status);
+  const locked = done && !editing;
   const meta = po.meta || { vat_rate: 0, extras: [] };
   const subtotal = po.items.reduce((s, i) => s + Number(i.qty) * Number(i.cost || 0), 0);
   const vat = Math.round(subtotal * (Number(meta.vat_rate) || 0)) / 100;
@@ -78,7 +80,7 @@ export default function PurchaseOrderEdit() {
   const save = async (status) => {
     const body = { supplier_id: po.supplier_id || null, items: po.items, notes: po.notes, expected_at: po.expected_at || null, status: status || po.status, meta };
     const saved = await run(() => (isNew ? api.post('/admin/purchase-orders', body) : api.put(`/admin/purchase-orders/${id}`, body)), 'Purchase order saved');
-    if (isNew) navigate(`/purchase-orders/${saved.id}`, { replace: true }); else setData(saved);
+    if (isNew) navigate(`/purchase-orders/${saved.id}`, { replace: true }); else { setData(saved); setEditing(false); if (po.status === 'received') setStock({}); }
     return saved;
   };
   // the goods are here: save the order and add every quantity to the stock in one go
@@ -106,12 +108,15 @@ export default function PurchaseOrderEdit() {
         subtitle={!isNew && `Created ${dateTime(po.created_at)}${po.received_at ? ` · received ${dateTime(po.received_at)}` : ''}`}
         actions={<>
           {!isNew && <Button icon={Printer} onClick={() => window.print()}>Print</Button>}
+          {done && po.status !== 'cancelled' && !editing && <Button icon={Pencil} onClick={() => setEditing(true)}>Edit</Button>}
+          {editing && <Button onClick={() => { setEditing(false); setData({ ...data }); }}>Cancel</Button>}
+          {editing && <Button variant="primary" loading={busy} onClick={() => save()} title={po.status === 'received' ? 'The stock is corrected to the new quantities' : ''}>Save changes</Button>}
           {!isNew && ['draft', 'ordered'].includes(po.status) && <Button variant="danger" icon={Trash2} onClick={async () => {
             if (!(await confirm({ title: 'Delete this purchase order?', danger: true, confirmLabel: 'Delete' }))) return;
             await run(() => api.del(`/admin/purchase-orders/${id}`), 'Deleted');
             navigate('/purchase-orders');
           }} />}
-          {!locked && <Button loading={busy} onClick={() => save()} title="Keep it for later: the goods have not arrived yet">Save as draft</Button>}
+          {!done && <Button loading={busy} onClick={() => save()} title="Keep it for later: the goods have not arrived yet">Save as draft</Button>}
           {po.status === 'draft' && !isNew && <Button loading={busy} onClick={() => save('ordered')}>Mark as ordered</Button>}
           {!isNew && ['draft', 'ordered', 'partial'].includes(po.status) && <Button icon={PackageCheck} onClick={() => setReceive({})}>Receive part</Button>}
           {['draft', 'ordered'].includes(po.status) && <Button variant="primary" icon={PackageCheck} loading={busy} onClick={saveAndReceive} title="Saves the invoice and adds every quantity to the stock">Save &amp; add to stock</Button>}
