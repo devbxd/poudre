@@ -84,7 +84,6 @@ export default function PurchaseOrderEdit() {
   // the goods are here: save the order and add every quantity to the stock in one go
   const saveAndReceive = async () => {
     if (!po.items.length) { toast('Add the products first', 'error'); return; }
-    if (!(await confirm({ title: 'Add everything to the stock?', message: 'All the quantities of this purchase order are added to the stock now.', confirmLabel: 'Add to stock' }))) return;
     const body = { supplier_id: po.supplier_id || null, items: po.items, notes: po.notes, expected_at: po.expected_at || null, status: 'ordered', meta };
     const saved = await run(() => (isNew ? api.post('/admin/purchase-orders', body) : api.put(`/admin/purchase-orders/${id}`, body)));
     const received = await run(() => api.post(`/admin/purchase-orders/${saved.id}/receive`, { all: true }), 'Saved — stock added');
@@ -112,10 +111,10 @@ export default function PurchaseOrderEdit() {
             await run(() => api.del(`/admin/purchase-orders/${id}`), 'Deleted');
             navigate('/purchase-orders');
           }} />}
-          {!locked && <Button loading={busy} onClick={() => save()}>Save</Button>}
+          {!locked && <Button loading={busy} onClick={() => save()} title="Keep it for later: the goods have not arrived yet">Save as draft</Button>}
           {po.status === 'draft' && !isNew && <Button loading={busy} onClick={() => save('ordered')}>Mark as ordered</Button>}
           {!isNew && ['draft', 'ordered', 'partial'].includes(po.status) && <Button icon={PackageCheck} onClick={() => setReceive({})}>Receive part</Button>}
-          {['draft', 'ordered'].includes(po.status) && <Button variant="primary" icon={PackageCheck} loading={busy} onClick={saveAndReceive}>Save & add to stock</Button>}
+          {['draft', 'ordered'].includes(po.status) && <Button variant="primary" icon={PackageCheck} loading={busy} onClick={saveAndReceive} title="Saves the invoice and adds every quantity to the stock">Save &amp; add to stock</Button>}
         </>}
       />
       <div className="print-area grid gap-4 lg:grid-cols-3">
@@ -177,7 +176,7 @@ export default function PurchaseOrderEdit() {
           </div>
           <div className="flex justify-between border-t border-zinc-200 px-4 py-3 text-base font-semibold"><span>Total</span><span className="num">{money(total)}</span></div>
           {['draft', 'ordered'].includes(po.status) && po.items.length > 0 && (
-            <div className="border-t border-amber-200 bg-amber-50 px-4 py-2 text-[13px] text-amber-800">Stock is added only when you click <b>Save & add to stock</b> (or <b>Receive part</b> if only some items arrived).</div>
+            <div className="border-t border-amber-200 bg-amber-50 px-4 py-2 text-[13px] text-amber-800"><b>Save &amp; add to stock</b> saves the invoice and adds the stock in one click. Use <b>Save as draft</b> only if the goods have not arrived yet.</div>
           )}
         </Card>
         <Card title="Details">
