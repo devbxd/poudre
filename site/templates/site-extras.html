@@ -81,13 +81,13 @@
 </script>
 <script>
 /* Products with several choices (design + size…): the photo follows the first choice right away (WooCommerce only
-   changed it once every list was chosen). The other lists already keep only the values that exist. */
+   changed it once every list was chosen). Also in quick view / quick shop windows opened later. The other lists
+   already keep only the values that exist. */
 (function(){
-  if(!document.querySelector('.variations_form'))return;
-  var start=function(){
-    var $=window.jQuery;if(!$||!$.fn.wc_variations_image_update){return setTimeout(start,200);}
+  var tries=0,start=function(){
+    var $=window.jQuery;if(!$){if(++tries<50)setTimeout(start,200);return;}
     $(document).on('woocommerce_variation_has_changed','.variations_form',function(){
-      var $f=$(this),vars=$f.data('product_variations');if(!Array.isArray(vars))return;
+      var $f=$(this),vars=$f.data('product_variations');if(!Array.isArray(vars)||!$.fn.wc_variations_image_update)return;
       var chosen={},$sel=$f.find('.variations select');
       $sel.each(function(){chosen[$(this).data('attribute_name')||this.name]=$(this).val()||'';});
       var names=Object.keys(chosen),picked=names.filter(function(k){return chosen[k];});
