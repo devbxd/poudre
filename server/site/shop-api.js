@@ -199,7 +199,8 @@ const ADMIN_AJAX = {
     return c.html(await quickShopHtml(b.product_id || b.pid));
   },
   async pls_category_tab_product(c, b) {
-    return c.json({ html: await categoryTabHtml(flatAttr(b, 'attr')) });
+    // the theme only shows the products when success is 'ok' (otherwise only on the 2nd click, from its cache)
+    return c.json({ success: 'ok', html: await categoryTabHtml(flatAttr(b, 'attr')) });
   },
   async pls_update_cart_widget_quantity(c, b) {
     const cart = await loadCart(c);
