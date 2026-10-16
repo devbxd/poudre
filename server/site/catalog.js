@@ -38,7 +38,7 @@ export const categoryUrl = (cats, cat) => `/product-category/${categoryPath(cats
 
 /** Every product visible in the shop, with what sorting and filtering need (cached briefly). */
 async function visibleProducts() {
-  return cached('visible-products', 20000, async () => {
+  return cached('visible-products', 120000, async () => {
     const rows = await query(`
       select p.id, p.type, p.menu_order, coalesce(p.meta->>'wp_name', p.name) sort_name, p.name, p.catalog_visibility,
         lower(p.name || ' ' || coalesce(p.short_description, '') || ' ' || coalesce(p.description, '')) haystack, lower(p.name) lname,

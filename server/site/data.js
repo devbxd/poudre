@@ -95,14 +95,14 @@ export async function productsByIds(ids) {
 }
 
 export async function categories() {
-  return cached('categories', 30000, async () => query(`
+  return cached('categories', 120000, async () => query(`
     select c.*, (select count(*)::int from product_categories pc join products p on p.id = pc.product_id
       where pc.category_id = c.id and p.status = 'publish') total_count
     from categories c order by c.menu_order, c.name`));
 }
 
 export async function menus() {
-  return cached('menus', 30000, async () => {
+  return cached('menus', 120000, async () => {
     const rows = await query('select location, items from menus');
     return Object.fromEntries(rows.map((m) => [m.location, json(m.items) || []]));
   });

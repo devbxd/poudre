@@ -38,6 +38,24 @@ if (!onNetlify()) (await import('./dev-static.js')).devStatic(app);
 // Product and media images (WordPress paths, resized on demand)
 app.get('/wp-content/uploads/*', serveUpload);
 
+// Shop pages seen by visitors with no cart, wishlist or login are the same for everyone: Cloudflare and Netlify keep
+// them a few minutes so the server and database are not asked again for every visit or robot. Anyone with one of
+// these cookies always gets a fresh page.
+const VISITOR_COOKIES = /(?:^|;\s*)(poudre_session|poudre_customer|poudre_staff)=/;
+const NEVER_SHARED = /^\/(cart|checkout|my-account|wishlist|order-received|lost-password|wp-admin|wp-login|dashboard)(\/|$)/;
+app.use('*', async (c, next) => {
+  await next();
+  if (c.req.method !== 'GET' || c.req.path.startsWith('/api/') || c.req.path.startsWith('/wp-content/') || c.req.query('wc-ajax')) return;
+  if (!(c.res.headers.get('content-type') || '').includes('text/html')) return;
+  if (NEVER_SHARED.test(c.req.path) || c.res.status !== 200 || c.res.headers.get('set-cookie') || VISITOR_COOKIES.test(c.req.header('cookie') || '')) {
+    c.res.headers.set('Cache-Control', 'private, no-cache');
+    return;
+  }
+  c.res.headers.set('Cache-Control', 'public, max-age=0, s-maxage=180');
+  c.res.headers.set('Netlify-CDN-Cache-Control', 'public, max-age=0, s-maxage=180, stale-while-revalidate=60');
+  c.res.headers.set('Netlify-Vary', 'query,cookie=poudre_session|poudre_customer|poudre_staff');
+});
+
 // Website: WooCommerce/theme AJAX endpoints first, then pages
 app.route('/', shopApi);
 app.all('/', async (c, next) => {
