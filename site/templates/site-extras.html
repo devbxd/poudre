@@ -101,3 +101,19 @@
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })();
 </script>
+<script>
+/* Contact form: seconds spent on the page, sent with the message. Robots post without opening the page, so their
+   messages arrive without it and are kept out of the shop's mailbox. */
+(function(){
+  var t0=Date.now();
+  var fill=function(){document.querySelectorAll('form.wpcf7-form').forEach(function(f){
+    var i=f.querySelector('input[name="_pdr_ts"]');
+    if(!i){i=document.createElement('input');i.type='hidden';i.name='_pdr_ts';f.appendChild(i);}
+    i.value=String(Math.round((Date.now()-t0)/1000));
+  });};
+  document.addEventListener('submit',fill,true);
+  document.addEventListener('input',fill,true);
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',fill);else fill();
+  setInterval(fill,1000);
+})();
+</script>

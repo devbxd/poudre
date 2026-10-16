@@ -420,6 +420,26 @@ const CF7_RULES = [
   { rule: 'maxlength', field: 'your-message', threshold: 2000, error: 'This field has a too long input.' },
 ];
 shopApi.get('/wp-json/contact-form-7/v1/contact-forms/:id/feedback/schema', (c) => c.json({ version: 'Contact Form 7 SWV Schema 2024-10', locale: 'en_US', rules: CF7_RULES }));
+/**
+ * Contact form spam: robots post straight to the address without opening the page (no "_pdr_ts" field, which the
+ * page adds and fills with the seconds spent on it), type random letters ("KznVXcXApytHPongZvjZ"), use Gmail
+ * addresses full of dots, or sell "AI traffic / SEO / leads" with a link.
+ */
+const SALES_WORDS = /\b(traffic|seo|backlinks?|leads|ranking|marketing|free trial|7-day|campaign|conversions?|growth|outreach|guest post|web ?design|google (?:first )?page|crypto|casino|loan)\b/gi;
+function isSpam(msg, f) {
+  const all = `${msg.name} ${msg.subject} ${msg.body}`;
+  if (!('_pdr_ts' in f) || Number(f._pdr_ts) < 3) return true;
+  const gibberish = (s) => s.split(/\s+/).some((w) => w.length >= 10 && /^[a-z]+$/i.test(w) && (w.slice(1).match(/[A-Z]/g) || []).length >= 3);
+  if (gibberish(msg.subject) || gibberish(msg.body) || gibberish(msg.name)) return true;
+  const local = msg.email.split('@')[0] || '';
+  if (/@(gmail|googlemail)\./i.test(msg.email) && (local.match(/\./g) || []).length >= 3) return true;
+  const links = (msg.body.match(/https?:\/\/|www\./gi) || []).length;
+  const sales = new Set((all.match(SALES_WORDS) || []).map((w) => w.toLowerCase())).size;
+  if (links > 2 || (links && sales) || sales >= 2) return true;
+  if (/[Ѐ-ӿ]{4,}/.test(all)) return true; // Russian-alphabet spam
+  return false;
+}
+
 shopApi.post('/wp-json/contact-form-7/v1/contact-forms/:id/feedback', async (c) => {
   const id = Number(c.req.param('id'));
   const f = await c.req.parseBody();
@@ -435,8 +455,8 @@ shopApi.post('/wp-json/contact-form-7/v1/contact-forms/:id/feedback', async (c) 
   const base = { contact_form_id: id, posted_data_hash: '', into: `#${unit}` };
   if (invalid.length) return c.json({ ...base, status: 'validation_failed', message: 'One or more fields have an error. Please check and try again.', invalid_fields: invalid });
   const msg = { name: val('your-name'), email: val('your-email'), subject: val('your-subject'), body: val('your-message') };
-  // bots: obvious link spam is stored as already-read so it does not bother the shop
-  const spammy = (msg.body.match(/https?:\/\//g) || []).length > 2;
+  // bots: spam is stored as already-read (still in Dashboard → Messages) and never e-mailed to the shop
+  const spammy = isSpam(msg, f);
   await query('insert into messages (kind, name, email, subject, body, read) values ($1,$2,$3,$4,$5,$6)', ['contact', msg.name, msg.email, msg.subject, msg.body, spammy]);
   if (!spammy) {
     try {
