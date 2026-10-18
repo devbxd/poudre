@@ -241,10 +241,14 @@ const ADMIN_AJAX = {
     const q = String(c.req.query('query') || '').trim().toLowerCase();
     if (q.length < 2) return c.json({ suggestions: [] });
     const cat = c.req.query('product_cat');
-    const params = [`%${q}%`];
-    let where = `p.status = 'publish' and p.online_visible and p.catalog_visibility in ('visible','search') and (lower(p.name) like $1 or lower(coalesce(p.sku,'')) like $1)`;
-    if (cat) { params.push(cat); where += ` and exists (select 1 from product_categories pc join categories cc on cc.id = pc.category_id where pc.product_id = p.id and cc.slug = $2)`; }
-    const rows = await query(`select p.id from products p where ${where} order by (p.stock_status = 'outofstock'), p.total_sales desc limit 10`, params);
+    // every word typed, in any order, in the name, brand or code ("sauvage dior" finds "Dior Sauvage EDT"); accents ignored
+    const fold = (s) => `translate(lower(${s}), 'éèêëàâäîïôöûüçñ', 'eeeeaaaiioouucn')`;
+    const words = q.normalize('NFD').replace(/[̀-ͯ]/g, '').split(/\s+/).filter(Boolean).slice(0, 8);
+    const hay = fold(`p.name || ' ' || coalesce(p.sku, '') || ' ' || coalesce((select string_agg(b.name, ' ') from product_brands pb join brands b on b.id = pb.brand_id where pb.product_id = p.id), '') || ' ' || coalesce((select string_agg(v.sku, ' ') from variations v where v.product_id = p.id), '')`);
+    const params = [words, `${words.join(' ')}%`];
+    let where = `p.status = 'publish' and p.online_visible and p.catalog_visibility in ('visible','search') and (select bool_and(${hay} like '%' || w || '%') from unnest($1::text[]) w)`;
+    if (cat) { params.push(cat); where += ` and exists (select 1 from product_categories pc join categories cc on cc.id = pc.category_id where pc.product_id = p.id and cc.slug = $3)`; }
+    const rows = await query(`select p.id from products p where ${where} order by (p.stock_status = 'outofstock'), (${fold('p.name')} like $2) desc, p.total_sales desc limit 10`, params);
     const products = await productsByIds(rows.map((r) => r.id));
     if (!products.length) return c.json({ suggestions: [{ id: -1, value: 'No data found.', url: '' }] });
     return c.json({

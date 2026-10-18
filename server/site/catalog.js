@@ -37,11 +37,13 @@ export function categoryPath(cats, cat) {
 export const categoryUrl = (cats, cat) => `/product-category/${categoryPath(cats, cat).map((c) => c.slug).join('/')}/`;
 
 /** Every product visible in the shop, with what sorting and filtering need (cached briefly). */
+const fold = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+
 async function visibleProducts() {
   return cached('visible-products', 120000, async () => {
     const rows = await query(`
       select p.id, p.type, p.menu_order, coalesce(p.meta->>'wp_name', p.name) sort_name, p.name, p.catalog_visibility,
-        lower(p.name || ' ' || coalesce(p.short_description, '') || ' ' || coalesce(p.description, '')) haystack, lower(p.name) lname,
+        lower(p.name || ' ' || coalesce(p.sku, '') || ' ' || coalesce((select string_agg(v.sku, ' ') from variations v where v.product_id = p.id), '') || ' ' || coalesce((select string_agg(b.name, ' ') from product_brands pb join brands b on b.id = pb.brand_id where pb.product_id = p.id), '') || ' ' || coalesce(p.short_description, '') || ' ' || coalesce(p.description, '')) haystack, lower(p.name) lname,
         p.total_sales, p.average_rating::float8, p.rating_count, p.created_at, p.attributes,
         coalesce(p.sale_price, p.regular_price)::float8 simple_price, p.regular_price::float8, p.sale_price::float8, p.sale_from, p.sale_to,
         (select min(coalesce(case when v.sale_price is not null and v.sale_price < coalesce(v.regular_price, p.regular_price) then v.sale_price end, v.regular_price, p.regular_price))::float8
@@ -61,7 +63,7 @@ async function visibleProducts() {
           && (!r.sale_from || new Date(r.sale_from).getTime() <= now) && (!r.sale_to || new Date(r.sale_to).getTime() >= now);
         min = max = onSale ? r.sale_price : r.regular_price;
       }
-      return { ...r, min_price: min, max_price: max, attributes: json(r.attributes) || [] };
+      return { ...r, haystack: fold(r.haystack), min_price: min, max_price: max, attributes: json(r.attributes) || [] };
     });
   });
 }
@@ -104,7 +106,8 @@ export async function queryCatalog(q) {
   if (q.brand) list = list.filter((p) => p.brands.includes(q.brand.id));
   if (q.tag) list = list.filter((p) => p.tags.includes(q.tag.id));
   if (q.search != null) {
-    const words = q.search.toLowerCase().split(/\s+/).filter(Boolean);
+    // every word, in any order, in the name, brand, code or description; accents ignored
+    const words = fold(q.search).split(/\s+/).filter(Boolean);
     list = list.filter((p) => words.every((w) => p.haystack.includes(w)));
   }
   // the price widget shows the range before the price filter itself is applied

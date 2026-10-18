@@ -429,3 +429,9 @@ create table if not exists wishlists (
 create index if not exists reviews_product_idx on reviews (product_id);
 create index if not exists order_items_variation_idx on order_items (variation_id);
 create unique index if not exists orders_client_ref_idx on orders ((meta->>'client_ref')) where meta ? 'client_ref';
+-- every change to a product or an option moves its updated_at (the website's catalogue copy refreshes from it)
+create or replace function touch_updated_at() returns trigger language plpgsql as $$ begin new.updated_at = now(); return new; end $$;
+drop trigger if exists products_touch on products;
+create trigger products_touch before update on products for each row execute function touch_updated_at();
+drop trigger if exists variations_touch on variations;
+create trigger variations_touch before update on variations for each row execute function touch_updated_at();

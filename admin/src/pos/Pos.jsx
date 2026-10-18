@@ -293,12 +293,37 @@ export default function Pos() {
   const search = useRef();
   const [run, busy] = useAction();
 
+  const catalogSeen = useRef(null);
   const loadCatalog = useCallback(() => api.get('/pos/catalog').then((c) => { setCatalog(c); cacheCatalog(c); }).catch(async (e) => {
     const cached = await readCachedCatalog();
     if (cached) { setCatalog((cur) => cur || cached); if (!navigator.onLine || !(e.status >= 400 && e.status < 500)) toast('No connection — using the products saved on this device', 'error'); }
     else toast(e.message, 'error');
   }), [toast]);
   useEffect(() => { saveCart({ cart, customer, discount, note }); }, [cart, customer, discount, note]);
+  // prices, products and photos changed in the dashboard reach the till within a minute
+  useEffect(() => {
+    const check = () => api.get('/pos/catalog-version').then((v) => {
+      if (!v?.catalog) return;
+      if (catalogSeen.current && v.catalog !== catalogSeen.current) loadCatalog();
+      catalogSeen.current = v.catalog;
+    }).catch(() => {});
+    check();
+    const t = setInterval(check, 60000);
+    return () => clearInterval(t);
+  }, [loadCatalog]);
+  /** After a sale: fresh stock of the products sold only (the rest of the catalogue is already here) */
+  const refreshStock = useCallback((ids) => {
+    const list = [...new Set(ids.filter(Boolean))];
+    if (!list.length) return;
+    api.post('/pos/stock', { ids: list }).then((rows) => setCatalog((cur) => {
+      if (!cur) return cur;
+      const byKey = new Map(rows.map((r) => [`${r.id}-${r.variation_id || 0}`, r]));
+      const fix = (x, key) => { const r = byKey.get(key); return r ? { ...x, stock_quantity: r.stock_quantity, stock_status: r.stock_status } : x; };
+      const next = { ...cur, products: cur.products.map((p) => (list.includes(p.id) ? { ...fix(p, `${p.id}-0`), variations: p.variations?.map((v) => fix(v, `${p.id}-${v.id}`)) } : p)) };
+      cacheCatalog(next);
+      return next;
+    })).catch(() => {});
+  }, []);
   // sales kept on the device are sent as soon as the connection is back
   const sync = useCallback(async () => {
     if (!readQueue().length) { setQueued(0); return; }
@@ -417,7 +442,7 @@ export default function Pos() {
     setMobileView('products');
     reset();
     if (settings.auto_print !== false) printOrder(order, { store: catalog.store, pos: settings });
-    if (!offline) { loadCatalog(); loadSession(); }
+    if (!offline) { refreshStock(cart.map((l) => l.product_id)); loadSession(); }
     search.current?.focus();
   };
 

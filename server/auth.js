@@ -52,6 +52,13 @@ export const requireStaff = (minRole = 'cashier') => async (c, next) => {
   await next();
 };
 
+/** Signed-in check without the database (for the POS's once-a-minute catalogue check, so it never wakes it up) */
+export const requireToken = async (c, next) => {
+  const payload = await verify(getCookie(c, COOKIE) || c.req.header('authorization')?.replace(/^Bearer /, '') || '');
+  if (!payload?.sid) fail(401, 'Please log in');
+  await next();
+};
+
 export const auth = new Hono();
 
 auth.post('/login', async (c) => {

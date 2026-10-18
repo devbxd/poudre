@@ -12,8 +12,26 @@ import { onNetlify } from './site/files.js';
 import { site, searchPage } from './site/routes.js';
 import { shopApi, wcAjax } from './site/shop-api.js';
 import { notFound } from './site/pages.js';
+import { scope, refreshCopy, copyMissing } from './snapshot.js';
+import { db, takePendingWrites } from './db.js';
 
 export const app = new Hono();
+
+// Catalogue copy (server/snapshot.js): website pages and the POS catalogue read it instead of waking the database.
+// After a request that changed the catalogue (price, product, stock after a sale…), the copy is refreshed in the
+// background with only what changed.
+const COPY_API = new Set(['/api/pos/catalog', '/api/pos/catalog-version']);
+app.use('*', async (c, next) => {
+  const store = { useCopy: !c.req.path.startsWith('/api/') || COPY_API.has(c.req.path), changes: { tables: new Set(), stockOnly: true, deleted: false } };
+  await scope.run(store, () => next());
+  const changes = store.changes.tables.size ? store.changes : takePendingWrites();
+  const needs = changes || (store.useCopy && copyMissing());
+  if (!needs) return;
+  const job = refreshCopy((text, params) => db().then((d) => d.query(text, params)), changes || undefined)
+    .catch((e) => console.error('snapshot refresh', e.message));
+  const waitUntil = c.env?.context?.waitUntil?.bind(c.env.context);
+  if (waitUntil) waitUntil(job); else await job;
+});
 
 app.onError((err, c) => {
   if (err instanceof HTTPException) return c.json({ error: err.message }, err.status);

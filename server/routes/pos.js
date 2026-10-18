@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { query, one, tx } from '../db.js';
-import { requireStaff, ROLES } from '../auth.js';
+import { requireStaff, requireToken, ROLES } from '../auth.js';
+import { catalogVersion } from '../snapshot.js';
 import { fail, money, getSetting, audit, insertRow } from '../lib.js';
 import { createOrder, refundOrder } from '../orders.js';
 import { fullOrder } from './sales.js';
@@ -31,6 +32,9 @@ pos.get('/catalog', requireStaff(), async (c) => {
 });
 
 /** Fresh stock of a few items (after a sale or before checkout) */
+// version of the catalogue copy: the till reloads its products only when it changed (no database involved)
+pos.get('/catalog-version', requireToken, async (c) => c.json((await catalogVersion()) || { catalog: 0 }));
+
 pos.post('/stock', requireStaff(), async (c) => {
   const { ids = [] } = await c.req.json();
   const rows = await query(`select id, null::int variation_id, stock_quantity, stock_status from products where id = any($1::int[])
