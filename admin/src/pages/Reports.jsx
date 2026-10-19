@@ -7,6 +7,32 @@ import { money, int, date } from '../lib/format.js';
 import { Button, Card, Input, PageHeader, Select, Spinner, Table, Tabs } from '../components/ui.jsx';
 import { RANGES } from './Overview.jsx';
 
+const todayStr = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Beirut' });
+/** Period: the usual ranges, or "Custom dates" with a from / to date */
+function usePeriod(initial = '30d') {
+  const [range, setRange] = useState(initial);
+  const [custom, setCustom] = useState({ from: todayStr().slice(0, 8) + '01', to: todayStr() });
+  const r = RANGES.find((x) => x.value === range);
+  const from = range === 'custom' ? custom.from : r.from();
+  const to = range === 'custom' ? custom.to : r.to();
+  const picker = (
+    <>
+      <Select value={range} onChange={(e) => setRange(e.target.value)} className="w-40">
+        {RANGES.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}
+        <option value="custom">Custom dates…</option>
+      </Select>
+      {range === 'custom' && (
+        <span className="flex items-center gap-1.5 text-[13px] text-zinc-600">
+          <Input type="date" value={custom.from} max={custom.to} onChange={(e) => e.target.value && setCustom({ ...custom, from: e.target.value })} className="w-40" />
+          to
+          <Input type="date" value={custom.to} min={custom.from} onChange={(e) => e.target.value && setCustom({ ...custom, to: e.target.value })} className="w-40" />
+        </span>
+      )}
+    </>
+  );
+  return { from, to, picker };
+}
+
 const GROUPS = [
   { value: 'product', label: 'Products' }, { value: 'variation', label: 'Product options' }, { value: 'category', label: 'Categories' }, { value: 'brand', label: 'Brands' },
   { value: 'supplier', label: 'Suppliers' }, { value: 'customer', label: 'Customers' }, { value: 'staff', label: 'Cashiers' }, { value: 'payment', label: 'Payment methods' },
@@ -64,9 +90,8 @@ function DayReport() {
 
 /** Supplier invoices received in the period: products, VAT, other charges, by supplier and one by one */
 function Purchases() {
-  const [range, setRange] = useState('30d');
-  const r = RANGES.find((x) => x.value === range);
-  const params = qs({ from: r.from(), to: r.to() });
+  const period = usePeriod();
+  const params = qs({ from: period.from, to: period.to });
   const { data } = useFetch(`/admin/reports/purchases${params}`);
   const sum = (k) => (data || []).reduce((t, x) => t + (x[k] || 0), 0);
   const bySupplier = Object.values((data || []).reduce((m, x) => {
@@ -79,7 +104,7 @@ function Purchases() {
   return (
     <>
       <div className="flex flex-wrap items-center gap-2 border-b border-zinc-200 p-3">
-        <Select value={range} onChange={(e) => setRange(e.target.value)} className="w-40">{RANGES.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}</Select>
+        {period.picker}
         <Button icon={Download} className="ml-auto" onClick={() => { window.location.href = `/api/admin/reports/purchases/export${params}`; }}>Export CSV</Button>
       </div>
       {!data ? <Spinner /> : (
@@ -120,10 +145,9 @@ function Purchases() {
 export default function Reports() {
   const [tab, setTab] = useState('sales');
   const [group, setGroup] = useState('product');
-  const [range, setRange] = useState('30d');
+  const period = usePeriod();
   const [channel, setChannel] = useState('');
-  const r = RANGES.find((x) => x.value === range);
-  const params = qs({ group, from: r.from(), to: r.to(), channel });
+  const params = qs({ group, from: period.from, to: period.to, channel });
   const { data, loading } = useFetch(tab === 'sales' ? `/admin/reports/sales${params}` : null);
   const totals = (data || []).reduce((s, x) => ({ qty: s.qty + (x.qty || 0), revenue: s.revenue + (x.revenue || 0), profit: s.profit + (x.profit || 0) }), { qty: 0, revenue: 0, profit: 0 });
   return (
@@ -138,7 +162,7 @@ export default function Reports() {
           <>
             <div className="flex flex-wrap items-center gap-2 border-b border-zinc-200 p-3">
               <Select value={group} onChange={(e) => setGroup(e.target.value)} className="w-48">{GROUPS.map((g) => <option key={g.value} value={g.value}>{g.label}</option>)}</Select>
-              <Select value={range} onChange={(e) => setRange(e.target.value)} className="w-40">{RANGES.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}</Select>
+              {period.picker}
               <Select value={channel} onChange={(e) => setChannel(e.target.value)} className="w-36"><option value="">All channels</option><option value="pos">In store</option><option value="online">Website</option></Select>
               <Button icon={Download} className="ml-auto" onClick={() => { window.location.href = `/api/admin/reports/sales/export${params}`; }}>Export CSV</Button>
             </div>
@@ -154,7 +178,8 @@ export default function Reports() {
                 <Table dense rows={data.map((x, i) => ({ ...x, _k: `${x.id}-${i}` }))} rowKey="_k" columns={[
                   { key: 'label', label: GROUPS.find((g) => g.value === group).label, render: (x) => <span className="block max-w-[380px] truncate">{x.label || '—'}</span> },
                   { key: 'orders', label: 'Orders', align: 'right', render: (x) => int(x.orders) },
-                  { key: 'qty', label: 'Units', align: 'right', render: (x) => int(x.qty) },
+                  { key: 'qty', label: 'Units sold', align: 'right', render: (x) => int(x.qty) },
+                  ...(['product', 'variation'].includes(group) ? [{ key: 'stock', label: 'In stock now', align: 'right', render: (x) => (x.stock == null ? '—' : <span className={x.stock <= 0 ? 'font-medium text-red-600' : ''}>{int(x.stock)}</span>) }] : []),
                   { key: 'discounts', label: 'Discounts', align: 'right', render: (x) => money(x.discounts) },
                   { key: 'revenue', label: 'Revenue', align: 'right', render: (x) => <span className="font-medium">{money(x.revenue)}</span> },
                   { key: 'profit', label: 'Profit*', align: 'right', render: (x) => (x.profit != null ? money(x.profit) : '—') },
