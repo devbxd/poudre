@@ -4,13 +4,51 @@ import { api, qs } from '../lib/api.js';
 import { useFetch } from '../lib/hooks.js';
 import { Button, Modal, Pagination, SearchInput, Spinner, cx, sized, useAction } from './ui.jsx';
 
+/**
+ * Phone photos (4–10 MB) are shrunk on the device before sending: 2000 px on the long side is plenty for the website,
+ * the upload is 10–20× faster on a mobile connection and stays under the server's 6 MB limit. Transparent PNGs keep
+ * their transparency (WebP, or PNG when the browser cannot write WebP).
+ */
+const MAX_SIDE = 2000;
+async function shrink(file) {
+  if (!/^image\/(jpeg|png|webp|heic|heif)$/i.test(file.type) && !/\.(jpe?g|png|webp|heic|heif)$/i.test(file.name)) return file;
+  try {
+    const bmp = await createImageBitmap(file);
+    const scale = Math.min(1, MAX_SIDE / Math.max(bmp.width, bmp.height));
+    if (scale === 1 && file.size < 1.5 * 1024 * 1024 && !/heic|heif/i.test(file.type)) { bmp.close?.(); return file; }
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(bmp.width * scale);
+    canvas.height = Math.round(bmp.height * scale);
+    canvas.getContext('2d').drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    bmp.close?.();
+    const toBlob = (type, q) => new Promise((resolve) => canvas.toBlob(resolve, type, q));
+    let blob;
+    if (/png|webp/i.test(file.type)) {
+      blob = await toBlob('image/webp', 0.88);
+      if (!blob || blob.type !== 'image/webp') blob = await toBlob('image/png');
+    } else blob = await toBlob('image/jpeg', 0.86);
+    if (!blob || blob.size >= file.size) return file;
+    const ext = blob.type === 'image/webp' ? 'webp' : blob.type === 'image/png' ? 'png' : 'jpg';
+    return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.' + ext, { type: blob.type });
+  } catch {
+    return file; // the browser cannot read it: send as is
+  }
+}
+
 export function useUpload() {
   const [run, busy] = useAction();
-  const upload = async (files) => {
-    const form = new FormData();
-    for (const f of files) form.append('file', f);
-    return run(() => api.upload('/admin/media', form), `${files.length} image${files.length > 1 ? 's' : ''} uploaded`);
-  };
+  // the button spins while the photos are shrunk and sent
+  // one photo per request: several photos together never go over the server's limit
+  const upload = (files) => run(async () => {
+    const out = [];
+    for (const f of files) {
+      const form = new FormData();
+      form.append('file', await shrink(f));
+      const r = await api.upload('/admin/media', form);
+      out.push(...(Array.isArray(r) ? r : [r]));
+    }
+    return out;
+  }, `${files.length} image${files.length > 1 ? 's' : ''} uploaded`);
   return [upload, busy];
 }
 
