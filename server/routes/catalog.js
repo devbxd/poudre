@@ -173,7 +173,8 @@ catalog.put('/products/:id', requireStaff('manager'), async (c) => {
 catalog.post('/products/:id/duplicate', requireStaff('manager'), async (c) => {
   const src = await fullProduct(Number(c.req.param('id')));
   const body = {
-    ...src, name: `${src.name} (copy)`, slug: undefined, sku: null, barcode: null, status: 'draft',
+    // a copy is Active straight away (the shop duplicates a product to add the next one and expects it online)
+    ...src, name: `${src.name} (copy)`, slug: undefined, sku: null, barcode: null, status: 'publish',
     category_ids: src.categories.map((x) => x.id), brand_ids: src.brands.map((x) => x.id), tags: src.tags.map((x) => x.name),
     variations: src.variations.map((v) => ({ ...v, id: undefined, sku: null, barcode: null })),
   };
