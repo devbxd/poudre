@@ -9,6 +9,7 @@ import { renderPage } from './layout.js';
 import { storeCartData, wishlistPageContent } from './shop-api.js';
 import { loadCart } from './cart.js';
 import { currentCustomer, loginCustomer, logoutCustomer, resetToken, checkResetToken } from '../auth.js';
+import { parseBirthDate } from '../birthday.js';
 import { emailSettings, sendMail, layout } from '../mail.js';
 
 const tplCache = new Map();
@@ -90,6 +91,15 @@ export function registerPages(site) {
       await loginCustomer(c, cust.id);
       return c.redirect('/my-account/');
     }
+    // date of birth added from "My account" (only once: afterwards only the shop can change it)
+    if (b.set_dob !== undefined) {
+      const me = await currentCustomer(c);
+      const dob = parseBirthDate(b.date_of_birth);
+      if (!me) return c.redirect('/my-account/');
+      if (!dob) return accountPage(c, { error: '<strong>Error:</strong> Please enter a valid date of birth.' });
+      await query('update customers set date_of_birth = $2, dob_set_at = now() where id = $1 and date_of_birth is null', [me.id, dob]);
+      return c.redirect('/my-account/');
+    }
     if (b.register !== undefined || b.email) {
       const email = String(b.email || '').trim().toLowerCase();
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return accountPage(c, { error: '<strong>Error:</strong> Please provide a valid email address.' });
@@ -97,8 +107,9 @@ export function registerPages(site) {
       const existing = await one('select id, password_hash from customers where lower(email) = $1', [email]);
       if (existing?.password_hash) return accountPage(c, { error: '<strong>Error:</strong> An account is already registered with your email address. <a href="#" class="showlogin">Please log in.</a>' });
       const hash = bcrypt.hashSync(String(b.password), 10);
-      const id = existing ? (await one('update customers set password_hash = $2 where id = $1 returning id', [existing.id, hash])).id
-        : (await one('insert into customers (email, password_hash, billing, shipping) values ($1, $2, $3, $3) returning id', [email, hash, JSON.stringify({ email })])).id;
+      const dob = parseBirthDate(b.date_of_birth);
+      const id = existing ? (await one('update customers set password_hash = $2, date_of_birth = coalesce(date_of_birth, $3), dob_set_at = case when date_of_birth is null and $3::date is not null then now() else dob_set_at end where id = $1 returning id', [existing.id, hash, dob])).id
+        : (await one('insert into customers (email, password_hash, billing, shipping, date_of_birth, dob_set_at) values ($1, $2, $3, $3, $4, case when $4::date is null then null else now() end) returning id', [email, hash, JSON.stringify({ email }), dob])).id;
       await loginCustomer(c, id);
       return c.redirect('/my-account/');
     }
@@ -244,7 +255,11 @@ async function accountPage(c, { error } = {}) {
     const orders = await query('select id, number, status, total, created_at from orders where customer_id = $1 order by created_at desc', [customer.id]);
     const rows = orders.map((o) => `<tr class="woocommerce-orders-table__row woocommerce-orders-table__row--status-${o.status} order"><td class="woocommerce-orders-table__cell" data-title="Order">#${o.number}</td><td class="woocommerce-orders-table__cell" data-title="Date"><time datetime="${new Date(o.created_at).toISOString()}">${new Date(o.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</time></td><td class="woocommerce-orders-table__cell" data-title="Status">${esc(o.status.charAt(0).toUpperCase() + o.status.slice(1))}</td><td class="woocommerce-orders-table__cell" data-title="Total">${wcPrice(o.total)}</td></tr>`).join('');
     const name = esc([customer.first_name, customer.last_name].filter(Boolean).join(' ') || customer.email);
-    const body = `<div class="woocommerce"><div class="woocommerce-notices-wrapper"></div><nav class="woocommerce-MyAccount-navigation" aria-label="Account pages"><ul><li class="woocommerce-MyAccount-navigation-link woocommerce-MyAccount-navigation-link--dashboard is-active"><a href="/my-account/" aria-current="page">Dashboard</a></li><li class="woocommerce-MyAccount-navigation-link woocommerce-MyAccount-navigation-link--customer-logout"><a href="/my-account/customer-logout/">Log out</a></li></ul></nav><div class="woocommerce-MyAccount-content"><div class="woocommerce-notices-wrapper"></div><p>Hello <strong>${name}</strong> (not <strong>${name}</strong>? <a href="/my-account/customer-logout/">Log out</a>)</p><h3>Orders</h3>${orders.length ? `<table class="woocommerce-orders-table woocommerce-MyAccount-orders shop_table shop_table_responsive my_account_orders account-orders-table"><thead><tr><th>Order</th><th>Date</th><th>Status</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table>` : '<div class="woocommerce-message woocommerce-message--info woocommerce-Message woocommerce-Message--info woocommerce-info">No order has been made yet.</div>'}</div></div>`;
+    const [{ date_of_birth: dob } = {}] = await query("select to_char(date_of_birth, 'DD/MM/YYYY') date_of_birth from customers where id = $1", [customer.id]);
+    const birthday = dob
+      ? `<h3>Date of birth</h3><p>${dob} — on your birthday you will receive an e-mail with a 20% gift code. 🎂</p>`
+      : `<h3>Birthday gift 🎂</h3><p>Add your date of birth and receive a 20% code by e-mail on your birthday. It can only be set once.</p><form method="post" action="/my-account/" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:24px"><input type="date" name="date_of_birth" required class="input-text" style="max-width:220px" /><button type="submit" name="set_dob" value="1" class="button">Save</button></form>`;
+    const body = `<div class="woocommerce"><div class="woocommerce-notices-wrapper"></div><nav class="woocommerce-MyAccount-navigation" aria-label="Account pages"><ul><li class="woocommerce-MyAccount-navigation-link woocommerce-MyAccount-navigation-link--dashboard is-active"><a href="/my-account/" aria-current="page">Dashboard</a></li><li class="woocommerce-MyAccount-navigation-link woocommerce-MyAccount-navigation-link--customer-logout"><a href="/my-account/customer-logout/">Log out</a></li></ul></nav><div class="woocommerce-MyAccount-content"><div class="woocommerce-notices-wrapper"></div><p>Hello <strong>${name}</strong> (not <strong>${name}</strong>? <a href="/my-account/customer-logout/">Log out</a>)</p>${birthday}<h3>Orders</h3>${orders.length ? `<table class="woocommerce-orders-table woocommerce-MyAccount-orders shop_table shop_table_responsive my_account_orders account-orders-table"><thead><tr><th>Order</th><th>Date</th><th>Status</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table>` : '<div class="woocommerce-message woocommerce-message--info woocommerce-Message woocommerce-Message--info woocommerce-info">No order has been made yet.</div>'}</div></div>`;
     const s = tpl.indexOf('<div class="woocommerce">');
     const e = tpl.indexOf('</div><!-- .entry-content -->');
     tpl = `${tpl.slice(0, s)}${body}\n\t${tpl.slice(e)}`;

@@ -114,7 +114,7 @@ export async function computeCart(cart) {
   const errors = [];
   for (const code of cart.coupons || []) {
     try {
-      const r = await tx((t) => applyCoupon(t, code, lines.map((l) => ({ product_id: l.product_id, price: l.unit, quantity: l.quantity, subtotal: l.subtotal, on_sale: l.unit < l.regular, category_ids: [] }))));
+      const r = await tx((t) => applyCoupon(t, code, lines.map((l) => ({ product_id: l.product_id, price: l.unit, regular: l.regular, quantity: l.quantity, subtotal: l.subtotal, on_sale: l.unit < l.regular, category_ids: [] }))));
       discount += r.discount;
       coupons.push({ code: r.coupon.code, discount: r.discount, free_shipping: r.free_shipping, type: r.coupon.type });
     } catch (e) { errors.push(e.message); }

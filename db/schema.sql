@@ -206,7 +206,7 @@ create index if not exists customers_phone_idx on customers (phone);
 create table if not exists coupons (
   id serial primary key,
   code text unique not null,
-  type text not null default 'percent' check (type in ('percent','fixed_cart','fixed_product')),
+  type text not null default 'percent' check (type in ('percent','fixed_cart','fixed_product','birthday')),
   amount numeric(12,2) not null default 0,
   description text default '',
   expires_at timestamptz,
@@ -435,3 +435,7 @@ drop trigger if exists products_touch on products;
 create trigger products_touch before update on products for each row execute function touch_updated_at();
 drop trigger if exists variations_touch on variations;
 create trigger variations_touch before update on variations for each row execute function touch_updated_at();
+-- birthday gift: date of birth (locked once given), when it was given, the last year the gift was used
+alter table customers add column if not exists date_of_birth date;
+alter table customers add column if not exists dob_set_at timestamptz;
+alter table customers add column if not exists birthday_used_year int;

@@ -1,4 +1,5 @@
 import { fail, money, effectivePrice, moveStock, insertRow } from './lib.js';
+import { birthdayLinesDiscount } from './birthday.js';
 
 const REDUCES_STOCK = new Set(['processing', 'on-hold', 'completed']);
 
@@ -31,7 +32,9 @@ export async function applyCoupon(t, code, lines, customerEmail = null) {
   if (Number(coupon.max_amount) > 0 && cartTotal > Number(coupon.max_amount)) fail(400, `Maximum spend for "${code}" is ${coupon.max_amount}`);
   if (!eligible.length) fail(400, `Coupon "${code}" does not apply to these products`);
   let discount = 0;
-  if (coupon.type === 'percent') discount = (base * Number(coupon.amount)) / 100;
+  // birthday gift: each item at most amount% under its regular price (an item already on sale only gets the difference)
+  if (coupon.type === 'birthday') discount = birthdayLinesDiscount(eligible, Number(coupon.amount));
+  else if (coupon.type === 'percent') discount = (base * Number(coupon.amount)) / 100;
   else if (coupon.type === 'fixed_cart') discount = Math.min(Number(coupon.amount), base);
   else discount = eligible.reduce((s, l) => s + Math.min(Number(coupon.amount), l.price) * l.quantity, 0);
   return { coupon, discount: money(discount), free_shipping: coupon.free_shipping };

@@ -163,7 +163,7 @@ sales.get('/customers', requireStaff(), async (c) => {
 
 sales.get('/customers/:id', requireStaff(), async (c) => {
   const id = Number(c.req.param('id'));
-  const customer = await one('select id, first_name, last_name, email, phone, billing, shipping, notes, tags, created_at, password_hash is not null has_account from customers where id = $1', [id]);
+  const customer = await one(`select id, first_name, last_name, email, phone, billing, shipping, notes, tags, created_at, to_char(date_of_birth, 'YYYY-MM-DD') date_of_birth, password_hash is not null has_account from customers where id = $1`, [id]);
   if (!customer) fail(404, 'Customer not found');
   const orders = await query('select id, number, status, channel, total::float8, created_at from orders where customer_id = $1 order by created_at desc', [id]);
   const [stats] = await query(`select count(*)::int orders, coalesce(sum(total - refunded_total), 0)::float8 spent, coalesce(avg(total), 0)::float8 average
@@ -173,7 +173,7 @@ sales.get('/customers/:id', requireStaff(), async (c) => {
   return c.json({ ...customer, orders, stats, top_products: top });
 });
 
-const CUSTOMER_COLS = ['first_name', 'last_name', 'email', 'phone', 'billing', 'shipping', 'notes', 'tags'];
+const CUSTOMER_COLS = ['first_name', 'last_name', 'email', 'phone', 'billing', 'shipping', 'notes', 'tags', 'date_of_birth'];
 sales.post('/customers', requireStaff(), async (c) => {
   const body = await c.req.json();
   if (!body.first_name && !body.phone && !body.email) fail(400, 'Add at least a name, phone or email');

@@ -33,7 +33,7 @@ function CouponForm({ value, onClose, onSaved }) {
         <Field label="Discount">
           <div className="flex gap-2">
             <Select value={c.type} onChange={(e) => setC({ ...c, type: e.target.value })} className="w-40">
-              <option value="percent">% off</option><option value="fixed_cart">$ off the order</option><option value="fixed_product">$ off each product</option>
+              <option value="percent">% off</option><option value="fixed_cart">$ off the order</option><option value="fixed_product">$ off each product</option><option value="birthday">Birthday (max % per item)</option>
             </Select>
             <Input type="number" step="0.01" value={c.amount} onChange={(e) => setC({ ...c, amount: e.target.value })} />
           </div>

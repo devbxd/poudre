@@ -26,6 +26,7 @@ export function CustomerForm({ value, onClose, onSaved }) {
         <Field label="Email"><Input type="email" value={c.email || ''} onChange={(e) => setC({ ...c, email: e.target.value })} /></Field>
         <Field label="Address" className="col-span-2"><Input value={b.address_1 || ''} onChange={(e) => setB({ address_1: e.target.value })} /></Field>
         <Field label="City / area"><Input value={b.city || ''} onChange={(e) => setB({ city: e.target.value })} /></Field>
+        <Field label="Date of birth" hint="Birthday e-mail with a 20% code"><Input type="date" value={c.date_of_birth || ''} onChange={(e) => setC({ ...c, date_of_birth: e.target.value || null })} /></Field>
         <Field label="Tags" hint="Comma separated, e.g. VIP, wholesale"><Input value={(c.tags || []).join(', ')} onChange={(e) => setC({ ...c, tags: e.target.value.split(',').map((t) => t.trim()).filter(Boolean) })} /></Field>
         <Field label="Notes" className="col-span-2"><Textarea rows={3} value={c.notes || ''} onChange={(e) => setC({ ...c, notes: e.target.value })} /></Field>
       </div>

@@ -12,6 +12,7 @@ export const EMAIL_TYPES = {
   customer_refunded: { label: 'Order refunded', to: 'customer', description: 'Sent to the customer when an order is refunded' },
   customer_note: { label: 'Note to customer', to: 'customer', description: 'Sent when you add a note for the customer on an order' },
   contact_form: { label: 'Contact form', to: 'shop', description: 'Messages sent from the Contact Us page' },
+  customer_birthday: { label: 'Happy birthday', to: 'customer', description: "Sent in the morning of a customer's birthday with a one-use 20% code valid until midnight" },
 };
 
 export async function emailSettings() {

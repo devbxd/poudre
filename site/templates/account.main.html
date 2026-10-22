@@ -80,7 +80,11 @@
 						<input type="email" class="woocommerce-Input woocommerce-Input--text input-text" name="email" id="reg_email" placeholder="Email address *" autocomplete="email" value="" required aria-required="true" />					</p>
 
 					
-						<p>A password will be sent to your email address.</p>
+						<p class="woocommerce-form-row woocommerce-form-row--wide form-row form-row-wide">
+						<input type="password" class="woocommerce-Input woocommerce-Input--text input-text" name="password" id="reg_password" placeholder="Password * (6 characters minimum)" autocomplete="new-password" minlength="6" required aria-required="true" />					</p>
+					<p class="woocommerce-form-row woocommerce-form-row--wide form-row form-row-wide">
+						<label for="reg_dob" style="display:block;margin-bottom:6px;font-size:14px">Date of birth <span style="color:#8a8a8a">(optional — receive a birthday gift: 20% off on your birthday)</span></label>
+						<input type="date" class="woocommerce-Input woocommerce-Input--text input-text" name="date_of_birth" id="reg_dob" autocomplete="bday" />					</p>
 
 					
 					<wc-order-attribution-inputs></wc-order-attribution-inputs><div class="woocommerce-privacy-policy-text"><p>Your personal data will be used to support your experience throughout this website, to manage access to your account, and for other purposes described in our <a href="/?page_id=3" class="woocommerce-privacy-policy-link" target="_blank">privacy policy</a>.</p>
