@@ -53,8 +53,8 @@ export function layout(cfg, heading, body) {
   return `<!doctype html><html><body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:#1f1f1f">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:32px 12px"><tr><td align="center">
 <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#fff;border-radius:6px;overflow:hidden;border:1px solid #e5e5e5">
-<tr><td align="center" style="padding:28px 24px 8px"><a href="${url}"><img src="${url}/email/poudre-logo.png" alt="${esc(cfg.from_name)}" width="170" height="123" style="display:block;border:0;width:170px;height:auto"></a></td></tr>
-<tr><td style="padding:12px 32px 0"><h1 style="margin:0 0 16px;font-size:22px;font-weight:600;color:#1f1f1f">${heading}</h1></td></tr>
+<tr><td align="center" bgcolor="#6d2a43" style="background:#6d2a43;padding:26px 24px"><a href="${url}"><img src="${url}/email/poudre-logo-white.png" alt="${esc(cfg.from_name)}" width="170" height="123" style="display:block;border:0;width:170px;height:auto"></a></td></tr>
+<tr><td style="padding:28px 32px 0"><h1 style="margin:0 0 16px;font-size:22px;font-weight:600;color:#1f1f1f">${heading}</h1></td></tr>
 <tr><td style="padding:0 32px 32px;font-size:14px;line-height:1.6">${body}</td></tr>
 </table>
 <p style="font-size:12px;color:#8a8a8a;margin:16px 0 0">${esc(cfg.from_name)}${cfg.store?.phone ? ` · ${esc(cfg.store.phone)}` : ''} · <a href="${url}" style="color:#8a8a8a">${url.replace(/^https?:\/\//, '')}</a></p>
