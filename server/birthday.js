@@ -72,7 +72,6 @@ export async function sendBirthdayEmails({ now = new Date(), dryRun = false } = 
           <p>To celebrate, enjoy <b>${BIRTHDAY_PERCENT}% off</b> your order today on poudrebeauty.com.</p>
           <p style="text-align:center;margin:28px 0"><span style="display:inline-block;border:2px dashed #7a2d48;border-radius:10px;padding:14px 26px;font-size:24px;font-weight:700;letter-spacing:3px;color:#7a2d48">${code}</span></p>
           <p>Enter this code in your cart. It works <b>once</b>, <b>today only, until midnight</b>.</p>
-          <p style="color:#6b6b6b;font-size:13px">Items already on sale get up to ${BIRTHDAY_PERCENT}% off in total (an item already 10% off gets 10% more).</p>
           <p style="text-align:center;margin:26px 0"><a href="${site}/shop/" style="background:#1f1f1f;color:#fff;text-decoration:none;padding:12px 28px;border-radius:24px;font-weight:600">Shop now</a></p>`),
       }, cfg);
       sent++;
