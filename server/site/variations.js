@@ -126,6 +126,9 @@ export function loopSwatches(product, variationsData, taxonomies) {
   const color = attrs.find((a) => a.variation && a.id && taxonomies.get(Number(a.id))?.slug === 'pa_color');
   if (!color) return '';
   const tax = taxonomies.get(Number(color.id));
+  // empty white circles when the shades have no colour set: show nothing rather than blank dots
+  const termOf = (name) => tax.terms.find((t) => decodeEntities(t.name) === decodeEntities(name));
+  if (!color.options.every((name) => /^#|rgb|hsl/i.test(termOf(name)?.color || ''))) return '';
   // the theme shows 4 swatches, then a "+N more" link to the product
   const LIMIT = 4;
   let spans = color.options.slice(0, LIMIT).map((name) => {

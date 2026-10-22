@@ -120,7 +120,9 @@ function variationForm(p, taxonomies) {
       return { value: term ? term.slug : o, label: term ? term.name : o, color: term?.color || '' };
     }).filter((o) => keep(o.value));
     const select = `<select id="${name}" class="" name="attribute_${name}" data-attribute_name="attribute_${name}" data-show_option_none="yes"><option value="">Choose an option</option>${options.map((o) => `<option value="${esc(o.value)}" >${esc(o.label)}</option>`).join('')}</select>`;
-    if (tax?.slug === 'pa_color') {
+    // colour circles only when every shade has its colour set; otherwise they were empty white circles → the
+    // "Choose an option" list, like every other option
+    if (tax?.slug === 'pa_color' && options.length && options.every((o) => /^#|rgb|hsl/i.test(o.color || ''))) {
       const sw = options.map((o) => `<span class="swatch-term swatch swatch-color term-${o.value} swatch-circle swatch-normal " title="${esc(o.label).replace(/&#039;/g, '&apos;')}" data-term="${o.value}"><span class="pls-tooltip" style="background-color:${o.color}">${esc(o.label)}</span></span>`).join('');
       return `\t\t\t\t\t\t\t<div class="variation-swatche">\n\t\t\t\t\t<div class="label"><label for="${name}">\t\n\t\t\t\t\t\t${esc(tax.name)}:</label>\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t</div>\n\t\t\t\t\t<div class="value with-swatches">\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t<div class="pls-swatches" data-attribute="${name}">\n\t\t\t\t\t\t\t\t\t${sw}\t\t\t\t\t\t\t\t</div> \t\t\t\t\t\t<div class="variation-selector pls-hidden">\n\t\t\t\t\t\t\t${select}\t\t\t\t\t\t</div>\n\t\t\t\t\t\t\t\t\t\t\t\t<a class="reset_variations" href="#" aria-label="Clear options">Clear</a>\t\t\t\t\t</div>\n\t\t\t\t</div>\n\t\t\t\t`;
     }
