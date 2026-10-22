@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Users } from 'lucide-react';
+import { Plus, Trash2, Users } from 'lucide-react';
 import { api, qs } from '../lib/api.js';
 import { useFetch, useFilters } from '../lib/hooks.js';
 import { money, date, fullName } from '../lib/format.js';
-import { Button, Card, Empty, Field, Input, Modal, PageHeader, Pagination, SearchInput, Select, Spinner, Table, Textarea, useAction } from '../components/ui.jsx';
+import { Button, Card, Empty, Field, Input, Modal, PageHeader, Pagination, SearchInput, Select, Spinner, Table, Textarea, useAction, useToast } from '../components/ui.jsx';
+import { useAuth } from '../lib/auth.jsx';
 
 export function CustomerForm({ value, onClose, onSaved }) {
   const [c, setC] = useState({ billing: {}, shipping: {}, ...value });
@@ -36,7 +37,19 @@ export default function Customers() {
   const [f, setF] = useFilters({ page: '1' });
   const navigate = useNavigate();
   const [edit, setEdit] = useState(null);
-  const { data, loading } = useFetch(`/admin/customers${qs({ ...f, per_page: 50 })}`);
+  const { data, loading, reload } = useFetch(`/admin/customers${qs({ ...f, per_page: 50 })}`);
+  const { can } = useAuth();
+  const { confirm } = useToast();
+  const [run, busy] = useAction();
+  // tick one or more customers, then delete them (their orders stay in sales and reports)
+  const [selected, setSelected] = useState(new Set());
+  const deleteSelected = async () => {
+    const n = selected.size;
+    if (!(await confirm({ title: `Delete ${n} customer${n > 1 ? 's' : ''}?`, message: 'Their orders are kept (sales and reports stay correct) but are no longer linked to them. This cannot be undone.', danger: true, confirmLabel: 'Delete' }))) return;
+    await run(() => api.post('/admin/customers/bulk-delete', { ids: [...selected] }), `${n} customer${n > 1 ? 's' : ''} deleted`);
+    setSelected(new Set());
+    reload();
+  };
   return (
     <>
       <PageHeader title="Customers" subtitle={data ? `${data.total.toLocaleString()} customers` : ' '}
@@ -48,9 +61,16 @@ export default function Customers() {
             <option value="">Newest first</option><option value="-spent">Top spenders</option><option value="-orders">Most orders</option><option value="-last">Recently ordered</option><option value="name">Name A–Z</option>
           </Select>
         </div>
+        {selected.size > 0 && can('manager') && (
+          <div className="flex flex-wrap items-center gap-2 border-b border-zinc-200 bg-zinc-50 px-4 py-2">
+            <span className="text-[13px] font-medium">{selected.size} selected</span>
+            <Button size="sm" variant="danger" icon={Trash2} loading={busy} onClick={deleteSelected}>Delete</Button>
+            <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>Clear selection</Button>
+          </div>
+        )}
         {!data ? <Spinner /> : (
           <div className={loading ? 'opacity-60' : ''}>
-            <Table rows={data.items} onRowClick={(c) => navigate(`/customers/${c.id}`)}
+            <Table rows={data.items} onRowClick={(c) => navigate(`/customers/${c.id}`)} selectable={can('manager')} selected={selected} onSelect={setSelected}
               empty={<Empty icon={Users} title="No customers found" />}
               columns={[
                 { key: 'name', label: 'Customer', render: (c) => <div><div className="font-medium">{fullName(c) || <span className="text-zinc-400">No name</span>}</div>{c.tags?.length > 0 && <div className="text-xs text-zinc-500">{c.tags.join(', ')}</div>}</div> },

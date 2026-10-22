@@ -188,6 +188,15 @@ sales.put('/customers/:id', requireStaff(), async (c) => {
   const row = await tx(async (t) => updateRow(t, 'customers', Number(c.req.param('id')), pick(await c.req.json(), CUSTOMER_COLS, ['billing', 'shipping'])));
   return c.json(row);
 });
+/** Delete several customers at once. Their orders stay (sales and reports keep them), only unlinked from the customer. */
+sales.post('/customers/bulk-delete', requireStaff('manager'), async (c) => {
+  const ids = ((await c.req.json()).ids || []).map(Number).filter(Boolean);
+  if (!ids.length) fail(400, 'No customer selected');
+  const rows = await query('delete from customers where id = any($1::int[]) returning id', [ids]);
+  await audit(c.get('staff'), 'delete', 'customer', ids.join(','), { count: rows.length });
+  return c.json({ deleted: rows.length });
+});
+
 sales.delete('/customers/:id', requireStaff('manager'), async (c) => {
   await query('delete from customers where id = $1', [Number(c.req.param('id'))]);
   return c.json({ ok: true });
