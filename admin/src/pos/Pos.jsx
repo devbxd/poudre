@@ -342,11 +342,7 @@ export default function Pos() {
     return () => { window.removeEventListener('online', up); window.removeEventListener('offline', down); clearInterval(t); };
   }, [sync]);
   const loadSession = useCallback(() => api.get('/pos/session').then(setSession).catch(() => setSession(null)), []);
-  // the till opens at once with the products saved on this computer, then the fresh catalogue replaces them
-  useEffect(() => {
-    readCachedCatalog().then((saved) => { if (saved) setCatalog((cur) => cur || saved); });
-    loadCatalog(); loadSession();
-  }, [loadCatalog, loadSession]);
+  useEffect(() => { loadCatalog(); loadSession(); }, [loadCatalog, loadSession]);
   useEffect(() => { setLimit(60); }, [q, cat]);
 
   // Barcode index: SKU / barcode -> every product / option carrying it
