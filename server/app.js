@@ -21,6 +21,16 @@ export const app = new Hono();
 // After a request that changed the catalogue (price, product, stock after a sale…), the copy is refreshed in the
 // background with only what changed.
 const COPY_API = new Set(['/api/pos/catalog', '/api/pos/catalog-version']);
+
+// Last time someone used the dashboard or the POS (file data/last-staff-activity): the keep-warm job only keeps the
+// database awake for 30 minutes after that, so it sleeps when nobody works (Neon free plan: 100 hours a month).
+let lastMark = 0;
+app.use('/api/*', async (c, next) => {
+  await next();
+  if (c.req.path === '/api/pos/catalog-version' || c.req.path === '/api/health' || Date.now() - lastMark < 60000) return;
+  lastMark = Date.now();
+  import('node:fs/promises').then((fs) => fs.mkdir('data', { recursive: true }).then(() => fs.writeFile('data/last-staff-activity', String(lastMark)))).catch(() => {});
+});
 app.use('*', async (c, next) => {
   const store = { useCopy: !c.req.path.startsWith('/api/') || COPY_API.has(c.req.path), changes: { tables: new Set(), stockOnly: true, deleted: false } };
   await scope.run(store, () => next());
