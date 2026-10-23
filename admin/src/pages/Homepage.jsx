@@ -26,30 +26,33 @@ export default function Homepage() {
   const { data: saved } = useFetch('/admin/settings/homepage');
   const [slides, setSlides] = useState(null);
   const [banners, setBanners] = useState(null);
+  const [marquee, setMarquee] = useState(null);
   const [run, busy] = useAction();
   const { confirm } = useToast();
   useEffect(() => {
     if (!defaults || !saved) return;
     setSlides(saved.slides?.length ? saved.slides : defaults.slides);
     setBanners(defaults.banners.map((b) => ({ ...b, ...(saved.banners || []).find((x) => x.key === b.key) })));
+    setMarquee(saved.marquee?.length ? saved.marquee : defaults.marquee || []);
   }, [defaults, saved]);
-  if (!slides || !banners) return <Spinner />;
+  if (!slides || !banners || !marquee) return <Spinner />;
 
   const setSlide = (i, patch) => setSlides(slides.map((s, j) => (j === i ? { ...s, ...patch } : s)));
   const move = (i, d) => { const s = [...slides]; [s[i], s[i + d]] = [s[i + d], s[i]]; setSlides(s); };
   const setBanner = (i, patch) => setBanners(banners.map((b, j) => (j === i ? { ...b, ...patch } : b)));
   const save = () => run(async () => {
     const current = await api.get('/admin/settings/homepage');
-    return api.put('/admin/settings/homepage', { ...current, slides, banners });
+    return api.put('/admin/settings/homepage', { ...current, slides, banners, marquee: marquee.map((t) => t.trim()).filter(Boolean) });
   }, 'Homepage saved — the website shows it within a minute');
   const reset = async () => {
     if (!(await confirm({ title: 'Put back the original pictures?', message: 'Slides and banners go back to how they were on the old website.', confirmLabel: 'Put back' }))) return;
     await run(async () => {
-      const { slides: _, banners: __, ...rest } = await api.get('/admin/settings/homepage');
+      const { slides: _, banners: __, marquee: ___, ...rest } = await api.get('/admin/settings/homepage');
       return api.put('/admin/settings/homepage', rest);
     }, 'Original pictures restored');
     setSlides(defaults.slides);
     setBanners(defaults.banners);
+    setMarquee(defaults.marquee || []);
   };
 
   return (
@@ -83,6 +86,18 @@ export default function Homepage() {
                   <Field label="Button text" hint="Empty = no button"><Input value={s.button} onChange={(e) => setSlide(i, { button: e.target.value })} /></Field>
                   <Field label="Button link" hint="e.g. /product-category/makeup/"><Input value={s.link} onChange={(e) => setSlide(i, { link: e.target.value })} /></Field>
                 </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+        <Card title="Scrolling bar (under the menu)" actions={<Button size="sm" icon={Plus} onClick={() => setMarquee([...marquee, ''])}>Add text</Button>}>
+          <p className="mb-3 text-[13px] text-zinc-500">The texts that scroll at the top of the homepage, in this order. Example: “Save 10% with the code POUDRE10”.</p>
+          <div className="space-y-2">
+            {marquee.map((t, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <Input value={t} onChange={(e) => setMarquee(marquee.map((x, j) => (j === i ? e.target.value : x)))} placeholder="Text" />
+                <Button size="sm" icon={ArrowUp} disabled={!i} onClick={() => { const m = [...marquee]; [m[i - 1], m[i]] = [m[i], m[i - 1]]; setMarquee(m); }} title="Move up" />
+                <Button size="sm" variant="danger" icon={Trash2} disabled={marquee.length === 1} onClick={() => setMarquee(marquee.filter((_, j) => j !== i))} title="Remove" />
               </div>
             ))}
           </div>

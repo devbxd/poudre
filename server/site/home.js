@@ -111,7 +111,10 @@ export async function homeDefaults() {
     const a = block.match(BUTTON_RE);
     return { key: m[1], image: block.match(/<img[^>]*\ssrc="([^"]+)"/)?.[1] || '', link: a ? unquote(a[1]) : '', label: a ? unquote(a[3]) : '' };
   });
-  return (defaultsCache = { slides, banners });
+  // scrolling announcement bar ("Store Pickup Available · Save 10% with the code Poudre10 · …")
+  const bar = html.match(/<div class="pls-marquee-items">([\s\S]*?)<\/div>\s*<div class="pls-marquee-items" aria-hidden="true">/);
+  const marquee = bar ? [...bar[1].matchAll(/<span class="pls-marquee-item-text">([^<]*)<\/span>/g)].map((m) => unquote(m[1])) : [];
+  return (defaultsCache = { slides, banners, marquee });
 }
 
 /** Slides (any number, in the saved order) and banner images / buttons chosen in the dashboard */
@@ -135,6 +138,18 @@ export function applyHomeImages(html, saved) {
       });
       html = html.slice(0, first) + blocks.join('\n\t\t\t\t\t') + html.slice(last);
       html = html.replace('<div id="pls-home-slides-', () => `<style>${css}</style><div id="pls-home-slides-`);
+    }
+  }
+  // scrolling bar texts chosen in the dashboard (the theme repeats the list to loop: every copy is rewritten)
+  const texts = (saved.marquee || []).map((t) => String(t || '').trim()).filter(Boolean);
+  if (texts.length) {
+    const items = texts.map((t) => `<div class="pls-marquee-item">\n<span class="pls-marquee-item-text">${esc(t)}</span>\n</div>\n<div class="pls-marquee-item-separator"></div> `).join('');
+    let at = html.indexOf('<div class="pls-marquee-items"');
+    while (at >= 0) {
+      const end = elementEnd(html, at);
+      const open = html.slice(at, html.indexOf('>', at) + 1);
+      html = html.slice(0, at) + `${open}\n${items}</div>` + html.slice(end);
+      at = html.indexOf('<div class="pls-marquee-items"', at + open.length + items.length);
     }
   }
   for (const b of saved.banners || []) {
