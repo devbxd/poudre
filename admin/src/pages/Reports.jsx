@@ -144,7 +144,7 @@ function Purchases() {
 
 export default function Reports() {
   const [tab, setTab] = useState('sales');
-  const [group, setGroup] = useState('product');
+  const [group, setGroup] = useState('variation');
   const period = usePeriod();
   const [channel, setChannel] = useState('');
   const params = qs({ group, from: period.from, to: period.to, channel });
@@ -177,7 +177,6 @@ export default function Reports() {
               <div className={loading ? 'opacity-60' : ''}>
                 <Table dense rows={data.map((x, i) => ({ ...x, _k: `${x.id}-${i}` }))} rowKey="_k" columns={[
                   { key: 'label', label: GROUPS.find((g) => g.value === group).label, render: (x) => <span className="block max-w-[380px] truncate">{x.label || '—'}</span> },
-                  { key: 'orders', label: 'Orders', align: 'right', render: (x) => int(x.orders) },
                   { key: 'qty', label: 'Units sold', align: 'right', render: (x) => int(x.qty) },
                   ...(['product', 'variation'].includes(group) ? [{ key: 'stock', label: 'In stock now', align: 'right', render: (x) => (x.stock == null ? '—' : <span className={x.stock <= 0 ? 'font-medium text-red-600' : ''}>{int(x.stock)}</span>) }] : []),
                   { key: 'discounts', label: 'Discounts', align: 'right', render: (x) => money(x.discounts) },
