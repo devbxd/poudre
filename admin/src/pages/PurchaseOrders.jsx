@@ -27,7 +27,7 @@ export default function PurchaseOrders() {
         </div>
         {!data ? <Spinner /> : (
           <div className={loading ? 'opacity-60' : ''}>
-            <Table rows={data.items} onRowClick={(po) => navigate(`/purchase-orders/${po.id}`)}
+            <Table rows={data.items} onRowClick={(po) => navigate(`/purchase-orders/${po.id}`)} rowHref={(po) => `/purchase-orders/${po.id}`}
               empty={<Empty icon={ClipboardList} title="No purchase orders" />}
               columns={[
                 { key: 'number', label: 'Number', render: (po) => <span className="font-medium">{po.number}</span> },

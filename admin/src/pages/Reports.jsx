@@ -34,7 +34,7 @@ function usePeriod(initial = '30d') {
 }
 
 const GROUPS = [
-  { value: 'product', label: 'Products' }, { value: 'variation', label: 'Product options' }, { value: 'category', label: 'Categories' }, { value: 'brand', label: 'Brands' },
+  { value: 'product', label: 'Products' }, { value: 'variation', label: 'Each colour / size' }, { value: 'category', label: 'Categories' }, { value: 'brand', label: 'Brands' },
   { value: 'supplier', label: 'Suppliers' }, { value: 'customer', label: 'Customers' }, { value: 'staff', label: 'Cashiers' }, { value: 'payment', label: 'Payment methods' },
   { value: 'day', label: 'By day' }, { value: 'month', label: 'By month' }, { value: 'hour', label: 'By hour' },
 ];

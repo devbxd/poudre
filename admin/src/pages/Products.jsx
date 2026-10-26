@@ -143,7 +143,7 @@ export default function Products() {
           <div className={loading ? 'opacity-60' : ''}>
             <Table
               rows={data.items} selectable={can('manager')} selected={selected} onSelect={setSelected}
-              onRowClick={(p) => navigate(`/products/${p.id}`)}
+              onRowClick={(p) => navigate(`/products/${p.id}`)} rowHref={(p) => `/products/${p.id}`}
               empty={<Empty icon={Package} title="No products found" text="Try other filters or add a new product." />}
               columns={[
                 { key: 'name', label: 'Product', render: (p) => (

@@ -42,7 +42,7 @@ export default function CustomerDetail() {
             ))}
           </div>
           <Card title="Orders" padded={false}>
-            <Table rows={c.orders} onRowClick={(o) => navigate(`/orders/${o.id}`)} columns={[
+            <Table rows={c.orders} onRowClick={(o) => navigate(`/orders/${o.id}`)} rowHref={(o) => `/orders/${o.id}`} columns={[
               { key: 'number', label: 'Order', render: (o) => <span className="font-medium">#{o.number}</span> },
               { key: 'created_at', label: 'Date', render: (o) => dateTime(o.created_at) },
               { key: 'channel', label: 'Channel', render: (o) => CHANNEL[o.channel] },

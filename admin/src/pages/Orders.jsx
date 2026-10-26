@@ -64,7 +64,7 @@ export default function Orders() {
             <Table
               rows={data.items}
               selectable={can('manager')} selected={selected} onSelect={setSelected}
-              onRowClick={(o) => navigate(`/orders/${o.id}`)}
+              onRowClick={(o) => navigate(`/orders/${o.id}`)} rowHref={(o) => `/orders/${o.id}`}
               empty={<Empty icon={ShoppingBag} title="No orders found" text="Try changing the filters." />}
               columns={[
                 { key: 'number', label: 'Order', render: (o) => <span className="font-medium">#{o.number}</span> },

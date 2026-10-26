@@ -71,7 +71,7 @@ export default function Customers() {
         )}
         {!data ? <Spinner /> : (
           <div className={loading ? 'opacity-60' : ''}>
-            <Table rows={data.items} onRowClick={(c) => navigate(`/customers/${c.id}`)} selectable={can('manager')} selected={selected} onSelect={setSelected}
+            <Table rows={data.items} onRowClick={(c) => navigate(`/customers/${c.id}`)} rowHref={(c) => `/customers/${c.id}`} selectable={can('manager')} selected={selected} onSelect={setSelected}
               empty={<Empty icon={Users} title="No customers found" />}
               columns={[
                 { key: 'name', label: 'Customer', render: (c) => <div><div className="font-medium">{fullName(c) || <span className="text-zinc-400">No name</span>}</div>{c.tags?.length > 0 && <div className="text-xs text-zinc-500">{c.tags.join(', ')}</div>}</div> },

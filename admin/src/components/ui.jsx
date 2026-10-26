@@ -1,5 +1,6 @@
 import { Component, createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Link } from 'react-router-dom';
 import { X, ChevronLeft, ChevronRight, Search, Loader2, Check, AlertCircle } from 'lucide-react';
 
 export const cx = (...c) => c.filter(Boolean).join(' ');
@@ -190,7 +191,8 @@ export function Pagination({ page, perPage, total, onChange }) {
 }
 
 /** Simple table. columns: [{key, label, render, align, width, className, mobile: false = hidden on phones}] */
-export function Table({ columns, rows, onRowClick, selectable, selected, onSelect, rowKey = 'id', empty, dense }) {
+/** rowHref(row): each cell becomes a real link, so right-click → "Open in new tab", Ctrl+click and middle-click work */
+export function Table({ columns, rows, onRowClick, rowHref, selectable, selected, onSelect, rowKey = 'id', empty, dense }) {
   const all = rows.length > 0 && rows.every((r) => selected?.has(r[rowKey]));
   const some = rows.some((r) => selected?.has(r[rowKey]));
   return (
@@ -230,7 +232,9 @@ export function Table({ columns, rows, onRowClick, selectable, selected, onSelec
               )}
               {columns.map((c) => (
                 <td key={c.key} className={cx('px-4', dense ? 'py-1.5' : 'py-2.5', c.align === 'right' && 'text-right num', c.mobile === false && 'hidden sm:table-cell', c.className)}>
-                  {c.render ? c.render(r) : r[c.key] ?? '—'}
+                  {rowHref
+                    ? <Link to={rowHref(r)} className="block text-inherit no-underline" onClick={(e) => e.stopPropagation()}>{c.render ? c.render(r) : r[c.key] ?? '—'}</Link>
+                    : (c.render ? c.render(r) : r[c.key] ?? '—')}
                 </td>
               ))}
             </tr>
