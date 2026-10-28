@@ -2,6 +2,21 @@
 // otherwise an embedded Postgres (PGlite) stored in data/pglite for local development.
 let client;
 
+// Neon (free plan) sometimes takes long to wake up: when the connection itself could not be opened, nothing was sent
+// to the database yet, so it is safe to try again (3 tries over ~30 s) instead of showing an error to the shop.
+const CONNECT_ERRORS = new Set(['CONNECT_TIMEOUT', 'ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'CONNECTION_CLOSED']);
+async function retryConnect(run) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await run();
+    } catch (e) {
+      if (attempt >= 3 || !CONNECT_ERRORS.has(e.code) || (e.code !== 'CONNECT_TIMEOUT' && e.code !== 'ECONNREFUSED' && e.query)) throw e;
+      console.warn(`database not reachable (${e.code}), retry ${attempt}`);
+      await new Promise((r) => setTimeout(r, 1000 * attempt));
+    }
+  }
+}
+
 async function init() {
   if (process.env.DATABASE_URL) {
     const { default: postgres } = await import('postgres');
@@ -9,7 +24,7 @@ async function init() {
     // (the app sends JSON.stringify'd text to jsonb columns — postgres.js would otherwise encode it twice)
     const jsonType = (oid) => ({ to: oid, from: [oid], serialize: (v) => (typeof v === 'string' ? v : JSON.stringify(v)), parse: JSON.parse });
     const sql = postgres(process.env.DATABASE_URL, {
-      max: 5, prepare: false, idle_timeout: 20,
+      max: 5, prepare: false, idle_timeout: 20, connect_timeout: 12,
       types: {
         bigint: { to: 20, from: [20], serialize: (v) => String(v), parse: (v) => Number(v) },
         json: jsonType(114),
@@ -17,9 +32,9 @@ async function init() {
       },
     });
     return {
-      query: (text, params = []) => sql.unsafe(text, params),
+      query: (text, params = []) => retryConnect(() => sql.unsafe(text, params)),
       exec: (text) => sql.unsafe(text),
-      tx: (fn) => sql.begin((t) => fn({ query: (text, params = []) => t.unsafe(text, params) })),
+      tx: (fn) => retryConnect(() => sql.begin((t) => fn({ query: (text, params = []) => t.unsafe(text, params) }))),
     };
   }
   const { PGlite } = await import('@electric-sql/pglite');
