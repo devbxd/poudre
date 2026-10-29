@@ -8,6 +8,8 @@ import { imageTag, srcset } from './images.js';
 import { texturize, productUrl } from './product-card.js';
 import { attributeTaxonomies, attributeKeyValue } from './variations.js';
 import { applyCoupon } from '../orders.js';
+import { currentCustomer } from '../auth.js';
+import { welcomeEligible, welcomeDiscount } from '../welcome.js';
 
 const COOKIE = 'poudre_session';
 const md5 = (s) => createHash('md5').update(s).digest('hex');
@@ -31,7 +33,11 @@ export function sessionId(c) {
 export async function loadCart(c) {
   const id = sessionId(c);
   const [row] = await query('select * from carts where id = $1', [id]);
-  return row ? { ...row, items: json(row.items) || [], customer: json(row.customer) || {} } : { id, items: [], coupons: [], shipping_method: null, customer: {} };
+  const cart = row ? { ...row, items: json(row.items) || [], customer: json(row.customer) || {} } : { id, items: [], coupons: [], shipping_method: null, customer: {} };
+  // signed-in customer whose first order is still to come: welcome offer (10 % + free delivery)
+  const me = await currentCustomer(c).catch(() => null);
+  cart.welcomeCustomerId = me && (await welcomeEligible(me.id).catch(() => false)) ? me.id : null;
+  return cart;
 }
 
 export async function saveCart(c, cart) {
@@ -120,9 +126,19 @@ export async function computeCart(cart) {
     } catch (e) { errors.push(e.message); }
   }
   discount = Math.min(discount, subtotal);
+  // welcome offer: the better of it and a coupon (they do not add up); free delivery either way
+  let welcome = false;
+  if (cart.welcomeCustomerId) {
+    const w = welcomeDiscount(lines.map((l) => ({ price: l.unit, regular: l.regular, quantity: l.quantity })));
+    if (w > 0 && w >= discount) {
+      welcome = true;
+      discount = Math.min(w, subtotal);
+      coupons.splice(0, coupons.length, { code: 'welcome -10%', discount, free_shipping: true, type: 'welcome' });
+    }
+  }
   // shipping rates
   const ship = await setting('shipping', { methods: [] });
-  const freeByCoupon = coupons.some((c) => c.free_shipping);
+  const freeByCoupon = coupons.some((c) => c.free_shipping) || !!cart.welcomeCustomerId;
   let rates = (ship.methods || []).filter((m) => m.enabled !== false).filter((m) => {
     if (m.type === 'free_shipping' && m.min_amount != null) return freeByCoupon || subtotal >= m.min_amount;
     return true;
@@ -133,7 +149,7 @@ export async function computeCart(cart) {
   const selected = rates.find((r) => r.id === cart.shipping_method) || rates[0] || null;
   const shippingTotal = lines.length && selected ? Number(selected.cost || 0) : 0;
   const total = Math.max(0, subtotal - discount) + shippingTotal;
-  return { cart, lines, subtotal, discount, coupons, errors, rates, selected, shippingTotal, total, count: lines.reduce((s, l) => s + l.quantity, 0) };
+  return { cart, lines, subtotal, discount, coupons, errors, rates, selected, shippingTotal, total, welcome, count: lines.reduce((s, l) => s + l.quantity, 0) };
 }
 
 async function variationRow(id, p) {

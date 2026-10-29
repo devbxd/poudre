@@ -1,5 +1,6 @@
 import { fail, money, effectivePrice, moveStock, insertRow } from './lib.js';
 import { birthdayLinesDiscount } from './birthday.js';
+import { welcomeEligible, WELCOME_PERCENT } from './welcome.js';
 
 const REDUCES_STOCK = new Set(['processing', 'on-hold', 'completed']);
 
@@ -88,6 +89,14 @@ export async function priceLines(t, items, { allowOverride = false } = {}) {
 export async function createOrder(t, input, { channel, staff = null, allowOverride = false, enforceStock = false }) {
   if (!Array.isArray(input.items) || !input.items.length) fail(400, 'The order has no items');
   const lines = await priceLines(t, input.items, { allowOverride });
+  // welcome offer of a new account (first order): checked again here, 10 % per item at most, order linked to the account
+  if (input.welcome_customer_id) {
+    if (!(await welcomeEligible(input.welcome_customer_id, (s, p) => t.query(s, p)))) fail(400, 'Your welcome offer has already been used. Please refresh your cart.');
+    if (input.welcome_discount) {
+      for (const l of lines) l.line_discount = money((l.line_discount || 0) + Math.max(0, l.price - l.regular * (1 - WELCOME_PERCENT / 100)) * l.quantity);
+    }
+    input.customer_id = input.welcome_customer_id;
+  }
 
   if (enforceStock) {
     for (const l of lines) {
