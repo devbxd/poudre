@@ -26,5 +26,7 @@ tar -xzf deploy.tgz && rm deploy.tgz
 if [ "$old" != "$(sha1sum package-lock.json | cut -d" " -f1)" ]; then npm ci --omit=dev --no-audit --no-fund >/dev/null; fi
 sudo systemctl restart poudre
 for i in $(seq 1 30); do curl -sf -m 5 http://127.0.0.1:3000/api/health >/dev/null && break; sleep 1; done
-curl -sf -m 5 http://127.0.0.1:3000/api/health >/dev/null && echo "site back up"'
+curl -sf -m 5 http://127.0.0.1:3000/api/health >/dev/null && echo "site back up"
+# warm-up: the first page after a restart loads the catalogue copy (~25 s); do it now, not for a customer
+curl -s -o /dev/null -m 120 -H "Host: poudrebeauty.com" -H "X-Forwarded-Proto: https" http://127.0.0.1:3000/ && echo "warmed up"'
 echo "deployed $(git rev-parse --short HEAD 2>/dev/null || true)"
