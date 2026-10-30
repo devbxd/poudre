@@ -4,7 +4,7 @@ import { Download } from 'lucide-react';
 import { qs } from '../lib/api.js';
 import { useFetch } from '../lib/hooks.js';
 import { money, int, date } from '../lib/format.js';
-import { Button, Card, Input, PageHeader, Select, Spinner, Table, Tabs } from '../components/ui.jsx';
+import { Button, Card, Input, PageHeader, Select, Spinner, Table, Tabs, cx } from '../components/ui.jsx';
 import { RANGES } from './Overview.jsx';
 
 const todayStr = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Beirut' });
@@ -142,59 +142,134 @@ function Purchases() {
   );
 }
 
-export default function Reports() {
-  const [tab, setTab] = useState('sales');
+// ---------------------------------------------------------------- Sales: three simple steps (when, show, filter)
+const Pill = ({ active, onClick, children }) => (
+  <button type="button" onClick={onClick}
+    className={cx('rounded-full border px-3.5 py-1.5 text-sm font-medium transition', active ? 'border-zinc-900 bg-zinc-900 text-white' : 'border-zinc-300 bg-white text-zinc-800 hover:border-zinc-900')}>
+    {children}
+  </button>
+);
+const Step = ({ label, children }) => (
+  <div className="flex flex-wrap items-center gap-2">
+    <span className="w-20 shrink-0 text-[13px] font-semibold text-zinc-500">{label}</span>
+    {children}
+  </div>
+);
+const QUICK_RANGES = ['today', '7d', '30d', 'month', 'year'];
+const MAIN_VIEWS = ['variation', 'product', 'brand', 'category', 'day'];
+const VIEW_LABELS = { variation: 'Each item', product: 'Products', brand: 'Brands', category: 'Categories', day: 'Day by day' };
+
+function Sales() {
   const [group, setGroup] = useState('variation');
-  const period = usePeriod();
+  const [range, setRange] = useState('30d');
+  const [custom, setCustom] = useState({ from: todayStr().slice(0, 8) + '01', to: todayStr() });
   const [channel, setChannel] = useState('');
-  const [brand, setBrand] = useState('');
+  const [brand, setBrand] = useState(null); // { id, name }
+  const [brandText, setBrandText] = useState('');
   const [category, setCategory] = useState('');
+  const [find, setFind] = useState('');
   const { data: brands } = useFetch('/admin/brands');
   const { data: cats } = useFetch('/admin/categories');
-  const params = qs({ group, from: period.from, to: period.to, channel, brand, category });
-  const { data, loading } = useFetch(tab === 'sales' ? `/admin/reports/sales${params}` : null);
-  const totals = (data || []).reduce((s, x) => ({ qty: s.qty + (x.qty || 0), revenue: s.revenue + (x.revenue || 0), profit: s.profit + (x.profit || 0) }), { qty: 0, revenue: 0, profit: 0 });
+  const r = RANGES.find((x) => x.value === range);
+  const from = range === 'custom' ? custom.from : r.from();
+  const to = range === 'custom' ? custom.to : r.to();
+  const params = qs({ group, from, to, channel, brand: brand?.id || '', category });
+  const { data, loading } = useFetch(`/admin/reports/sales${params}`);
+  const rows = (data || []).filter((x) => !find.trim() || String(x.label || '').toLowerCase().includes(find.trim().toLowerCase()));
+  const totals = rows.reduce((s, x) => ({ qty: s.qty + (x.qty || 0), revenue: s.revenue + (x.revenue || 0), profit: s.profit + (x.profit || 0) }), { qty: 0, revenue: 0, profit: 0 });
+  const sortedBrands = [...(brands || [])].sort((a, b) => a.name.localeCompare(b.name));
+  const pickBrand = (text) => {
+    setBrandText(text);
+    const b = sortedBrands.find((x) => x.name.toLowerCase() === text.trim().toLowerCase());
+    if (b) { setBrand(b); setBrandText(''); }
+  };
+  const catName = (cats || []).find((c) => String(c.id) === String(category))?.name;
+  const itemView = group === 'variation' || group === 'product';
+  const channels = [['', 'Shop + website'], ['pos', 'Shop only'], ['online', 'Website only']];
+
+  return (
+    <>
+      <div className="space-y-3 border-b border-zinc-200 p-4">
+        <Step label="1. When">
+          {QUICK_RANGES.map((v) => <Pill key={v} active={range === v} onClick={() => setRange(v)}>{RANGES.find((x) => x.value === v).label}</Pill>)}
+          <Pill active={range === 'custom'} onClick={() => setRange('custom')}>Choose dates…</Pill>
+          {range === 'custom' && (
+            <span className="flex items-center gap-1.5 text-[13px] text-zinc-600">
+              <Input type="date" value={custom.from} max={custom.to} onChange={(e) => e.target.value && setCustom({ ...custom, from: e.target.value })} className="w-40" />
+              to
+              <Input type="date" value={custom.to} min={custom.from} onChange={(e) => e.target.value && setCustom({ ...custom, to: e.target.value })} className="w-40" />
+            </span>
+          )}
+        </Step>
+        <Step label="2. Show">
+          {MAIN_VIEWS.map((v) => <Pill key={v} active={group === v} onClick={() => setGroup(v)}>{VIEW_LABELS[v]}</Pill>)}
+          <Select value={MAIN_VIEWS.includes(group) ? '' : group} onChange={(e) => e.target.value && setGroup(e.target.value)} className="h-9 w-44">
+            <option value="">More…</option>
+            {GROUPS.filter((g) => !MAIN_VIEWS.includes(g.value)).map((g) => <option key={g.value} value={g.value}>{g.label}</option>)}
+          </Select>
+        </Step>
+        <Step label="3. Filter">
+          {brand
+            ? <Pill active onClick={() => setBrand(null)}>Brand: {brand.name} ✕</Pill>
+            : (
+              <>
+                <Input list="report-brands" value={brandText} onChange={(e) => pickBrand(e.target.value)} placeholder="Type a brand…" className="w-52" />
+                <datalist id="report-brands">{sortedBrands.map((b) => <option key={b.id} value={b.name} />)}</datalist>
+              </>
+            )}
+          {category
+            ? <Pill active onClick={() => setCategory('')}>Category: {catName} ✕</Pill>
+            : (
+              <Select value="" onChange={(e) => setCategory(e.target.value)} className="h-9 w-48">
+                <option value="">Any category</option>
+                {(cats || []).filter((c) => !c.parent_id).flatMap((p) => [p, ...(cats || []).filter((c) => c.parent_id === p.id)]).map((c) => <option key={c.id} value={c.id}>{c.parent_id ? `— ${c.name}` : c.name}</option>)}
+              </Select>
+            )}
+          <span className="mx-1 h-6 w-px bg-zinc-200" />
+          {channels.map(([v, l]) => <Pill key={v} active={channel === v} onClick={() => setChannel(v)}>{l}</Pill>)}
+        </Step>
+      </div>
+
+      {data && (
+        <div className="grid grid-cols-3 border-b border-zinc-200 text-center">
+          {[['Pieces sold', int(totals.qty)], ['Sales', money(totals.revenue)], ['Profit *', money(totals.profit)]].map(([k, v]) => (
+            <div key={k} className="border-r border-zinc-200 py-4 last:border-0"><div className="text-[13px] text-zinc-500">{k}</div><div className="num text-2xl font-semibold">{v}</div></div>
+          ))}
+        </div>
+      )}
+      <div className="flex flex-wrap items-center gap-2 border-b border-zinc-200 px-4 py-2">
+        <Input value={find} onChange={(e) => setFind(e.target.value)} placeholder="Find in the list…" className="w-64" />
+        <span className="text-[13px] text-zinc-500">{data ? `${rows.length} line${rows.length === 1 ? '' : 's'}` : ''}</span>
+        <Button icon={Download} className="ml-auto" onClick={() => { window.location.href = `/api/admin/reports/sales/export${params}`; }}>Download (Excel)</Button>
+      </div>
+      {!data ? <Spinner /> : (
+        <div className={loading ? 'opacity-60' : ''}>
+          <Table dense rows={rows.map((x, i) => ({ ...x, _k: `${x.id}-${i}` }))} rowKey="_k" columns={[
+            { key: 'label', label: itemView ? 'Item' : VIEW_LABELS[group] || GROUPS.find((g) => g.value === group).label, render: (x) => <span className="block max-w-[420px] truncate">{x.label || '—'}</span> },
+            { key: 'qty', label: 'Sold', align: 'right', render: (x) => <span className="font-medium">{int(x.qty)}</span> },
+            ...(itemView ? [{ key: 'stock', label: 'In stock', align: 'right', render: (x) => (x.stock == null ? '—' : <span className={x.stock <= 0 ? 'font-medium text-red-600' : ''}>{int(x.stock)}</span>) }] : []),
+            { key: 'revenue', label: 'Sales', align: 'right', render: (x) => money(x.revenue) },
+            { key: 'profit', label: 'Profit *', align: 'right', render: (x) => (x.profit != null ? money(x.profit) : '—') },
+            { key: 'discounts', label: 'Discounts', align: 'right', mobile: false, render: (x) => (x.discounts ? money(x.discounts) : '—') },
+          ]} />
+        </div>
+      )}
+      <p className="p-3 text-xs text-zinc-400">Sold = number of pieces sold in the period. In stock = on the shelf now. * Profit only for products that have a cost price. With a brand or category chosen, all its items are listed, also those not sold.</p>
+    </>
+  );
+}
+
+export default function Reports() {
+  const [tab, setTab] = useState('sales');
   return (
     <>
       <PageHeader title="Reports" />
       <Card padded={false}>
         <Tabs className="px-2" value={tab} onChange={setTab} tabs={[{ value: 'sales', label: 'Sales' }, { value: 'day', label: 'End of day' }, { value: 'purchases', label: 'Purchases' }, { value: 'dead', label: 'Slow movers' }]} />
-        {tab === 'purchases' && <Purchases />}
+        {tab === 'sales' && <Sales />}
         {tab === 'day' && <DayReport />}
+        {tab === 'purchases' && <Purchases />}
         {tab === 'dead' && <DeadStock />}
-        {tab === 'sales' && (
-          <>
-            <div className="flex flex-wrap items-center gap-2 border-b border-zinc-200 p-3">
-              <Select value={group} onChange={(e) => setGroup(e.target.value)} className="w-48">{GROUPS.map((g) => <option key={g.value} value={g.value}>{g.label}</option>)}</Select>
-              {period.picker}
-              <Select value={brand} onChange={(e) => setBrand(e.target.value)} className="w-48" title="Only this brand"><option value="">All brands</option>{[...(brands || [])].sort((a, b) => a.name.localeCompare(b.name)).map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</Select>
-              <Select value={category} onChange={(e) => setCategory(e.target.value)} className="w-48" title="Only this category"><option value="">All categories</option>{(cats || []).filter((c) => !c.parent_id).flatMap((p) => [p, ...(cats || []).filter((c) => c.parent_id === p.id)]).map((c) => <option key={c.id} value={c.id}>{c.parent_id ? `— ${c.name}` : c.name}</option>)}</Select>
-              <Select value={channel} onChange={(e) => setChannel(e.target.value)} className="w-36"><option value="">All channels</option><option value="pos">In store</option><option value="online">Website</option></Select>
-              <Button icon={Download} className="ml-auto" onClick={() => { window.location.href = `/api/admin/reports/sales/export${params}`; }}>Export CSV</Button>
-            </div>
-            {data && (
-              <div className="grid grid-cols-3 border-b border-zinc-200 text-center">
-                {[['Pieces sold', int(totals.qty)], ['Sales ($)', money(totals.revenue)], ['Profit ($)*', money(totals.profit)]].map(([k, v]) => (
-                  <div key={k} className="border-r border-zinc-200 py-3 last:border-0"><div className="text-xs text-zinc-500">{k}</div><div className="num font-semibold">{v}</div></div>
-                ))}
-              </div>
-            )}
-            {!data ? <Spinner /> : (
-              <div className={loading ? 'opacity-60' : ''}>
-                <Table dense rows={data.map((x, i) => ({ ...x, _k: `${x.id}-${i}` }))} rowKey="_k" columns={[
-                  { key: 'label', label: GROUPS.find((g) => g.value === group).label, render: (x) => <span className="block max-w-[380px] truncate">{x.label || '—'}</span> },
-                  { key: 'qty', label: 'Pieces sold', align: 'right', render: (x) => int(x.qty) },
-                  ...(['product', 'variation'].includes(group) ? [{ key: 'stock', label: 'In stock', align: 'right', render: (x) => (x.stock == null ? '—' : <span className={x.stock <= 0 ? 'font-medium text-red-600' : ''}>{int(x.stock)}</span>) }] : []),
-                  { key: 'discounts', label: 'Discount given', align: 'right', render: (x) => money(x.discounts) },
-                  { key: 'revenue', label: 'Sales ($)', align: 'right', render: (x) => <span className="font-medium">{money(x.revenue)}</span> },
-                  { key: 'profit', label: 'Profit ($)*', align: 'right', render: (x) => (x.profit != null ? money(x.profit) : '—') },
-                  { key: 'margin', label: 'Margin', align: 'right', render: (x) => (x.profit != null && x.cost ? `${((x.profit / (x.profit + x.cost)) * 100).toFixed(0)}%` : '—') },
-                ]} />
-              </div>
-            )}
-            <p className="p-3 text-xs text-zinc-400">* Profit = sales minus the cost price; only for products that have a cost price. "Pieces sold" = number of items sold. With a brand or category chosen, every one of its products is listed, also those with 0 sold.</p>
-          </>
-        )}
       </Card>
     </>
   );
