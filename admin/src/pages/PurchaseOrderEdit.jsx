@@ -126,7 +126,7 @@ export default function PurchaseOrderEdit() {
         <Card title="Products" className="lg:col-span-2" padded={false} actions={!locked && <Button size="sm" icon={PackagePlus} onClick={() => openNewItem()}>New item</Button>}>
           {!locked && (
             <div className="border-b border-zinc-200 p-3">
-              <ProductSearch autoFocus placeholder="Scan or search products by name or SKU…" onPick={addItem}
+              <ProductSearch autoFocus optionsOnly placeholder="Scan or search products by name or SKU…" onPick={addItem}
                 onNoMatch={(code, clear) => { if (/^[\w-]{4,}$/.test(code) && /\d/.test(code)) { clear(); openNewItem(code); } }} />
             </div>
           )}

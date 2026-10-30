@@ -63,12 +63,12 @@ function AsyncSearch({ placeholder, load, renderItem, onPick, clearOnPick = true
 }
 
 const sameCode = (a, b) => String(a || '').trim().toLowerCase().replace(/^0+(?=d)/, '') === String(b || '').trim().toLowerCase().replace(/^0+(?=d)/, '');
-export function ProductSearch({ onPick, variations = true, placeholder = 'Search products by name or SKU…', ...props }) {
+export function ProductSearch({ onPick, variations = true, optionsOnly = false, placeholder = 'Search products by name or SKU…', ...props }) {
   return (
     <AsyncSearch
       exact={(p, term) => sameCode(p.sku, term) || sameCode(p.barcode, term)}
       {...props} placeholder={placeholder} onPick={onPick}
-      load={(q) => api.get(`/admin/lookup${qs({ q, variations: variations ? 1 : '' })}`)}
+      load={(q) => api.get(`/admin/lookup${qs({ q, variations: variations ? 1 : '' })}`).then((rows) => (optionsOnly ? rows.filter((r) => r.type !== 'variable') : rows))}
       renderItem={(p) => (
         <>
           <Thumb src={p.image} size={30} />

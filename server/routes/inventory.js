@@ -177,10 +177,20 @@ function poTotals(items, meta = {}) {
   return { items: clean, total, meta: { vat_rate, vat, extras, subtotal: money(subtotal) } };
 }
 
+
+/** A product with options keeps its stock on each option: a purchase order line must name the shade / size */
+async function requireOptions(t, items) {
+  const ids = [...new Set(items.filter((i) => i.product_id && !i.variation_id).map((i) => i.product_id))];
+  if (!ids.length) return;
+  const rows = await t.query(`select name from products where id = any($1::int[]) and type = 'variable'`, [ids]);
+  if (rows.length) fail(400, `Choose the shade / size for: ${rows.map((r) => r.name).join(', ')} (the stock is kept per option)`);
+}
+
 inventory.post('/purchase-orders', requireStaff('manager'), async (c) => {
   const body = await c.req.json();
   const { items, total, meta } = poTotals(body.items, body.meta);
   const row = await tx(async (t) => {
+    await requireOptions(t, items);
     const po = await insertRow(t, 'purchase_orders', {
       supplier_id: body.supplier_id || null, status: body.status === 'ordered' ? 'ordered' : 'draft', expected_at: body.expected_at || null,
       notes: body.notes || '', items: JSON.stringify(items), total, meta: JSON.stringify(meta),
@@ -202,6 +212,7 @@ inventory.put('/purchase-orders/:id', requireStaff('manager'), async (c) => {
     if (body.items) {
       if (po.status === 'cancelled') fail(400, 'This purchase order is cancelled');
       const { items, total, meta } = poTotals(body.items, body.meta);
+      await requireOptions(t, items);
       const key = (i) => `${i.product_id || 0}-${i.variation_id || 0}`;
       const before = typeof po.items === 'string' ? JSON.parse(po.items) : po.items || [];
       if (po.status === 'received') {
