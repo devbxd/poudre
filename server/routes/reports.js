@@ -101,7 +101,11 @@ async function salesReport(c) {
       sum(oi.total - coalesce(oi.purchase_price, 0) * (oi.quantity - oi.refunded_qty)) filter (where oi.purchase_price is not null)::float8 profit
     from order_items oi join orders o on o.id = oi.order_id ${g.join}
     where ${PAID} and ${inRange('$1', '$2')} and ($3::text is null or o.channel = $3)
-    group by ${g.group} order by ${['day', 'month', 'hour'].includes(c.req.query('group')) ? '1' : 'revenue desc'} limit 2000`, [from, to, channel]);
+      -- optional filters: one brand, one category (with its sub-categories)
+      and ($4::int is null or exists (select 1 from product_brands fb where fb.product_id = oi.product_id and fb.brand_id = $4))
+      and ($5::int is null or exists (select 1 from product_categories fc where fc.product_id = oi.product_id and fc.category_id in (
+        with recursive tree as (select id from categories where id = $5 union all select c.id from categories c join tree on c.parent_id = tree.id) select id from tree)))
+    group by ${g.group} order by ${['day', 'month', 'hour'].includes(c.req.query('group')) ? '1' : 'revenue desc'} limit 2000`, [from, to, channel, Number(c.req.query('brand')) || null, Number(c.req.query('category')) || null]);
 }
 
 reports.get('/sales', requireStaff('manager'), async (c) => c.json(await salesReport(c)));

@@ -34,9 +34,9 @@ function usePeriod(initial = '30d') {
 }
 
 const GROUPS = [
-  { value: 'product', label: 'Products' }, { value: 'variation', label: 'Each colour / size' }, { value: 'category', label: 'Categories' }, { value: 'brand', label: 'Brands' },
+  { value: 'variation', label: 'Each item (colour / size)' }, { value: 'product', label: 'Products (all colours together)' }, { value: 'brand', label: 'Brands' }, { value: 'category', label: 'Categories' },
   { value: 'supplier', label: 'Suppliers' }, { value: 'customer', label: 'Customers' }, { value: 'staff', label: 'Cashiers' }, { value: 'payment', label: 'Payment methods' },
-  { value: 'day', label: 'By day' }, { value: 'month', label: 'By month' }, { value: 'hour', label: 'By hour' },
+  { value: 'day', label: 'Day by day' }, { value: 'month', label: 'Month by month' }, { value: 'hour', label: 'Hour of the day' },
 ];
 
 function DeadStock() {
@@ -147,7 +147,11 @@ export default function Reports() {
   const [group, setGroup] = useState('variation');
   const period = usePeriod();
   const [channel, setChannel] = useState('');
-  const params = qs({ group, from: period.from, to: period.to, channel });
+  const [brand, setBrand] = useState('');
+  const [category, setCategory] = useState('');
+  const { data: brands } = useFetch('/admin/brands');
+  const { data: cats } = useFetch('/admin/categories');
+  const params = qs({ group, from: period.from, to: period.to, channel, brand, category });
   const { data, loading } = useFetch(tab === 'sales' ? `/admin/reports/sales${params}` : null);
   const totals = (data || []).reduce((s, x) => ({ qty: s.qty + (x.qty || 0), revenue: s.revenue + (x.revenue || 0), profit: s.profit + (x.profit || 0) }), { qty: 0, revenue: 0, profit: 0 });
   return (
@@ -163,12 +167,14 @@ export default function Reports() {
             <div className="flex flex-wrap items-center gap-2 border-b border-zinc-200 p-3">
               <Select value={group} onChange={(e) => setGroup(e.target.value)} className="w-48">{GROUPS.map((g) => <option key={g.value} value={g.value}>{g.label}</option>)}</Select>
               {period.picker}
+              <Select value={brand} onChange={(e) => setBrand(e.target.value)} className="w-48" title="Only this brand"><option value="">All brands</option>{[...(brands || [])].sort((a, b) => a.name.localeCompare(b.name)).map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</Select>
+              <Select value={category} onChange={(e) => setCategory(e.target.value)} className="w-48" title="Only this category"><option value="">All categories</option>{(cats || []).filter((c) => !c.parent_id).flatMap((p) => [p, ...(cats || []).filter((c) => c.parent_id === p.id)]).map((c) => <option key={c.id} value={c.id}>{c.parent_id ? `— ${c.name}` : c.name}</option>)}</Select>
               <Select value={channel} onChange={(e) => setChannel(e.target.value)} className="w-36"><option value="">All channels</option><option value="pos">In store</option><option value="online">Website</option></Select>
               <Button icon={Download} className="ml-auto" onClick={() => { window.location.href = `/api/admin/reports/sales/export${params}`; }}>Export CSV</Button>
             </div>
             {data && (
               <div className="grid grid-cols-3 border-b border-zinc-200 text-center">
-                {[['Units', int(totals.qty)], ['Revenue', money(totals.revenue)], ['Gross profit*', money(totals.profit)]].map(([k, v]) => (
+                {[['Pieces sold', int(totals.qty)], ['Sales ($)', money(totals.revenue)], ['Profit ($)*', money(totals.profit)]].map(([k, v]) => (
                   <div key={k} className="border-r border-zinc-200 py-3 last:border-0"><div className="text-xs text-zinc-500">{k}</div><div className="num font-semibold">{v}</div></div>
                 ))}
               </div>
@@ -177,16 +183,16 @@ export default function Reports() {
               <div className={loading ? 'opacity-60' : ''}>
                 <Table dense rows={data.map((x, i) => ({ ...x, _k: `${x.id}-${i}` }))} rowKey="_k" columns={[
                   { key: 'label', label: GROUPS.find((g) => g.value === group).label, render: (x) => <span className="block max-w-[380px] truncate">{x.label || '—'}</span> },
-                  { key: 'qty', label: 'Units sold', align: 'right', render: (x) => int(x.qty) },
-                  ...(['product', 'variation'].includes(group) ? [{ key: 'stock', label: 'In stock now', align: 'right', render: (x) => (x.stock == null ? '—' : <span className={x.stock <= 0 ? 'font-medium text-red-600' : ''}>{int(x.stock)}</span>) }] : []),
-                  { key: 'discounts', label: 'Discounts', align: 'right', render: (x) => money(x.discounts) },
-                  { key: 'revenue', label: 'Revenue', align: 'right', render: (x) => <span className="font-medium">{money(x.revenue)}</span> },
-                  { key: 'profit', label: 'Profit*', align: 'right', render: (x) => (x.profit != null ? money(x.profit) : '—') },
+                  { key: 'qty', label: 'Pieces sold', align: 'right', render: (x) => int(x.qty) },
+                  ...(['product', 'variation'].includes(group) ? [{ key: 'stock', label: 'In stock', align: 'right', render: (x) => (x.stock == null ? '—' : <span className={x.stock <= 0 ? 'font-medium text-red-600' : ''}>{int(x.stock)}</span>) }] : []),
+                  { key: 'discounts', label: 'Discount given', align: 'right', render: (x) => money(x.discounts) },
+                  { key: 'revenue', label: 'Sales ($)', align: 'right', render: (x) => <span className="font-medium">{money(x.revenue)}</span> },
+                  { key: 'profit', label: 'Profit ($)*', align: 'right', render: (x) => (x.profit != null ? money(x.profit) : '—') },
                   { key: 'margin', label: 'Margin', align: 'right', render: (x) => (x.profit != null && x.cost ? `${((x.profit / (x.profit + x.cost)) * 100).toFixed(0)}%` : '—') },
                 ]} />
               </div>
             )}
-            <p className="p-3 text-xs text-zinc-400">* Profit only counts sales of products that have a cost price.</p>
+            <p className="p-3 text-xs text-zinc-400">* Profit = sales minus the cost price; only for products that have a cost price. "Pieces sold" = number of items sold.</p>
           </>
         )}
       </Card>
