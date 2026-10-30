@@ -95,17 +95,17 @@ export async function moveStock(t, { product_id, variation_id, change, reason, r
   const table = variation_id ? 'variations' : 'products';
   const id = variation_id || product_id;
   if (!id) return null;
-  const [row] = await t.query(`select id, manage_stock, stock_quantity, backorders from ${table} where id = $1 for update`, [id]);
+  const [row] = await t.query(`select id, manage_stock, stock_quantity, backorders${variation_id ? '' : ', type'} from ${table} where id = $1 for update`, [id]);
   if (!row || !row.manage_stock) return null;
   const before = Number(row.stock_quantity || 0);
   const after = set !== null ? Number(set) : before + Number(change);
   const status = after > 0 ? 'instock' : row.backorders !== 'no' ? 'onbackorder' : 'outofstock';
   await t.query(`update ${table} set stock_quantity = $2, stock_status = $3, updated_at = now() where id = $1`, [id, after, status]);
-  if (variation_id) {
+  if (variation_id || row.type === 'variable') {
     // parent of a variable product is in stock when any variation is
     await t.query(
-      `update products set stock_status = case when exists (select 1 from variations v where v.product_id = products.id and v.stock_status = 'instock') then 'instock' else 'outofstock' end where id = (select product_id from variations where id = $1)`,
-      [variation_id],
+      `update products set stock_status = case when exists (select 1 from variations v where v.product_id = products.id and v.stock_status = 'instock') then 'instock' else 'outofstock' end, updated_at = now() where id = coalesce((select product_id from variations where id = $1), $2)`,
+      [variation_id || null, product_id],
     );
   }
   await t.query(
