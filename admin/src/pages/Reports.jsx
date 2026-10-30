@@ -192,7 +192,7 @@ export default function Reports() {
                 ]} />
               </div>
             )}
-            <p className="p-3 text-xs text-zinc-400">* Profit = sales minus the cost price; only for products that have a cost price. "Pieces sold" = number of items sold.</p>
+            <p className="p-3 text-xs text-zinc-400">* Profit = sales minus the cost price; only for products that have a cost price. "Pieces sold" = number of items sold. With a brand or category chosen, every one of its products is listed, also those with 0 sold.</p>
           </>
         )}
       </Card>

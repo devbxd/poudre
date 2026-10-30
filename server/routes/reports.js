@@ -90,10 +90,48 @@ const GROUPS = {
   customer: { select: `o.customer_id id, max(coalesce(nullif(trim(o.billing->>'first_name' || ' ' || coalesce(o.billing->>'last_name', '')), ''), 'Walk-in')) label`, join: '', group: 'o.customer_id' },
 };
 
+/**
+ * One brand / one category chosen, item by item: EVERY product of it (also those not sold in the period, with 0),
+ * with its stock — the full picture of that brand. byOption: one line per colour / size.
+ */
+async function catalogueReport({ from, to, channel, brand, category, byOption }) {
+  const filter = `p.status <> 'archived'
+    and ($4::int is null or exists (select 1 from product_brands fb where fb.product_id = p.id and fb.brand_id = $4))
+    and ($5::int is null or exists (select 1 from product_categories fc where fc.product_id = p.id and fc.category_id in (
+      with recursive tree as (select id from categories where id = $5 union all select c.id from categories c join tree on c.parent_id = tree.id) select id from tree)))`;
+  const items = byOption
+    ? `select p.id product_id, v.id variation_id, coalesce(v.id, p.id) id,
+         p.name || coalesce(' - ' || nullif((select string_agg(x->>'option', ', ') from jsonb_array_elements(v.attributes) x where coalesce(x->>'option', '') <> ''), ''), '') label,
+         coalesce(v.sku, p.sku) sku,
+         (case when v.id is not null then case when v.manage_stock then v.stock_quantity end when p.manage_stock then p.stock_quantity end)::int stock
+       from products p left join variations v on v.product_id = p.id and p.type = 'variable' where ${filter} and (p.type <> 'variable' or v.id is not null)`
+    : `select p.id product_id, null::int variation_id, p.id id, p.name || case when p.type = 'variable' then ' (all colours / sizes)' else '' end label, p.sku,
+         (case when p.type = 'variable' then (select sum(v.stock_quantity) from variations v where v.product_id = p.id and v.manage_stock) when p.manage_stock then p.stock_quantity end)::int stock
+       from products p where ${filter}`;
+  const key = byOption ? 'oi.product_id, oi.variation_id' : 'oi.product_id';
+  return query(`
+    with items as (${items}),
+    sales as (
+      select ${key}, count(distinct o.id)::int orders, sum(oi.quantity - oi.refunded_qty)::int qty, sum(oi.total)::float8 revenue, sum(oi.subtotal - oi.total)::float8 discounts,
+        sum(coalesce(oi.purchase_price, 0) * (oi.quantity - oi.refunded_qty)) filter (where oi.purchase_price is not null)::float8 cost,
+        sum(oi.total - coalesce(oi.purchase_price, 0) * (oi.quantity - oi.refunded_qty)) filter (where oi.purchase_price is not null)::float8 profit
+      from order_items oi join orders o on o.id = oi.order_id
+      where ${PAID} and ${inRange('$1', '$2')} and ($3::text is null or o.channel = $3) group by ${key})
+    select i.id, i.label, i.sku, i.stock, coalesce(s.orders, 0) orders, coalesce(s.qty, 0) qty, coalesce(s.revenue, 0) revenue, coalesce(s.discounts, 0) discounts, s.cost, s.profit
+    from items i left join sales s on s.product_id = i.product_id ${byOption ? 'and s.variation_id is not distinct from i.variation_id' : ''}
+    order by coalesce(s.qty, 0) desc, i.label limit 3000`, [from, to, channel, brand, category]);
+}
+
 async function salesReport(c) {
   const { from, to, channel } = range(c);
-  const g = GROUPS[c.req.query('group') || 'product'];
+  const group = c.req.query('group') || 'product';
+  const g = GROUPS[group];
   if (!g) fail(400, 'Unknown report');
+  const brand = Number(c.req.query('brand')) || null;
+  const category = Number(c.req.query('category')) || null;
+  if ((brand || category) && (group === 'product' || group === 'variation')) {
+    return catalogueReport({ from, to, channel, brand, category, byOption: group === 'variation' });
+  }
   return query(`
     select ${g.select}, count(distinct o.id)::int orders, sum(oi.quantity - oi.refunded_qty)::int qty,
       sum(oi.total)::float8 revenue, sum(oi.subtotal - oi.total)::float8 discounts,
