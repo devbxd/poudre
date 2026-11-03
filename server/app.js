@@ -17,6 +17,17 @@ import { db, takePendingWrites } from './db.js';
 
 export const app = new Hono();
 
+// Robots looping on shop links pile up options (?view=a&view=b&view=c…): each such page took the server a minute and
+// slowed the shop for everyone. A page link never repeats an option, so these get a quick "not found".
+app.use('*', async (c, next) => {
+  const q = new URL(c.req.url).searchParams;
+  const keys = [...q.keys()].filter((k) => !k.endsWith('[]'));
+  if (c.req.method === 'GET' && !c.req.path.startsWith('/api/') && (new Set(keys).size < keys.length || c.req.url.length > 800)) {
+    return c.text('Not found', 404, { 'Cache-Control': 'public, max-age=86400' });
+  }
+  return next();
+});
+
 // Catalogue copy (server/snapshot.js): website pages and the POS catalogue read it instead of waking the database.
 // After a request that changed the catalogue (price, product, stock after a sale…), the copy is refreshed in the
 // background with only what changed.

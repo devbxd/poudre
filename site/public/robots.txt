@@ -10,6 +10,8 @@ Disallow: /*?*rating_filter=
 Disallow: /*?*query_type
 Disallow: /*?*per_page=
 Disallow: /*?*shop_view=
+Disallow: /*?*view=
+Disallow: /*?*onsale=
 Disallow: /cart/
 Disallow: /checkout/
 Disallow: /my-account/

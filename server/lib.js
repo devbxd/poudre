@@ -105,7 +105,7 @@ export async function moveStock(t, { product_id, variation_id, change, reason, r
     // parent of a variable product is in stock when any variation is
     await t.query(
       `update products set stock_status = case when exists (select 1 from variations v where v.product_id = products.id and v.stock_status = 'instock') then 'instock' else 'outofstock' end, updated_at = now() where id = coalesce((select product_id from variations where id = $1), $2)`,
-      [variation_id || null, product_id],
+      [variation_id || null, product_id ?? null],
     );
   }
   await t.query(
