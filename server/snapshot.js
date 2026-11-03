@@ -145,7 +145,8 @@ export async function copyDb() {
     const meta = await readMeta().catch(() => null);
     if (meta && meta.version > local.version && !loading) {
       // keep answering from the current copy while the new one loads
-      loading = loadCopy().then((n) => { if (n) local = n; return n; }).catch((e) => { console.error('snapshot reload', e.message); return null; }).finally(() => { loading = null; });
+      // the replaced copy is closed once its last queries are done: each one holds ~100 MB of memory
+      loading = loadCopy().then((n) => { if (n) { const old = local; local = n; setTimeout(() => old.db.close().catch(() => {}), 30000); } return n; }).catch((e) => { console.error('snapshot reload', e.message); return null; }).finally(() => { loading = null; });
     }
   }
   return local;
