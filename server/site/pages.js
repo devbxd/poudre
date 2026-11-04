@@ -84,6 +84,9 @@ export function registerPages(site) {
 
   // My account: login / register / orders
   site.get('/my-account/', async (c) => accountPage(c));
+  // Link the shop shares (Instagram, WhatsApp…): its banner and the sign-up form straight away
+  site.get('/subscribe/', async (c) => ((await currentCustomer(c)) ? c.redirect('/my-account/') : accountPage(c, { subscribe: true })));
+  site.get('/subscribe', (c) => c.redirect('/subscribe/', 301));
   site.post('/my-account/', async (c) => {
     const b = await c.req.parseBody();
     if (b.login !== undefined || (b.username && b.password && !b.email)) {
@@ -103,10 +106,10 @@ export function registerPages(site) {
     }
     if (b.register !== undefined || b.email) {
       const email = String(b.email || '').trim().toLowerCase();
-      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return accountPage(c, { error: '<strong>Error:</strong> Please provide a valid email address.' });
-      if (String(b.password || '').length < 6) return accountPage(c, { error: '<strong>Error:</strong> Please enter an account password.' });
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return accountPage(c, { error: '<strong>Error:</strong> Please provide a valid email address.', subscribe: b.from === 'subscribe' });
+      if (String(b.password || '').length < 6) return accountPage(c, { error: '<strong>Error:</strong> Please enter an account password.', subscribe: b.from === 'subscribe' });
       const existing = await one('select id, password_hash from customers where lower(email) = $1', [email]);
-      if (existing?.password_hash) return accountPage(c, { error: '<strong>Error:</strong> An account is already registered with your email address. <a href="#" class="showlogin">Please log in.</a>' });
+      if (existing?.password_hash) return accountPage(c, { error: '<strong>Error:</strong> An account is already registered with your email address. <a href="#" class="showlogin">Please log in.</a>', subscribe: b.from === 'subscribe' });
       const hash = bcrypt.hashSync(String(b.password), 10);
       const dob = parseBirthDate(b.date_of_birth);
       const id = existing ? (await one('update customers set password_hash = $2, date_of_birth = coalesce(date_of_birth, $3), dob_set_at = case when date_of_birth is null and $3::date is not null then now() else dob_set_at end where id = $1 returning id', [existing.id, hash, dob])).id
@@ -248,9 +251,10 @@ async function lostPasswordPage(c, message, form, error = '') {
   });
 }
 
-async function accountPage(c, { error } = {}) {
+async function accountPage(c, { error, subscribe = false } = {}) {
   const customer = await currentCustomer(c);
   let tpl = await main('account');
+  if (subscribe && !customer) tpl = subscribePage(tpl);
   if (error) tpl = tpl.replace('<div class="woocommerce-notices-wrapper"></div>', `<div class="woocommerce-notices-wrapper"><ul class="woocommerce-error" role="alert">\n\t\t\t<li>\n\t\t\t${error}\t\t</li>\n\t</ul>\n</div>`);
   if (customer) {
     const orders = await query('select id, number, status, total, created_at from orders where customer_id = $1 order by created_at desc', [customer.id]);
@@ -269,6 +273,18 @@ async function accountPage(c, { error } = {}) {
     tpl = `${tpl.slice(0, s)}${body}\n\t${tpl.slice(e)}`;
   }
   return staticPage(c, 'account', { mainHtml: tpl, menuCtx: { objectType: 'page', objectId: 1682 } });
+}
+
+/** /subscribe/: the account page opened on its sign-up form, under the shop's offer banner */
+function subscribePage(tpl) {
+  return tpl
+    .replace(/(<h1 class="title">)s*My account	(</h1>)/, '$1
+		Subscribe	$2')
+    .replace('<span class="last">My account</span>', '<span class="last">Subscribe</span>')
+    .replace('<div class="pls-customer-login active">', '<div class="pls-customer-login">')
+    .replace('<div class="pls-customer-register">', '<div class="pls-customer-register active">')
+    .replace('<div class="woocommerce"><div class="woocommerce-notices-wrapper">', '<a href="#reg_email" style="display:block;margin:0 auto 28px;max-width:1100px"><img src="/subscribe-banner.jpg" width="1280" height="524" alt="Subscribe now and get: a chance to win a special gift set, 10% off, 20% off on your birthday, free delivery" style="width:100%;height:auto;border-radius:12px" /></a><div class="woocommerce"><div class="woocommerce-notices-wrapper">')
+    .replace('<input type="hidden" name="_wp_http_referer" value="/my-account/" />						<button type="submit" class="woocommerce-Button', '<input type="hidden" name="_wp_http_referer" value="/my-account/" /><input type="hidden" name="from" value="subscribe" />						<button type="submit" class="woocommerce-Button');
 }
 
 export async function notFound(c) {
