@@ -278,8 +278,7 @@ async function accountPage(c, { error, subscribe = false } = {}) {
 /** /subscribe/: the account page opened on its sign-up form, under the shop's offer banner */
 function subscribePage(tpl) {
   return tpl
-    .replace(/(<h1 class="title">)s*My account	(</h1>)/, '$1
-		Subscribe	$2')
+    .replace(/(<h1 class="title">)\s*My account\t(<\/h1>)/, '$1\n\t\tSubscribe\t$2')
     .replace('<span class="last">My account</span>', '<span class="last">Subscribe</span>')
     .replace('<div class="pls-customer-login active">', '<div class="pls-customer-login">')
     .replace('<div class="pls-customer-register">', '<div class="pls-customer-register active">')
