@@ -5,16 +5,21 @@ import { money, fullName } from '../lib/format.js';
 import { Thumb, cx } from './ui.jsx';
 
 /** Generic async search box with a dropdown. */
-function AsyncSearch({ placeholder, load, renderItem, onPick, clearOnPick = true, className, autoFocus, exact, onNoMatch }) {
+function AsyncSearch({ placeholder, load, renderItem, onPick, clearOnPick = true, className, autoFocus, exact, prefer, onNoMatch }) {
   const [q, setQ] = useState('');
   const [loadedFor, setLoadedFor] = useState('');
   const [items, setItems] = useState([]);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
+  const [failed, setFailed] = useState(false);
   const box = useRef();
+  const latest = useRef(0); // a slow answer for an older text must not replace the newer one
   useEffect(() => {
-    if (!q.trim()) { setItems([]); return; }
-    const t = setTimeout(() => load(q.trim()).then((r) => { setItems(r); setActive(0); setOpen(true); setLoadedFor(q.trim()); }).catch(() => {}), 200);
+    const term = q.trim();
+    const ask = ++latest.current;
+    setFailed(false);
+    if (!term) { setItems([]); return; }
+    const t = setTimeout(() => load(term).then((r) => { if (ask !== latest.current) return; setItems(r); setActive(0); setOpen(true); setLoadedFor(term); }).catch(() => { if (ask === latest.current) { setFailed(true); setOpen(true); } }), 200);
     return () => clearTimeout(t);
   }, [q]); // eslint-disable-line
   useEffect(() => {
@@ -38,19 +43,22 @@ function AsyncSearch({ placeholder, load, renderItem, onPick, clearOnPick = true
           if (!term) return;
           if (loadedFor === term && items[active] && !exact) { pick(items[active]); return; }
           // a barcode scanner types the code then Enter at once: look it up now and add the exact match directly
+          const ask = ++latest.current;
+          setFailed(false);
           load(term).then((r) => {
+            if (ask !== latest.current) return;
             const same = exact ? r.filter((x) => exact(x, term)) : [];
-            const hit = same.length === 1 ? same[0] : r.length === 1 ? r[0] : loadedFor === term ? r[active] : null;
+            const hit = same.length === 1 ? same[0] : same.find((x) => prefer?.(x, term)) || (r.length === 1 ? r[0] : loadedFor === term ? r[active] : null);
             if (hit) { pick(hit); return; }
             setItems(r); setActive(0); setOpen(true); setLoadedFor(term);
             if (!r.length) onNoMatch?.(term, () => setQ(''));
-          }).catch(() => {});
+          }).catch(() => { if (ask === latest.current) { setFailed(true); setOpen(true); } });
         }}
         className="h-9 w-full rounded-md border border-zinc-300 bg-white pl-9 pr-3 outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900"
       />
       {open && q && (
         <div className="absolute z-40 mt-1 max-h-80 w-full overflow-y-auto rounded-md border border-zinc-200 bg-white p-1 shadow-lg">
-          {items.length ? items.map((it, i) => (
+          {failed ? <div className="px-3 py-3 text-red-600">Could not search. Press Enter to try again.</div> : loadedFor !== q.trim() ? <div className="px-3 py-3 text-zinc-400">Searching…</div> : items.length ? items.map((it, i) => (
             <button type="button" key={i} onMouseEnter={() => setActive(i)} onClick={() => pick(it)}
               className={cx('flex w-full items-center gap-3 rounded px-2 py-1.5 text-left', i === active && 'bg-zinc-100')}>
               {renderItem(it)}
@@ -62,11 +70,12 @@ function AsyncSearch({ placeholder, load, renderItem, onPick, clearOnPick = true
   );
 }
 
-const sameCode = (a, b) => String(a || '').trim().toLowerCase().replace(/^0+(?=d)/, '') === String(b || '').trim().toLowerCase().replace(/^0+(?=d)/, '');
+const sameCode = (a, b) => String(a || '').trim().toLowerCase().replace(/^0+(?=\d)/, '') === String(b || '').trim().toLowerCase().replace(/^0+(?=\d)/, '');
 export function ProductSearch({ onPick, variations = true, optionsOnly = false, placeholder = 'Search products by name or SKU…', ...props }) {
   return (
     <AsyncSearch
       exact={(p, term) => sameCode(p.sku, term) || sameCode(p.barcode, term)}
+      prefer={(p, term) => sameCode(p.sku, term)}
       {...props} placeholder={placeholder} onPick={onPick}
       load={(q) => api.get(`/admin/lookup${qs({ q, variations: variations ? 1 : '' })}`).then((rows) => (optionsOnly ? rows.filter((r) => r.type !== 'variable') : rows))}
       renderItem={(p) => (

@@ -255,7 +255,7 @@ catalog.get('/lookup', requireStaff(), async (c) => {
     select p.id, v.id, p.name || ' - ' || coalesce((select string_agg(a->>'option', ', ') from jsonb_array_elements(v.attributes) a), ''), v.sku, v.barcode, 'variation',
       coalesce(v.regular_price, p.regular_price), v.sale_price, coalesce(v.purchase_price, p.purchase_price), v.stock_quantity, coalesce(v.image->>'url', p.images->0->>'url')
       from variations v join products p on p.id = v.product_id where p.status <> 'archived' and (v.sku = $2 or v.barcode = $2 or (ltrim($2, '0') <> '' and (ltrim(v.sku, '0') = ltrim($2, '0') or ltrim(v.barcode, '0') = ltrim($2, '0'))) or ((lower(p.name) like $1 or (select bool_and(lower(p.name || ' ' || v.attributes::text) like '%' || x || '%') from unnest($4::text[]) x)) and $3))
-    limit 30`, [`%${q.toLowerCase()}%`, q, c.req.query('variations') === '1', q.toLowerCase().split(/s+/).filter(Boolean)]);
+    limit 30`, [`%${q.toLowerCase()}%`, q, c.req.query('variations') === '1', q.toLowerCase().split(/\s+/).filter(Boolean)]);
   return c.json(rows);
 });
 

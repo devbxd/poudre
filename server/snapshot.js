@@ -61,6 +61,10 @@ export function writtenTables(sql) {
  * last refresh are read again (with their categories/brands/tags); deleted ones are dropped.
  */
 export async function refreshCopy(dbQuery, changes = { tables: new Set(), stockOnly: false }, { full = false } = {}) {
+  if (!full && !onNetlify() && local) {
+    applying = applying.catch(() => {}).then(() => refreshInPlace(dbQuery, changes));
+    return applying;
+  }
   const started = new Date(Date.now() - 5000); // margin for clocks and transactions committing during the refresh
   const current = full ? null : await readCopy();
   if (!current || Date.now() - (current.meta.full_at || 0) > FULL_EVERY) {
@@ -104,9 +108,72 @@ export async function refreshCopy(dbQuery, changes = { tables: new Set(), stockO
 }
 
 // ---------- reading the copy ----------
-let local = null; // { db, version }
+let local = null; // { db, version, meta }
 let loading = null;
 let checkedAt = 0;
+let applying = Promise.resolve();
+let source = null;
+
+/** Where the copy is rebuilt from when the server starts (our own server only) */
+export function setCopySource(dbQuery) { source = dbQuery; }
+
+const insertRows = (t, table, rows) => (rows.length ? t.query(`insert into ${table} select * from json_populate_recordset(null::${table}, $1::json)`, [JSON.stringify(rows)]) : null);
+
+/**
+ * Our own server: the copy in memory is changed in place, only the rows that moved. Building a new copy takes 30 s of
+ * processor and 230 MB on this small machine, and doing that after every stock change froze the dashboard. The file
+ * is rebuilt when the server starts (every night); only meta.json moves here (the POS reads the versions in it).
+ */
+async function refreshInPlace(dbQuery, changes) {
+  const started = new Date(Date.now() - 5000);
+  const cur = local;
+  const since = cur.meta.built_at;
+  const whole = {};
+  if (!changes.stockOnly || !changes.tables.size) for (const t of SMALL) whole[t] = await dbQuery(`select * from ${t}`);
+  for (const t of ON_CHANGE) if (changes.tables.has(t)) whole[t] = await dbQuery(`select * from ${t}`);
+  const vars = await dbQuery('select * from variations where updated_at >= $1', [since]);
+  const prods = await dbQuery('select * from products where updated_at >= $1 or id = any($2::int[])', [since, [...new Set(vars.map((v) => v.product_id))]]);
+  const pid = prods.map((p) => p.id);
+  const links = {};
+  if (pid.length) {
+    for (const t of ['product_categories', 'product_brands', 'product_tags']) {
+      if (!whole[t]) links[t] = await dbQuery(`select * from ${t} where product_id = any($1::int[])`, [pid]);
+    }
+  }
+  const live = changes.deleted ? (await dbQuery('select id from products')).map((r) => r.id) : null;
+  const liveV = changes.deleted ? (await dbQuery('select id from variations')).map((r) => r.id) : null;
+  await cur.db.transaction(async (t) => {
+    for (const [table, rows] of Object.entries(whole)) { await t.query(`delete from ${table}`); await insertRows(t, table, rows); }
+    await t.query('delete from variations where id = any($1::int[])', [vars.map((v) => v.id)]);
+    await insertRows(t, 'variations', vars);
+    await t.query('delete from products where id = any($1::int[])', [pid]);
+    await insertRows(t, 'products', prods);
+    for (const [table, rows] of Object.entries(links)) { await t.query(`delete from ${table} where product_id = any($1::int[])`, [pid]); await insertRows(t, table, rows); }
+    if (live) {
+      await t.query('delete from products where not (id = any($1::int[]))', [live]);
+      await t.query('delete from variations where not (id = any($1::int[]))', [liveV]);
+      for (const table of ['product_categories', 'product_brands', 'product_tags']) await t.query(`delete from ${table} where not (product_id = any($1::int[]))`, [live]);
+    }
+  });
+  const now = Date.now();
+  const meta = { ...cur.meta, version: now, built_at: started.toISOString(), catalog_version: changes.stockOnly ? cur.meta.catalog_version : now };
+  cur.meta = meta;
+  cur.version = now;
+  await writeFile('data/snapshot/meta.json', JSON.stringify(meta));
+  return { full: false, meta, changed: pid.length };
+}
+
+/** Our own server: a copy written from outside (a script) replaces the rows of the one in memory */
+async function replaceInPlace() {
+  const copy = await readCopy();
+  if (!copy || !local) return null;
+  await local.db.transaction(async (t) => {
+    for (const table of SNAPSHOT_TABLES) { await t.query(`delete from ${table}`); await insertRows(t, table, copy.data[table] || []); }
+  });
+  local.meta = copy.meta;
+  local.version = copy.meta.version;
+  return local;
+}
 
 let missing = false;
 let buildAsked = 0;
@@ -119,6 +186,8 @@ export function copyMissing() {
 }
 
 async function loadCopy() {
+  // server start: fresh rows from the database; if it does not answer, the last file still serves the shop
+  if (source && !local) await refreshCopy(source, undefined, { full: true }).catch((e) => console.error('snapshot rebuild', e.message));
   const copy = await readCopy();
   if (!copy) { missing = true; return null; }
   const { PGlite } = await import('@electric-sql/pglite');
@@ -143,7 +212,9 @@ export async function copyDb() {
   if (Date.now() - checkedAt > 15000) {
     checkedAt = Date.now();
     const meta = await readMeta().catch(() => null);
-    if (meta && meta.version > local.version && !loading) {
+    if (meta && meta.version > local.version && !loading && !onNetlify()) {
+      loading = replaceInPlace().catch((e) => { console.error('snapshot reload', e.message); return null; }).finally(() => { loading = null; });
+    } else if (meta && meta.version > local.version && !loading) {
       // keep answering from the current copy while the new one loads
       // the replaced copy is closed once its last queries are done: each one holds ~100 MB of memory
       loading = loadCopy().then((n) => { if (n) { const old = local; local = n; setTimeout(() => old.db.close().catch(() => {}), 30000); } return n; }).catch((e) => { console.error('snapshot reload', e.message); return null; }).finally(() => { loading = null; });

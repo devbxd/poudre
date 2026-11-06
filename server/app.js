@@ -12,10 +12,12 @@ import { onNetlify } from './site/files.js';
 import { site, searchPage } from './site/routes.js';
 import { shopApi, wcAjax } from './site/shop-api.js';
 import { notFound } from './site/pages.js';
-import { scope, refreshCopy, copyMissing } from './snapshot.js';
+import { scope, refreshCopy, copyMissing, setCopySource } from './snapshot.js';
 import { db, takePendingWrites } from './db.js';
 
 export const app = new Hono();
+
+if (!onNetlify()) setCopySource((text, params) => db().then((d) => d.query(text, params)));
 
 // Robots looping on shop links pile up options (?view=a&view=b&view=c…): each such page took the server a minute and
 // slowed the shop for everyone. A page link never repeats an option, so these get a quick "not found".
