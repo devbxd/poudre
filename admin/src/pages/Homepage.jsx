@@ -27,23 +27,29 @@ export default function Homepage() {
   const [slides, setSlides] = useState(null);
   const [banners, setBanners] = useState(null);
   const [marquee, setMarquee] = useState(null);
+  const { data: savedPopup } = useFetch('/admin/settings/popup');
+  const [popup, setPopup] = useState(null);
   const [run, busy] = useAction();
   const { confirm } = useToast();
+  useEffect(() => {
+    if (defaults && savedPopup) setPopup({ ...defaults.popup, ...savedPopup });
+  }, [defaults, savedPopup]);
   useEffect(() => {
     if (!defaults || !saved) return;
     setSlides(saved.slides?.length ? saved.slides : defaults.slides);
     setBanners(defaults.banners.map((b) => ({ ...b, ...(saved.banners || []).find((x) => x.key === b.key) })));
     setMarquee(saved.marquee?.length ? saved.marquee : defaults.marquee || []);
   }, [defaults, saved]);
-  if (!slides || !banners || !marquee) return <Spinner />;
+  if (!slides || !banners || !marquee || !popup) return <Spinner />;
 
   const setSlide = (i, patch) => setSlides(slides.map((s, j) => (j === i ? { ...s, ...patch } : s)));
   const move = (i, d) => { const s = [...slides]; [s[i], s[i + d]] = [s[i + d], s[i]]; setSlides(s); };
   const setBanner = (i, patch) => setBanners(banners.map((b, j) => (j === i ? { ...b, ...patch } : b)));
   const save = () => run(async () => {
     const current = await api.get('/admin/settings/homepage');
+    await api.put('/admin/settings/popup', popup);
     return api.put('/admin/settings/homepage', { ...current, slides, banners, marquee: marquee.map((t) => t.trim()).filter(Boolean) });
-  }, 'Homepage saved — the website shows it within a minute');
+  }, 'Saved — the website shows it within 3 minutes');
   const reset = async () => {
     if (!(await confirm({ title: 'Put back the original pictures?', message: 'Slides and banners go back to how they were on the old website.', confirmLabel: 'Put back' }))) return;
     await run(async () => {
@@ -100,6 +106,18 @@ export default function Homepage() {
                 <Button size="sm" variant="danger" icon={Trash2} disabled={marquee.length === 1} onClick={() => setMarquee(marquee.filter((_, j) => j !== i))} title="Remove" />
               </div>
             ))}
+          </div>
+        </Card>
+        <Card title="Welcome pop-up (“Get 10% off”)">
+          <p className="mb-3 text-[13px] text-zinc-500">The window visitors see after 6 seconds, once a month. A text left empty goes back to the original one. The code itself stays POUDRE10: change its discount under Coupons.</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Small title"><Input value={popup.kicker} onChange={(e) => setPopup({ ...popup, kicker: e.target.value })} /></Field>
+            <Field label="Big title"><Input value={popup.title} onChange={(e) => setPopup({ ...popup, title: e.target.value })} /></Field>
+            <Field label="Text"><Input value={popup.text} onChange={(e) => setPopup({ ...popup, text: e.target.value })} /></Field>
+            <Field label="Button"><Input value={popup.button} onChange={(e) => setPopup({ ...popup, button: e.target.value })} /></Field>
+            <Field label="After sign-up: text above the code"><Input value={popup.thanks} onChange={(e) => setPopup({ ...popup, thanks: e.target.value })} /></Field>
+            <Field label="After sign-up: button"><Input value={popup.shop} onChange={(e) => setPopup({ ...popup, shop: e.target.value })} /></Field>
+            <Field label="After sign-up: small line"><Input value={popup.note} onChange={(e) => setPopup({ ...popup, note: e.target.value })} /></Field>
           </div>
         </Card>
         <Card title="Category banners">

@@ -2,7 +2,7 @@
 import { templateFile } from './files.js';
 import { readFile } from 'node:fs/promises';
 import { fill, esc } from './html.js';
-import { categories, menus, cached } from './data.js';
+import { categories, menus, cached, setting } from './data.js';
 import { renderMenu, renderCategorySelect } from './menus.js';
 import { visitorVars } from './visitor.js';
 
@@ -119,10 +119,22 @@ const LB_LOCALE_FIXED = '%22LB%22%3A%7B%22allowBilling%22%3Atrue%2C%22allowShipp
 // click no button triggered, so nobody saw it. It now opens by itself once; closing it sets the plugin's own
 // 1-month cookie. Phones: the Instagram icon of the top bar sits on the right.
 let siteExtrasTpl;
+// Pop-up texts: changed on the dashboard's Homepage page; a text left empty goes back to this one
+export const POPUP_TEXTS = {
+  kicker: 'Welcome to Poudré',
+  title: 'Get 10% off',
+  text: 'Sign up for early sale access, new arrivals, and get promo code.',
+  button: 'Get my code',
+  thanks: 'Thank you for signing up! Use this code at checkout:',
+  shop: 'Start shopping',
+  note: '10% off your order at poudrebeauty.com',
+};
 async function withSiteExtras(html) {
   siteExtrasTpl ??= await readFile(templateFile('site-extras.html'), 'utf8');
+  const texts = await setting('popup', {});
+  const extras = siteExtrasTpl.replace(/%%popup_(\w+)%%/g, (_, k) => esc(String(texts[k] || '').trim() || POPUP_TEXTS[k]));
   return html
     // the theme's empty "Sign up and get 10% off" block (About page) gets the same sign-up form
     .replace(/<div class="pls-element pls-newsletter overlay-form ">\s*<\/div>/g, () => `<div class="pls-element pls-newsletter overlay-form "><form class="pdr-nl" data-source="page" novalidate><input type="email" name="email" placeholder="Your email address" autocomplete="email" aria-label="Email address" required /><button type="submit">Sign up</button><div class="pdr-nl-err" aria-live="polite"></div></form></div>`)
-    .replace('</body>', () => `${siteExtrasTpl}\n</body>`);
+    .replace('</body>', () => `${extras}\n</body>`);
 }
