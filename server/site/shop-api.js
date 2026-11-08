@@ -369,7 +369,7 @@ async function placeOrder(c, b) {
   try {
     order = await tx((t) => createOrder(t, {
       items: state.lines.map((l) => ({ product_id: l.product_id, variation_id: l.variation_id, quantity: l.quantity })),
-      billing, shipping, coupon_code: state.welcome ? null : cart.coupons?.[0] || null,
+      billing, shipping, coupon_code: state.welcome ? null : state.birthdayCode || cart.coupons?.[0] || null, signup_code: state.signupCode,
       welcome_customer_id: cart.welcomeCustomerId || null, welcome_discount: state.welcome,
       shipping_total: rate ? Number(rate.cost || 0) : 0, shipping_method: rate ? decodeEntities(rate.label || rate.title) : null,
       payment_method: b.payment_method || 'cod', payment_title: 'Cash on delivery Or Via Whish account',

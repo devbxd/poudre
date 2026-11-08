@@ -5,7 +5,7 @@ import { welcomeEligible, WELCOME_PERCENT, WELCOME_MARK, SIGNUP_COUPON } from '.
 const REDUCES_STOCK = new Set(['processing', 'on-hold', 'completed']);
 
 /** Validates a coupon against a cart. Returns { coupon, discount } or throws. */
-export async function applyCoupon(t, code, lines, customerEmail = null, customerPhone = null) {
+export async function applyCoupon(t, code, lines, customerEmail = null, customerPhone = null, { birthdayBonus = 0 } = {}) {
   const [coupon] = await t.query('select * from coupons where lower(code) = lower($1)', [code.trim()]);
   if (!coupon || !coupon.active) fail(400, `Coupon "${code}" does not exist`);
   if (coupon.expires_at && new Date(coupon.expires_at) < new Date()) fail(400, `Coupon "${code}" has expired`);
@@ -37,7 +37,7 @@ export async function applyCoupon(t, code, lines, customerEmail = null, customer
   if (!eligible.length) fail(400, `Coupon "${code}" does not apply to these products`);
   let discount = 0;
   // birthday gift: each item at most amount% under its regular price (an item already on sale only gets the difference)
-  if (coupon.type === 'birthday') discount = birthdayLinesDiscount(eligible, Number(coupon.amount));
+  if (coupon.type === 'birthday') discount = birthdayLinesDiscount(eligible, Number(coupon.amount) + birthdayBonus);
   else if (coupon.type === 'percent') discount = (base * Number(coupon.amount)) / 100;
   else if (coupon.type === 'fixed_cart') discount = Math.min(Number(coupon.amount), base);
   else discount = eligible.reduce((s, l) => s + Math.min(Number(coupon.amount), l.price) * l.quantity, 0);
@@ -113,11 +113,19 @@ export async function createOrder(t, input, { channel, staff = null, allowOverri
   const couponCodes = [];
   let freeShipping = false;
   if (input.coupon_code) {
-    const r = await applyCoupon(t, input.coupon_code, lines, input.billing?.email, input.billing?.phone);
+    const birthdayBonus = input.signup_code || input.welcome_customer_id ? WELCOME_PERCENT : 0; // the sign-up offer adds up with a birthday code
+    const r = await applyCoupon(t, input.coupon_code, lines, input.billing?.email, input.billing?.phone, { birthdayBonus });
     discount += r.discount;
     freeShipping = r.free_shipping;
     couponCodes.push(r.coupon.code);
     await t.query('update coupons set usage_count = usage_count + 1 where id = $1', [r.coupon.id]);
+  }
+  if (input.signup_code) {
+    // used with a birthday code: its 10 % is already in that discount, here it is checked (once per customer) and counted
+    const s = await applyCoupon(t, input.signup_code, lines, input.billing?.email, input.billing?.phone);
+    freeShipping = freeShipping || s.free_shipping;
+    couponCodes.push(s.coupon.code);
+    await t.query('update coupons set usage_count = usage_count + 1 where id = $1', [s.coupon.id]);
   }
   if (input.welcome_customer_id) couponCodes.push(WELCOME_MARK);
   if (input.discount && allowOverride) {

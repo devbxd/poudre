@@ -9,7 +9,8 @@ import { texturize, productUrl } from './product-card.js';
 import { attributeTaxonomies, attributeKeyValue } from './variations.js';
 import { applyCoupon } from '../orders.js';
 import { currentCustomer } from '../auth.js';
-import { welcomeEligible, welcomeDiscount } from '../welcome.js';
+import { welcomeEligible, welcomeDiscount, WELCOME_PERCENT, SIGNUP_COUPON } from '../welcome.js';
+import { birthdayLinesDiscount, BIRTHDAY_PERCENT } from '../birthday.js';
 
 const COOKIE = 'poudre_session';
 const md5 = (s) => createHash('md5').update(s).digest('hex');
@@ -126,9 +127,19 @@ export async function computeCart(cart) {
     } catch (e) { errors.push(e.message); }
   }
   discount = Math.min(discount, subtotal);
+  // birthday code while the sign-up offer is still unused (POUDRE10 or a new account): 10 + 20, each item at most 30 % under its regular price
+  const birthday = coupons.find((x) => x.type === 'birthday');
+  const signup = coupons.find((x) => x.code.toLowerCase() === SIGNUP_COUPON);
+  const stacked = !!birthday && (!!signup || !!cart.welcomeCustomerId);
+  if (stacked) {
+    const all = birthdayLinesDiscount(lines.map((l) => ({ price: l.unit, regular: l.regular, quantity: l.quantity })), BIRTHDAY_PERCENT + WELCOME_PERCENT);
+    discount = Math.min(Math.round(all * 100) / 100, subtotal);
+    if (signup) signup.discount = Math.min(signup.discount, discount);
+    birthday.discount = discount - (signup?.discount || 0);
+  }
   // welcome offer: the better of it and a coupon (they do not add up); free delivery either way
   let welcome = false;
-  if (cart.welcomeCustomerId) {
+  if (cart.welcomeCustomerId && !stacked) {
     const w = welcomeDiscount(lines.map((l) => ({ price: l.unit, regular: l.regular, quantity: l.quantity })));
     if (w > 0 && w >= discount) {
       welcome = true;
@@ -149,7 +160,7 @@ export async function computeCart(cart) {
   const selected = rates.find((r) => r.id === cart.shipping_method) || rates[0] || null;
   const shippingTotal = lines.length && selected ? Number(selected.cost || 0) : 0;
   const total = Math.max(0, subtotal - discount) + shippingTotal;
-  return { cart, lines, subtotal, discount, coupons, errors, rates, selected, shippingTotal, total, welcome, count: lines.reduce((s, l) => s + l.quantity, 0) };
+  return { cart, lines, subtotal, discount, coupons, errors, rates, selected, shippingTotal, total, welcome, birthdayCode: stacked ? birthday.code : null, signupCode: stacked && signup ? signup.code : null, count: lines.reduce((s, l) => s + l.quantity, 0) };
 }
 
 async function variationRow(id, p) {
