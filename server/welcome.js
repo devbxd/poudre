@@ -5,12 +5,16 @@ import { query } from './db.js';
 import { birthdayLinesDiscount } from './birthday.js';
 
 export const WELCOME_PERCENT = 10;
+// One offer per customer, once: the welcome offer and the sign-up code count as the same one
+export const WELCOME_MARK = 'welcome'; // kept in the coupons of the order that used the offer
+export const SIGNUP_COUPON = 'poudre10';
 
-/** True when this customer has an account and no order yet (cancelled / failed ones do not count) */
+/** True when this customer has an account, no order yet and has not used the sign-up code (cancelled / failed orders do not count) */
 export async function welcomeEligible(customerId, q = query) {
   if (!customerId) return false;
   const [row] = await q(`select 1 ok from customers c where c.id = $1 and c.password_hash is not null
-    and not exists (select 1 from orders o where o.customer_id = c.id and o.status not in ('cancelled', 'failed'))`, [Number(customerId)]);
+    and not exists (select 1 from orders o where o.status not in ('cancelled', 'failed')
+      and (o.customer_id = c.id or (lower(o.billing->>'email') = lower(c.email) and $2 = any(o.coupon_codes))))`, [Number(customerId), SIGNUP_COUPON]);
   return !!row;
 }
 

@@ -1,17 +1,20 @@
 import { fail, money, effectivePrice, moveStock, insertRow } from './lib.js';
 import { birthdayLinesDiscount } from './birthday.js';
-import { welcomeEligible, WELCOME_PERCENT } from './welcome.js';
+import { welcomeEligible, WELCOME_PERCENT, WELCOME_MARK, SIGNUP_COUPON } from './welcome.js';
 
 const REDUCES_STOCK = new Set(['processing', 'on-hold', 'completed']);
 
 /** Validates a coupon against a cart. Returns { coupon, discount } or throws. */
-export async function applyCoupon(t, code, lines, customerEmail = null) {
+export async function applyCoupon(t, code, lines, customerEmail = null, customerPhone = null) {
   const [coupon] = await t.query('select * from coupons where lower(code) = lower($1)', [code.trim()]);
   if (!coupon || !coupon.active) fail(400, `Coupon "${code}" does not exist`);
   if (coupon.expires_at && new Date(coupon.expires_at) < new Date()) fail(400, `Coupon "${code}" has expired`);
   if (coupon.usage_limit && coupon.usage_count >= coupon.usage_limit) fail(400, `Coupon "${code}" usage limit reached`);
-  if (coupon.usage_limit_per_user && customerEmail) {
-    const [{ n }] = await t.query(`select count(*)::int n from orders where $1 = any(coupon_codes) and lower(billing->>'email') = lower($2) and status not in ('cancelled','failed')`, [coupon.code, customerEmail]);
+  if (coupon.usage_limit_per_user && (customerEmail || customerPhone)) {
+    // same e-mail or same phone = same customer; the sign-up code also counts the welcome offer of an account
+    const marks = coupon.code.toLowerCase() === SIGNUP_COUPON ? [coupon.code, WELCOME_MARK] : [coupon.code];
+    const [{ n }] = await t.query(`select count(*)::int n from orders where coupon_codes && $1::text[] and status not in ('cancelled','failed')
+      and (lower(billing->>'email') = lower($2::text) or billing->>'phone' = $3::text)`, [marks, customerEmail || null, customerPhone || null]);
     if (n >= coupon.usage_limit_per_user) fail(400, `Coupon "${code}" already used`);
   }
   const productIds = (coupon.product_ids || []).map(Number);
@@ -110,12 +113,13 @@ export async function createOrder(t, input, { channel, staff = null, allowOverri
   const couponCodes = [];
   let freeShipping = false;
   if (input.coupon_code) {
-    const r = await applyCoupon(t, input.coupon_code, lines, input.billing?.email);
+    const r = await applyCoupon(t, input.coupon_code, lines, input.billing?.email, input.billing?.phone);
     discount += r.discount;
     freeShipping = r.free_shipping;
     couponCodes.push(r.coupon.code);
     await t.query('update coupons set usage_count = usage_count + 1 where id = $1', [r.coupon.id]);
   }
+  if (input.welcome_customer_id) couponCodes.push(WELCOME_MARK);
   if (input.discount && allowOverride) {
     const d = input.discount.type === 'percent' ? ((soldValue - discount) * Number(input.discount.amount)) / 100 : Number(input.discount.amount);
     discount += money(Math.max(0, d));
