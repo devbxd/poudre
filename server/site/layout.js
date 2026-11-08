@@ -135,6 +135,6 @@ async function withSiteExtras(html) {
   const extras = siteExtrasTpl.replace(/%%popup_(\w+)%%/g, (_, k) => esc(String(texts[k] || '').trim() || POPUP_TEXTS[k]));
   return html
     // the theme's empty "Sign up and get 10% off" block (About page) gets the same sign-up form
-    .replace(/<div class="pls-element pls-newsletter overlay-form ">\s*<\/div>/g, () => `<div class="pls-element pls-newsletter overlay-form "><form class="pdr-nl" data-source="page" novalidate><input type="email" name="email" placeholder="Your email address" autocomplete="email" aria-label="Email address" required /><button type="submit">Sign up</button><div class="pdr-nl-err" aria-live="polite"></div></form></div>`)
+    .replace(/<div class="pls-element pls-newsletter overlay-form ">\s*<\/div>/g, () => `<div class="pls-element pls-newsletter overlay-form "><form class="pdr-nl" data-source="page" novalidate><input type="email" name="email" placeholder="Your email address" autocomplete="email" aria-label="Email address" required /><label class="pdr-nl-dob"><span>Date of birth <i>(optional — 20% off on your birthday)</i></span><input type="date" name="date_of_birth" autocomplete="bday" /></label><button type="submit">Sign up</button><div class="pdr-nl-err" aria-live="polite"></div></form></div>`)
     .replace('</body>', () => `${extras}\n</body>`);
 }

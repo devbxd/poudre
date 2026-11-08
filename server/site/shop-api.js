@@ -13,6 +13,7 @@ import { quickViewHtml, quickShopHtml, compareData } from './product-page.js';
 import { getCookie } from 'hono/cookie';
 import { availabilityHtml } from './variations.js';
 import { createOrder } from '../orders.js';
+import { parseBirthDate } from '../birthday.js';
 import { sendOrderEmail, emailSettings, sendMail, layout } from '../mail.js';
 import { autoSendToIcarry } from '../icarry.js';
 
@@ -484,7 +485,14 @@ shopApi.post('/newsletter/subscribe', async (c) => {
   const email = String(b.email || '').trim().toLowerCase();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || email.length > 200) return c.json({ ok: false, message: 'Please enter a valid email address.' }, 400);
   const [exists] = await query("select id from messages where kind = 'newsletter' and lower(email) = $1 limit 1", [email]);
+  const dob = parseBirthDate(b.date_of_birth);
+  if (b.date_of_birth && !dob) return c.json({ ok: false, message: 'Please enter a valid date of birth.' }, 400);
   if (!exists) await query("insert into messages (kind, email, subject, body) values ('newsletter', $1, 'Newsletter sign-up', $2)", [email, `Signed up from the ${String(b.source || 'website').slice(0, 40)}`]);
+  // the birthday e-mail goes to customers: a date given here makes one (no password yet, creating the account later keeps it); once set it cannot change
+  if (dob) {
+    await query(`insert into customers (email, billing, shipping, date_of_birth, dob_set_at) values ($1, $2, $2, $3, now())
+      on conflict (lower(email)) where email is not null and email <> '' do update set date_of_birth = excluded.date_of_birth, dob_set_at = now() where customers.date_of_birth is null`, [email, JSON.stringify({ email }), dob]);
+  }
   const [coupon] = await query("select code from coupons where lower(code) = 'poudre10' and active limit 1");
   return c.json({ ok: true, code: (coupon?.code || 'POUDRE10').toUpperCase() });
 });
