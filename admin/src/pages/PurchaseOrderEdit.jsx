@@ -130,7 +130,8 @@ export default function PurchaseOrderEdit() {
                 onNoMatch={(code, clear) => { if (/^[\w-]{4,}$/.test(code) && /\d/.test(code)) { clear(); openNewItem(code); } }} />
             </div>
           )}
-          <table className="w-full text-left">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[760px] text-left">
             <thead className="border-b border-zinc-200 text-xs text-zinc-500"><tr>
               <th className="px-4 py-2 font-medium">Product</th><th className="px-2 py-2 text-right font-medium">Qty</th><th className="px-2 py-2 text-right font-medium">Unit cost</th>
               <th className="px-2 py-2 text-right font-medium">In stock</th><th className="px-2 py-2 text-right font-medium">Received</th><th className="px-4 py-2 text-right font-medium">Total</th><th /></tr></thead>
@@ -140,7 +141,7 @@ export default function PurchaseOrderEdit() {
                 const edited = stockEdit[key] !== undefined && String(stockEdit[key]) !== String(stock[key] ?? '');
                 return (
                   <tr key={i} className="border-b border-zinc-100">
-                    <td className="px-4 py-2"><div className="max-w-[320px] truncate">{it.name}</div><div className="text-xs text-zinc-500">{it.sku}</div></td>
+                    <td className="px-4 py-2"><div className="min-w-[260px] break-words leading-snug">{it.name}</div><div className="text-xs text-zinc-500">{it.sku}</div></td>
                     <td className="px-2 py-2 text-right">{locked ? it.qty : <Input type="number" min="1" className="ml-auto h-8 w-20 text-right" value={it.qty} onChange={(e) => setItem(i, { qty: Number(e.target.value) })} />}</td>
                     <td className="px-2 py-2 text-right">{locked ? money(it.cost) : <Input type="number" step="0.01" className="ml-auto h-8 w-24 text-right" value={it.cost} onChange={(e) => setItem(i, { cost: e.target.value })} />}</td>
                     <td className="px-2 py-2 text-right">
@@ -162,6 +163,7 @@ export default function PurchaseOrderEdit() {
               {!po.items.length && <tr><td colSpan={7} className="py-10 text-center text-zinc-400">Scan or search the products you are ordering</td></tr>}
             </tbody>
           </table>
+          </div>
           <div className="space-y-2 px-4 py-3 text-[13px]">
             <div className="flex justify-between text-zinc-600"><span>Products</span><span className="num">{money(subtotal)}</span></div>
             <div className="flex items-center justify-between gap-3 text-zinc-600">
@@ -219,7 +221,7 @@ export default function PurchaseOrderEdit() {
             const left = it.qty - (it.received_qty || 0);
             return (
               <div key={i} className="flex items-center gap-3 px-3 py-2">
-                <span className="flex-1 truncate">{it.name}</span>
+                <span className="min-w-0 flex-1 break-words leading-snug">{it.name}</span>
                 <Input type="number" min="0" max={left} disabled={!left} placeholder="0" className="h-8 w-20" value={receive?.[i] ?? ''} onChange={(e) => setReceive({ ...receive, [i]: e.target.value })} />
                 <span className="w-14 text-xs text-zinc-400">of {left}</span>
               </div>

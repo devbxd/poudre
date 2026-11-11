@@ -57,6 +57,17 @@ function Images({ images, onChange }) {
   );
 }
 
+const splitOptions = (s) => s.split('|').map((x) => x.trim()).filter(Boolean);
+
+/** "01 Ivory | 02 Beige": the text is kept as typed (spaces included), the list of options follows it */
+function OptionsInput({ options, onChange }) {
+  const [text, setText] = useState(options.join(' | '));
+  useEffect(() => {
+    if (splitOptions(text).join('|') !== options.join('|')) setText(options.join(' | '));
+  }, [options]); // eslint-disable-line
+  return <Input value={text} className="flex-1" placeholder="Option 1 | Option 2" onChange={(e) => { setText(e.target.value); onChange(splitOptions(e.target.value)); }} />;
+}
+
 function Attributes({ attributes, onChange, variable }) {
   const [draft, setDraft] = useState({ name: '', options: '' });
   return (
@@ -64,8 +75,7 @@ function Attributes({ attributes, onChange, variable }) {
       {attributes.map((a, i) => (
         <div key={i} className="flex items-start gap-2 rounded-md border border-zinc-200 p-2">
           <Input value={a.name} className="w-36" onChange={(e) => onChange(attributes.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} />
-          <Input value={a.options.join(' | ')} className="flex-1" placeholder="Option 1 | Option 2"
-            onChange={(e) => onChange(attributes.map((x, j) => (j === i ? { ...x, options: e.target.value.split('|').map((s) => s.trim()).filter(Boolean) } : x)))} />
+          <OptionsInput options={a.options} onChange={(options) => onChange(attributes.map((x, j) => (j === i ? { ...x, options } : x)))} />
           {variable && <Checkbox className="mt-2" checked={a.variation} onChange={(v) => onChange(attributes.map((x, j) => (j === i ? { ...x, variation: v } : x)))} label="Options" />}
           <button onClick={() => onChange(attributes.filter((_, j) => j !== i))} className="mt-1.5 rounded p-1 text-zinc-400 hover:text-red-600"><X size={15} /></button>
         </div>
@@ -74,7 +84,7 @@ function Attributes({ attributes, onChange, variable }) {
         <Input value={draft.name} className="w-36" placeholder="e.g. Shade" onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
         <Input value={draft.options} className="flex-1" placeholder="Values separated by |  e.g. 01 Ivory | 02 Beige" onChange={(e) => setDraft({ ...draft, options: e.target.value })} />
         <Button icon={Plus} disabled={!draft.name.trim()} onClick={() => {
-          onChange([...attributes, { name: draft.name.trim(), options: draft.options.split('|').map((s) => s.trim()).filter(Boolean), visible: true, variation: variable }]);
+          onChange([...attributes, { name: draft.name.trim(), options: splitOptions(draft.options), visible: true, variation: variable }]);
           setDraft({ name: '', options: '' });
         }}>Add</Button>
       </div>
