@@ -131,7 +131,7 @@ export default function PurchaseOrderEdit() {
             </div>
           )}
           <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-left">
+          <table className="w-full min-w-[600px] text-left">
             <thead className="border-b border-zinc-200 text-xs text-zinc-500"><tr>
               <th className="px-4 py-2 font-medium">Product</th><th className="px-2 py-2 text-right font-medium">Qty</th><th className="px-2 py-2 text-right font-medium">Unit cost</th>
               <th className="px-2 py-2 text-right font-medium">In stock</th><th className="px-2 py-2 text-right font-medium">Received</th><th className="px-4 py-2 text-right font-medium">Total</th><th /></tr></thead>
@@ -141,13 +141,13 @@ export default function PurchaseOrderEdit() {
                 const edited = stockEdit[key] !== undefined && String(stockEdit[key]) !== String(stock[key] ?? '');
                 return (
                   <tr key={i} className="border-b border-zinc-100">
-                    <td className="px-4 py-2"><div className="min-w-[260px] break-words leading-snug">{it.name}</div><div className="text-xs text-zinc-500">{it.sku}</div></td>
-                    <td className="px-2 py-2 text-right">{locked ? it.qty : <Input type="number" min="1" className="ml-auto h-8 w-20 text-right" value={it.qty} onChange={(e) => setItem(i, { qty: Number(e.target.value) })} />}</td>
-                    <td className="px-2 py-2 text-right">{locked ? money(it.cost) : <Input type="number" step="0.01" className="ml-auto h-8 w-24 text-right" value={it.cost} onChange={(e) => setItem(i, { cost: e.target.value })} />}</td>
+                    <td className="px-4 py-2"><div className="min-w-[180px] break-words leading-snug">{it.name}</div><div className="text-xs text-zinc-500">{it.sku}</div></td>
+                    <td className="px-2 py-2 text-right">{locked ? it.qty : <Input type="number" min="1" className="ml-auto h-8 w-16 text-right" value={it.qty} onChange={(e) => setItem(i, { qty: Number(e.target.value) })} />}</td>
+                    <td className="px-2 py-2 text-right">{locked ? money(it.cost) : <Input type="number" step="0.01" className="ml-auto h-8 w-20 text-right" value={it.cost} onChange={(e) => setItem(i, { cost: e.target.value })} />}</td>
                     <td className="px-2 py-2 text-right">
                       {it.product_id && (
                         <div className="flex items-center justify-end gap-1">
-                          <Input type="number" className="h-8 w-20 text-right" value={stockEdit[key] ?? stock[key] ?? ''} placeholder="—" title="Current stock: change it, then Save"
+                          <Input type="number" className="h-8 w-16 text-right" value={stockEdit[key] ?? stock[key] ?? ''} placeholder="—" title="Current stock: change it, then Save"
                             onChange={(e) => setStockEdit({ ...stockEdit, [key]: e.target.value })}
                             onKeyDown={(e) => { if (e.key === 'Enter' && edited) saveStock(it); }} />
                           {edited && <Button size="sm" variant="primary" loading={busy} onClick={() => saveStock(it)}>Save</Button>}
