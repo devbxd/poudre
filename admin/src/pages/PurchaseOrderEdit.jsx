@@ -5,7 +5,7 @@ import { api } from '../lib/api.js';
 import { useFetch } from '../lib/hooks.js';
 import { money, dateTime } from '../lib/format.js';
 import { Badge, Button, Card, Field, Input, Modal, PageHeader, Select, Spinner, Textarea, useAction, useToast } from '../components/ui.jsx';
-import { ProductSearch } from '../components/pickers.jsx';
+import { BrandPicker, ProductSearch } from '../components/pickers.jsx';
 import { PO_STATUS } from './PurchaseOrders.jsx';
 
 const lineKey = (it) => `${it.product_id}-${it.variation_id || 0}`;
@@ -71,6 +71,7 @@ export default function PurchaseOrderEdit() {
       name: n.name.trim(), type: 'simple', status: 'publish', sku: code, barcode: code,
       regular_price: n.price === '' ? null : Number(n.price), purchase_price: n.cost === '' ? null : Number(n.cost),
       manage_stock: true, stock_quantity: Number(n.stock) || 0, pos_visible: true, online_visible: n.online, supplier_id: po.supplier_id || null,
+      brand_ids: n.brand_id ? [n.brand_id] : [],
     }), 'Item created');
     if (!created?.id) return;
     addItem({ id: created.id, variation_id: null, name: created.name, sku: created.sku, purchase_price: n.cost, stock_quantity: Number(n.stock) || 0, qty: Number(n.qty) || 1 });
@@ -208,8 +209,9 @@ export default function PurchaseOrderEdit() {
             <Field label="Unit cost ($)"><Input type="number" step="0.01" value={newItem.cost} onChange={(e) => setNewItem({ ...newItem, cost: e.target.value })} /></Field>
             <Field label="Quantity ordered"><Input type="number" min="1" value={newItem.qty} onChange={(e) => setNewItem({ ...newItem, qty: e.target.value })} /></Field>
             <Field label="Current stock"><Input type="number" value={newItem.stock} onChange={(e) => setNewItem({ ...newItem, stock: e.target.value })} /></Field>
+            <Field label="Brand" className="sm:col-span-2"><BrandPicker value={newItem.brand_id} onChange={(bid) => setNewItem((cur) => ({ ...cur, brand_id: bid }))} /></Field>
             <label className="flex items-center gap-2 text-[13px] sm:col-span-2"><input type="checkbox" checked={newItem.online} onChange={(e) => setNewItem({ ...newItem, online: e.target.checked })} /> Show on the website (add photos later in Products)</label>
-            <p className="text-xs text-zinc-500 sm:col-span-2">The item is created in Products and shows in the POS right away. Photos, category and brand can be added later.</p>
+            <p className="text-xs text-zinc-500 sm:col-span-2">The item is created in Products and shows in the POS right away. Photos and category can be added later.</p>
           </div>
         )}
       </Modal>

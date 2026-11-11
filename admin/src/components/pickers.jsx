@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { api, qs } from '../lib/api.js';
 import { money, fullName } from '../lib/format.js';
-import { Thumb, cx } from './ui.jsx';
+import { Button, Input, Select, Thumb, cx } from './ui.jsx';
+import { useFetch } from '../lib/hooks.js';
 
 /** Generic async search box with a dropdown. */
 function AsyncSearch({ placeholder, load, renderItem, onPick, clearOnPick = true, className, autoFocus, exact, prefer, onNoMatch }) {
@@ -89,6 +90,53 @@ export function ProductSearch({ onPick, variations = true, optionsOnly = false, 
         </>
       )}
     />
+  );
+}
+
+/** Brand list with "+ New brand…": the brand is created on the spot and chosen. value / onChange: brand id or null */
+export function BrandPicker({ value, onChange }) {
+  const { data: brands, setData } = useFetch('/admin/brands');
+  const [adding, setAdding] = useState(null); // name being typed, null when the list shows
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const sorted = [...(brands || [])].sort((a, b) => a.name.localeCompare(b.name));
+  const add = async () => {
+    const name = adding.trim();
+    if (!name) return;
+    const same = sorted.find((b) => b.name.toLowerCase() === name.toLowerCase());
+    if (same) { onChange(same.id); setAdding(null); return; } // already there: just choose it
+    setSaving(true);
+    setError('');
+    try {
+      const b = await api.post('/admin/brands', { name });
+      setData([...(brands || []), b]);
+      onChange(b.id);
+      setAdding(null);
+    } catch (e) {
+      setError(e.message || 'Could not add the brand');
+    } finally {
+      setSaving(false);
+    }
+  };
+  if (adding !== null) {
+    return (
+      <div>
+        <div className="flex gap-2">
+          <Input autoFocus value={adding} placeholder="New brand name" className="flex-1" onChange={(e) => setAdding(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } if (e.key === 'Escape') setAdding(null); }} />
+          <Button variant="primary" loading={saving} disabled={!adding.trim()} onClick={add}>Add</Button>
+          <Button onClick={() => { setAdding(null); setError(''); }}>Cancel</Button>
+        </div>
+        {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+      </div>
+    );
+  }
+  return (
+    <Select value={value || ''} onChange={(e) => (e.target.value === 'new' ? setAdding('') : onChange(e.target.value ? Number(e.target.value) : null))}>
+      <option value="">No brand</option>
+      <option value="new">+ New brand…</option>
+      {sorted.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+    </Select>
   );
 }
 

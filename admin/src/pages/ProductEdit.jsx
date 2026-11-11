@@ -5,7 +5,7 @@ import { api } from '../lib/api.js';
 import { useFetch } from '../lib/hooks.js';
 import { money, int, dateTime, date } from '../lib/format.js';
 import { Badge, Button, Card, Checkbox, Field, Input, PageHeader, Select, Spinner, Textarea, Thumb, Toggle, cx, sized, useAction, useToast } from '../components/ui.jsx';
-import { ProductSearch, categoryOptions } from '../components/pickers.jsx';
+import { BrandPicker, ProductSearch, categoryOptions } from '../components/pickers.jsx';
 import { MediaPicker } from '../components/MediaPicker.jsx';
 import RichText from '../components/RichText.jsx';
 import { STATUS } from './Products.jsx';
@@ -238,7 +238,6 @@ export default function ProductEdit() {
   const { confirm } = useToast();
   const { data: loaded, setData } = useFetch(isNew ? null : `/admin/products/${id}`);
   const { data: categories } = useFetch('/admin/categories');
-  const { data: brands } = useFetch('/admin/brands');
   const { data: suppliers } = useFetch('/admin/suppliers');
   const [p, setP] = useState(isNew ? EMPTY : null);
   const [dirty, setDirty] = useState(false);
@@ -384,9 +383,7 @@ export default function ProductEdit() {
                 <CategoryChecklist categories={categories || []} value={catIds} onChange={(ids) => set({ categories: ids.map((cid) => (categories || []).find((c) => c.id === cid) || { id: cid }) })} />
               </Field>
               <Field label="Brand">
-                <Select value={brandId} onChange={(e) => set({ brands: e.target.value ? [{ id: Number(e.target.value) }] : [] })}>
-                  <option value="">No brand</option>{(brands || []).map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-                </Select>
+                <BrandPicker value={brandId} onChange={(bid) => set({ brands: bid ? [{ id: bid }] : [] })} />
               </Field>
               <Field label="Tags" hint="Press Enter after each tag">
                 <div className="mb-1 flex flex-wrap gap-1">
