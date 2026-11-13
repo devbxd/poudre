@@ -132,6 +132,15 @@ async function saveProduct(body, staff, id = null) {
       const [dup] = await t.query('select id, name from products where sku = $1 and ($2::int is null or id <> $2) union all select product_id, sku from variations where sku = $1 limit 1', [data.sku, id]);
       if (dup && dup.id !== id) fail(400, `SKU ${data.sku} is already used by "${dup.name}"`);
     }
+    // a barcode typed or scanned into a product must not already be another product's code (the scan would find both)
+    if (data.barcode) {
+      const [old] = id ? await t.query('select barcode from products where id = $1', [id]) : [];
+      if (!old || old.barcode !== data.barcode) {
+        const [dup] = await t.query(`select name from products where (barcode = $1 or sku = $1) and ($2::int is null or id <> $2)
+          union all select p.name from variations v join products p on p.id = v.product_id where (v.barcode = $1 or v.sku = $1) and ($2::int is null or p.id <> $2) limit 1`, [data.barcode, id]);
+        if (dup) fail(400, `Barcode ${data.barcode} is already used by "${dup.name}"`);
+      }
+    }
     if (body.slug !== undefined || !id) data.slug = await uniqueSlug('products', body.slug || body.name, id);
     let row;
     if (id) {
