@@ -160,7 +160,10 @@ export default function PurchaseOrderEdit() {
                       )}
                     </td>
                     <td className="num px-1.5 py-2 text-right text-zinc-500">{it.received_qty || 0}</td>
-                    <td className="num px-1.5 py-2 text-right">{money(Number(it.qty) * Number(it.cost || 0))}</td>
+                    <td className="num px-1.5 py-2 text-right">
+                      <div className={factor !== 1 ? 'font-medium' : ''}>{money(Number(it.qty) * Number(it.cost || 0) * factor)}</div>
+                      {factor !== 1 && <div className="text-[11px] text-zinc-400" title="Without VAT / delivery">{money(Number(it.qty) * Number(it.cost || 0))}</div>}
+                    </td>
                     <td className="pr-3">{!locked && <button onClick={() => setPo({ ...po, items: po.items.filter((_, j) => j !== i) })} className="text-zinc-400 hover:text-red-600"><Trash2 size={14} /></button>}</td>
                   </tr>
                 );
@@ -190,7 +193,7 @@ export default function PurchaseOrderEdit() {
           {po.items.length > 0 && factor !== 1 && (
             <div className="border-t border-zinc-200 bg-zinc-50 px-4 py-2 text-[13px] text-zinc-700">
               <b>Real cost</b> = unit cost {addedPct > 0 ? '+' : '−'} <b>{Math.abs(addedPct)}%</b>: the VAT and the other lines ({money(total - subtotal)} in all) are shared over the items by their price.
-              This real cost is what the reports use to count the <b>profit</b>.
+              Each line's <b>Total</b> includes it too (the small grey number is without), so the lines add up to the invoice total. The reports use this real cost for the <b>profit</b>.
             </div>
           )}
           {['draft', 'ordered'].includes(po.status) && po.items.length > 0 && (

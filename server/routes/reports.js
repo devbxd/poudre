@@ -74,10 +74,20 @@ reports.get('/overview', requireStaff(), async (c) => {
   return c.json({ range: { from, to, days, prevFrom, prevTo }, current, previous, today, series, channels, payments, topProducts, topCategories, topBrands, hours, staff, recent, stock: stock[0], pending_online: pending[0].n });
 });
 
+// Cost of one piece today with the VAT, delivery, discounts… of its last invoice (cost × cost_factor). A product with
+// options: the average of its options.
+const REAL_COST_PRODUCT = (p) => `(case when ${p}.type = 'variable'
+  then (select avg(coalesce(v.purchase_price, ${p}.purchase_price) * coalesce(v.cost_factor, ${p}.cost_factor, 1)) from variations v where v.product_id = ${p}.id)
+  else ${p}.purchase_price * coalesce(${p}.cost_factor, 1) end)`;
+const REAL_COST_OPTION = (p, v) => `(coalesce(${v}.purchase_price, ${p}.purchase_price) * coalesce(${v}.cost_factor, ${p}.cost_factor, 1))`;
+
 const GROUPS = {
   // stock = what is on the shelf now (sum of the options for a product with options)
-  product: { select: `oi.product_id id, coalesce((select p.name from products p where p.id = oi.product_id), max(oi.name)) || case when max(oi.variation_id) is not null then ' (all colours / sizes)' else '' end label, max(oi.sku) sku, (select case when p.type = 'variable' then (select sum(v.stock_quantity) from variations v where v.product_id = p.id and v.manage_stock) when p.manage_stock then p.stock_quantity end from products p where p.id = oi.product_id)::int stock`, join: '', group: 'oi.product_id' },
-  variation: { select: `coalesce(oi.variation_id, oi.product_id) id, coalesce((select p.name || ' - ' || nullif((select string_agg(x->>'option', ', ') from jsonb_array_elements(v.attributes) x where coalesce(x->>'option', '') <> ''), '') from variations v join products p on p.id = v.product_id where v.id = max(oi.variation_id)), max(oi.name)) label, max(oi.sku) sku, coalesce((select v.stock_quantity from variations v where v.id = max(oi.variation_id) and v.manage_stock), (select p.stock_quantity from products p where p.id = max(oi.product_id) and p.manage_stock and max(oi.variation_id) is null))::int stock`, join: '', group: 'coalesce(oi.variation_id, oi.product_id)' },
+  product: { select: `oi.product_id id, coalesce((select p.name from products p where p.id = oi.product_id), max(oi.name)) || case when max(oi.variation_id) is not null then ' (all colours / sizes)' else '' end label, max(oi.sku) sku, (select case when p.type = 'variable' then (select sum(v.stock_quantity) from variations v where v.product_id = p.id and v.manage_stock) when p.manage_stock then p.stock_quantity end from products p where p.id = oi.product_id)::int stock,
+    (select round(${REAL_COST_PRODUCT('p')}::numeric, 2) from products p where p.id = oi.product_id)::float8 unit_cost`, join: '', group: 'oi.product_id' },
+  variation: { select: `coalesce(oi.variation_id, oi.product_id) id, coalesce((select p.name || ' - ' || nullif((select string_agg(x->>'option', ', ') from jsonb_array_elements(v.attributes) x where coalesce(x->>'option', '') <> ''), '') from variations v join products p on p.id = v.product_id where v.id = max(oi.variation_id)), max(oi.name)) label, max(oi.sku) sku, coalesce((select v.stock_quantity from variations v where v.id = max(oi.variation_id) and v.manage_stock), (select p.stock_quantity from products p where p.id = max(oi.product_id) and p.manage_stock and max(oi.variation_id) is null))::int stock,
+    coalesce((select round(${REAL_COST_OPTION('p', 'v')}::numeric, 2) from variations v join products p on p.id = v.product_id where v.id = max(oi.variation_id)),
+      (select round(${REAL_COST_PRODUCT('p')}::numeric, 2) from products p where p.id = max(oi.product_id) and max(oi.variation_id) is null))::float8 unit_cost`, join: '', group: 'coalesce(oi.variation_id, oi.product_id)' },
   category: { select: `c.id, c.name label`, join: 'join product_categories pc on pc.product_id = oi.product_id join categories c on c.id = pc.category_id', group: 'c.id' },
   brand: { select: `b.id, b.name label`, join: 'join product_brands pb on pb.product_id = oi.product_id join brands b on b.id = pb.brand_id', group: 'b.id' },
   supplier: { select: `sp.id, sp.name label`, join: 'join products pp on pp.id = oi.product_id join suppliers sp on sp.id = pp.supplier_id', group: 'sp.id' },
@@ -103,10 +113,12 @@ async function catalogueReport({ from, to, channel, brand, category, byOption })
     ? `select p.id product_id, v.id variation_id, coalesce(v.id, p.id) id,
          p.name || coalesce(' - ' || nullif((select string_agg(x->>'option', ', ') from jsonb_array_elements(v.attributes) x where coalesce(x->>'option', '') <> ''), ''), '') label,
          coalesce(v.sku, p.sku) sku,
-         (case when v.id is not null then case when v.manage_stock then v.stock_quantity end when p.manage_stock then p.stock_quantity end)::int stock
+         (case when v.id is not null then case when v.manage_stock then v.stock_quantity end when p.manage_stock then p.stock_quantity end)::int stock,
+         round((case when v.id is not null then ${REAL_COST_OPTION('p', 'v')} else ${REAL_COST_PRODUCT('p')} end)::numeric, 2)::float8 unit_cost
        from products p left join variations v on v.product_id = p.id and p.type = 'variable' where ${filter} and (p.type <> 'variable' or v.id is not null)`
     : `select p.id product_id, null::int variation_id, p.id id, p.name || case when p.type = 'variable' then ' (all colours / sizes)' else '' end label, p.sku,
-         (case when p.type = 'variable' then (select sum(v.stock_quantity) from variations v where v.product_id = p.id and v.manage_stock) when p.manage_stock then p.stock_quantity end)::int stock
+         (case when p.type = 'variable' then (select sum(v.stock_quantity) from variations v where v.product_id = p.id and v.manage_stock) when p.manage_stock then p.stock_quantity end)::int stock,
+         round(${REAL_COST_PRODUCT('p')}::numeric, 2)::float8 unit_cost
        from products p where ${filter}`;
   const key = byOption ? 'oi.product_id, oi.variation_id' : 'oi.product_id';
   return query(`
@@ -117,7 +129,7 @@ async function catalogueReport({ from, to, channel, brand, category, byOption })
         sum(oi.total - coalesce(oi.purchase_price, 0) * (oi.quantity - oi.refunded_qty)) filter (where oi.purchase_price is not null)::float8 profit
       from order_items oi join orders o on o.id = oi.order_id
       where ${PAID} and ${inRange('$1', '$2')} and ($3::text is null or o.channel = $3) group by ${key})
-    select i.id, i.label, i.sku, i.stock, coalesce(s.orders, 0) orders, coalesce(s.qty, 0) qty, coalesce(s.revenue, 0) revenue, coalesce(s.discounts, 0) discounts, s.cost, s.profit
+    select i.id, i.label, i.sku, i.stock, i.unit_cost, coalesce(s.orders, 0) orders, coalesce(s.qty, 0) qty, coalesce(s.revenue, 0) revenue, coalesce(s.discounts, 0) discounts, s.cost, s.profit
     from items i left join sales s on s.product_id = i.product_id ${byOption ? 'and s.variation_id is not distinct from i.variation_id' : ''}
     order by coalesce(s.qty, 0) desc, i.label limit 3000`, [from, to, channel, brand, category]);
 }
