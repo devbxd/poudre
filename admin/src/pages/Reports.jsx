@@ -249,7 +249,7 @@ function Sales() {
             { key: 'qty', label: 'Sold', align: 'right', render: (x) => <span className="font-medium">{int(x.qty)}</span> },
             ...(itemView ? [
               { key: 'stock', label: 'In stock', align: 'right', render: (x) => (x.stock == null ? '—' : <span className={x.stock <= 0 ? 'font-medium text-red-600' : ''}>{int(x.stock)}</span>) },
-              { key: 'unit_cost', label: 'Real cost each **', align: 'right', render: (x) => (x.unit_cost != null ? money(x.unit_cost) : '—') },
+              { key: 'unit_cost', label: 'Cost **', align: 'right', render: (x) => (x.unit_cost != null ? money(x.unit_cost) : '—') },
             ] : []),
             { key: 'revenue', label: 'Sales', align: 'right', render: (x) => money(x.revenue) },
             { key: 'profit', label: 'Profit *', align: 'right', render: (x) => (x.profit != null ? money(x.profit) : '—') },
@@ -257,7 +257,7 @@ function Sales() {
           ]} />
         </div>
       )}
-      <p className="p-3 text-xs text-zinc-400">Sold = number of pieces sold in the period. In stock = on the shelf now. * Profit = sales − real cost (the invoice price with its share of VAT, delivery, discounts… of the purchase order), only for products that have a cost price. ** Real cost each = what one piece costs with the VAT and delivery of its last invoice. With a brand or category chosen, all its items are listed, also those not sold.</p>
+      <p className="p-3 text-xs text-zinc-400">Sold = number of pieces sold in the period. In stock = on the shelf now. * Profit = sales − real cost (the invoice price with its share of VAT, delivery, discounts… of the purchase order), only for products that have a cost price. ** Cost = what one piece costs with the VAT and delivery of its last invoice. With a brand or category chosen, all its items are listed, also those not sold.</p>
     </>
   );
 }
