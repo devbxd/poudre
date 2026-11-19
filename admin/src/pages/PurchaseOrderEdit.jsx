@@ -135,21 +135,21 @@ export default function PurchaseOrderEdit() {
             </div>
           )}
           <div className="overflow-x-auto">
-          <table className="w-full min-w-[660px] text-left">
+          <table className="w-full min-w-[620px] text-left">
             <thead className="border-b border-zinc-200 text-xs text-zinc-500"><tr>
-              <th className="px-4 py-2 font-medium">Product</th><th className="px-2 py-2 text-right font-medium">Qty</th><th className="px-2 py-2 text-right font-medium">Unit cost</th><th className="px-2 py-2 text-right font-medium" title="Unit cost with its share of the VAT, delivery, discounts… of this invoice">Real cost</th>
-              <th className="px-2 py-2 text-right font-medium">In stock</th><th className="px-2 py-2 text-right font-medium">Received</th><th className="px-4 py-2 text-right font-medium">Total</th><th /></tr></thead>
+              <th className="px-4 py-2 font-medium">Product</th><th className="px-1.5 py-2 text-right font-medium">Qty</th><th className="px-1.5 py-2 text-right font-medium">Unit cost</th><th className="px-1.5 py-2 text-right font-medium" title="Unit cost with its share of the VAT, delivery, discounts… of this invoice">Real cost</th>
+              <th className="px-1.5 py-2 text-right font-medium">In stock</th><th className="px-1.5 py-2 text-right font-medium">Received</th><th className="px-1.5 py-2 text-right font-medium">Total</th><th /></tr></thead>
             <tbody>
               {po.items.map((it, i) => {
                 const key = lineKey(it);
                 const edited = stockEdit[key] !== undefined && String(stockEdit[key]) !== String(stock[key] ?? '');
                 return (
                   <tr key={i} className="border-b border-zinc-100">
-                    <td className="px-4 py-2"><div className="min-w-[180px] break-words leading-snug">{it.qty < 0 && <span className="mr-1.5 rounded bg-red-50 px-1.5 py-0.5 text-[11px] font-semibold uppercase text-red-700">Return</span>}{it.name}</div><div className="text-xs text-zinc-500">{it.sku}</div></td>
-                    <td className="px-2 py-2 text-right">{locked ? it.qty : <Input type="number" className={`ml-auto h-8 w-16 text-right ${it.qty < 0 ? 'text-red-600' : ''}`} value={it.qty} title="A minus quantity (e.g. -1) sends the item back to the supplier" onChange={(e) => setItem(i, { qty: e.target.value === '-' ? e.target.value : Number(e.target.value) })} />}</td>
-                    <td className="px-2 py-2 text-right">{locked ? money(it.cost) : <Input type="number" step="0.01" className="ml-auto h-8 w-24 text-right" value={it.cost} onChange={(e) => setItem(i, { cost: e.target.value })} />}</td>
-                    <td className={`num px-2 py-2 text-right ${factor !== 1 ? 'font-medium text-zinc-900' : 'text-zinc-400'}`}>{it.cost ? money(Number(it.cost) * factor) : '—'}</td>
-                    <td className="px-2 py-2 text-right">
+                    <td className="py-2 pl-4 pr-1.5"><div className="min-w-[150px] break-words leading-snug">{it.qty < 0 && <span className="mr-1.5 rounded bg-red-50 px-1.5 py-0.5 text-[11px] font-semibold uppercase text-red-700">Return</span>}{it.name}</div><div className="text-xs text-zinc-500">{it.sku}</div></td>
+                    <td className="px-1.5 py-2 text-right">{locked ? it.qty : <Input type="number" className={`ml-auto h-8 w-16 text-right ${it.qty < 0 ? 'text-red-600' : ''}`} value={it.qty} title="A minus quantity (e.g. -1) sends the item back to the supplier" onChange={(e) => setItem(i, { qty: e.target.value === '-' ? e.target.value : Number(e.target.value) })} />}</td>
+                    <td className="px-1.5 py-2 text-right">{locked ? money(it.cost) : <Input type="number" step="0.01" className="ml-auto h-8 w-24 text-right" value={it.cost} onChange={(e) => setItem(i, { cost: e.target.value })} />}</td>
+                    <td className={`num px-1.5 py-2 text-right ${factor !== 1 ? 'font-medium text-zinc-900' : 'text-zinc-400'}`}>{it.cost ? money(Number(it.cost) * factor) : '—'}</td>
+                    <td className="px-1.5 py-2 text-right">
                       {it.product_id && (
                         <div className="flex items-center justify-end gap-1">
                           <Input type="number" className="h-8 w-16 text-right" value={stockEdit[key] ?? stock[key] ?? ''} placeholder="—" title="Current stock: change it, then Save"
@@ -159,8 +159,8 @@ export default function PurchaseOrderEdit() {
                         </div>
                       )}
                     </td>
-                    <td className="num px-2 py-2 text-right text-zinc-500">{it.received_qty || 0}</td>
-                    <td className="num px-4 py-2 text-right">{money(Number(it.qty) * Number(it.cost || 0))}</td>
+                    <td className="num px-1.5 py-2 text-right text-zinc-500">{it.received_qty || 0}</td>
+                    <td className="num px-1.5 py-2 text-right">{money(Number(it.qty) * Number(it.cost || 0))}</td>
                     <td className="pr-3">{!locked && <button onClick={() => setPo({ ...po, items: po.items.filter((_, j) => j !== i) })} className="text-zinc-400 hover:text-red-600"><Trash2 size={14} /></button>}</td>
                   </tr>
                 );
