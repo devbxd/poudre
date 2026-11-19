@@ -163,11 +163,12 @@ inventory.get('/purchase-orders/:id', requireStaff(), async (c) => {
   return c.json(po);
 });
 
-/** Lines + VAT % on the products + other charges (delivery, tips…) as on the supplier's invoice */
+/** Lines + VAT % on the products + other charges (delivery, tips…) as on the supplier's invoice. A line below 0 is
+ * sent back to the supplier: it takes the pieces out of the stock and its amount off the total. */
 function poTotals(items, meta = {}) {
   const clean = (items || []).map((i) => ({
     product_id: i.product_id ? Number(i.product_id) : null, variation_id: i.variation_id ? Number(i.variation_id) : null,
-    name: i.name, sku: i.sku || null, qty: Math.max(0, Number(i.qty) || 0), received_qty: Number(i.received_qty) || 0, cost: money(i.cost) || 0,
+    name: i.name, sku: i.sku || null, qty: Math.trunc(Number(i.qty) || 0), received_qty: Number(i.received_qty) || 0, cost: money(i.cost) || 0,
   }));
   const subtotal = clean.reduce((s, i) => s + i.qty * i.cost, 0);
   const vat_rate = Math.max(0, Number(meta.vat_rate) || 0);
@@ -229,11 +230,15 @@ inventory.put('/purchase-orders/:id', requireStaff('manager'), async (c) => {
           await t.query(`update ${table} set manage_stock = true, stock_quantity = coalesce(stock_quantity, 0) where id = $1 and not manage_stock`, [o.variation_id || o.product_id]);
           await moveStock(t, { product_id: o.product_id, variation_id: o.variation_id, change: n, reason: 'purchase', ref_type: 'purchase_order', ref_id: id, note: 'purchase order edited', staff_id: c.get('staff').id });
         }
-        for (const i of items) if (i.product_id && i.cost) await t.query(`update ${i.variation_id ? 'variations' : 'products'} set purchase_price = $2 where id = $1`, [i.variation_id || i.product_id, i.cost]);
+        for (const i of items) if (i.product_id && i.cost && i.qty > 0) await t.query(`update ${i.variation_id ? 'variations' : 'products'} set purchase_price = $2 where id = $1`, [i.variation_id || i.product_id, i.cost]);
       } else {
         // partly received: what already arrived stays counted
         const got = new Map(before.map((o) => [key(o), o.received_qty || 0]));
-        for (const i of items) { i.received_qty = Math.min(i.qty, got.get(key(i)) || 0); got.delete(key(i)); }
+        for (const i of items) {
+          const done = got.get(key(i)) || 0;
+          i.received_qty = i.qty < 0 ? Math.max(i.qty, Math.min(0, done)) : Math.min(i.qty, Math.max(0, done));
+          got.delete(key(i));
+        }
       }
       data.items = JSON.stringify(items);
       data.total = total;
@@ -256,18 +261,20 @@ inventory.post('/purchase-orders/:id/receive', requireStaff('manager'), async (c
     if (['received', 'cancelled'].includes(po.status)) fail(400, `This purchase order is ${po.status}`);
     const items = typeof po.items === 'string' ? JSON.parse(po.items) : po.items;
     for (const [index, item] of items.entries()) {
-      const remaining = item.qty - (item.received_qty || 0);
-      const qty = body.all ? remaining : Math.min(remaining, Number(body.lines?.find((l) => l.index === index)?.qty) || 0);
-      if (qty <= 0) continue;
+      const back = item.qty < 0; // sent back to the supplier: the pieces leave the stock
+      const remaining = Math.abs(item.qty - (item.received_qty || 0));
+      const asked = body.all ? remaining : Math.min(remaining, Math.abs(Number(body.lines?.find((l) => l.index === index)?.qty) || 0));
+      if (asked <= 0) continue;
+      const qty = back ? -asked : asked;
       item.received_qty = (item.received_qty || 0) + qty;
       if (!item.product_id) continue;
       const table = item.variation_id ? 'variations' : 'products';
       const rid = item.variation_id || item.product_id;
       await t.query(`update ${table} set manage_stock = true, stock_quantity = coalesce(stock_quantity, 0) where id = $1 and not manage_stock`, [rid]);
-      await moveStock(t, { product_id: item.product_id, variation_id: item.variation_id, change: qty, reason: 'purchase', ref_type: 'purchase_order', ref_id: id, staff_id: staff.id });
-      if (item.cost) await t.query(`update ${table} set purchase_price = $2 where id = $1`, [rid, item.cost]);
+      await moveStock(t, { product_id: item.product_id, variation_id: item.variation_id, change: qty, reason: 'purchase', ref_type: 'purchase_order', ref_id: id, note: back ? 'returned to the supplier' : '', staff_id: staff.id });
+      if (item.cost && !back) await t.query(`update ${table} set purchase_price = $2 where id = $1`, [rid, item.cost]);
     }
-    const complete = items.every((i) => (i.received_qty || 0) >= i.qty);
+    const complete = items.every((i) => (i.qty < 0 ? (i.received_qty || 0) <= i.qty : (i.received_qty || 0) >= i.qty));
     const [updated] = await t.query(`update purchase_orders set items = $2, status = $3, received_at = case when $3 = 'received' then now() else received_at end, updated_at = now()
       where id = $1 returning *`, [id, JSON.stringify(items), complete ? 'received' : 'partial']);
     return updated;
