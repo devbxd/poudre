@@ -42,6 +42,9 @@ export default function PurchaseOrderEdit() {
   const subtotal = po.items.reduce((s, i) => s + Number(i.qty) * Number(i.cost || 0), 0);
   const vat = Math.round(subtotal * (Number(meta.vat_rate) || 0)) / 100;
   const total = subtotal + vat + meta.extras.reduce((s, x) => s + (Number(x.amount) || 0), 0);
+  // what each $1 of goods really costs once the VAT, delivery, discounts… are spread over the items (as the server does)
+  const factor = subtotal > 0 ? Math.round((Math.round(total * 100) / 100 / subtotal) * 10000) / 10000 : 1;
+  const addedPct = Math.round((factor - 1) * 1000) / 10;
   const setMeta = (patch) => setPo((cur) => ({ ...cur, meta: { ...(cur.meta || { vat_rate: 0, extras: [] }), ...patch } }));
   const setExtra = (i, patch) => setMeta({ extras: meta.extras.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
   const setItem = (i, patch) => setPo({ ...po, items: po.items.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
@@ -132,9 +135,9 @@ export default function PurchaseOrderEdit() {
             </div>
           )}
           <div className="overflow-x-auto">
-          <table className="w-full min-w-[600px] text-left">
+          <table className="w-full min-w-[660px] text-left">
             <thead className="border-b border-zinc-200 text-xs text-zinc-500"><tr>
-              <th className="px-4 py-2 font-medium">Product</th><th className="px-2 py-2 text-right font-medium">Qty</th><th className="px-2 py-2 text-right font-medium">Unit cost</th>
+              <th className="px-4 py-2 font-medium">Product</th><th className="px-2 py-2 text-right font-medium">Qty</th><th className="px-2 py-2 text-right font-medium">Unit cost</th><th className="px-2 py-2 text-right font-medium" title="Unit cost with its share of the VAT, delivery, discounts… of this invoice">Real cost</th>
               <th className="px-2 py-2 text-right font-medium">In stock</th><th className="px-2 py-2 text-right font-medium">Received</th><th className="px-4 py-2 text-right font-medium">Total</th><th /></tr></thead>
             <tbody>
               {po.items.map((it, i) => {
@@ -145,6 +148,7 @@ export default function PurchaseOrderEdit() {
                     <td className="px-4 py-2"><div className="min-w-[180px] break-words leading-snug">{it.qty < 0 && <span className="mr-1.5 rounded bg-red-50 px-1.5 py-0.5 text-[11px] font-semibold uppercase text-red-700">Return</span>}{it.name}</div><div className="text-xs text-zinc-500">{it.sku}</div></td>
                     <td className="px-2 py-2 text-right">{locked ? it.qty : <Input type="number" className={`ml-auto h-8 w-16 text-right ${it.qty < 0 ? 'text-red-600' : ''}`} value={it.qty} title="A minus quantity (e.g. -1) sends the item back to the supplier" onChange={(e) => setItem(i, { qty: e.target.value === '-' ? e.target.value : Number(e.target.value) })} />}</td>
                     <td className="px-2 py-2 text-right">{locked ? money(it.cost) : <Input type="number" step="0.01" className="ml-auto h-8 w-24 text-right" value={it.cost} onChange={(e) => setItem(i, { cost: e.target.value })} />}</td>
+                    <td className={`num px-2 py-2 text-right ${factor !== 1 ? 'font-medium text-zinc-900' : 'text-zinc-400'}`}>{it.cost ? money(Number(it.cost) * factor) : '—'}</td>
                     <td className="px-2 py-2 text-right">
                       {it.product_id && (
                         <div className="flex items-center justify-end gap-1">
@@ -161,7 +165,7 @@ export default function PurchaseOrderEdit() {
                   </tr>
                 );
               })}
-              {!po.items.length && <tr><td colSpan={7} className="py-10 text-center text-zinc-400">Scan or search the products you are ordering</td></tr>}
+              {!po.items.length && <tr><td colSpan={8} className="py-10 text-center text-zinc-400">Scan or search the products you are ordering</td></tr>}
             </tbody>
           </table>
           </div>
@@ -183,6 +187,12 @@ export default function PurchaseOrderEdit() {
             {!locked && <Button size="sm" icon={Plus} onClick={() => setMeta({ extras: [...meta.extras, { label: '', amount: '' }] })}>Add other</Button>}
           </div>
           <div className="flex justify-between border-t border-zinc-200 px-4 py-3 text-base font-semibold"><span>Total</span><span className="num">{money(total)}</span></div>
+          {po.items.length > 0 && factor !== 1 && (
+            <div className="border-t border-zinc-200 bg-zinc-50 px-4 py-2 text-[13px] text-zinc-700">
+              <b>Real cost</b> = unit cost {addedPct > 0 ? '+' : '−'} <b>{Math.abs(addedPct)}%</b>: the VAT and the other lines ({money(total - subtotal)} in all) are shared over the items by their price.
+              This real cost is what the reports use to count the <b>profit</b>.
+            </div>
+          )}
           {['draft', 'ordered'].includes(po.status) && po.items.length > 0 && (
             <div className="border-t border-amber-200 bg-amber-50 px-4 py-2 text-[13px] text-amber-800"><b>Save &amp; add to stock</b> saves the invoice and adds the stock in one click. Use <b>Save as draft</b> only if the goods have not arrived yet. Items sent back to the supplier: type a minus quantity (e.g. <b>-1</b>), they leave the stock and come off the total.</div>
           )}

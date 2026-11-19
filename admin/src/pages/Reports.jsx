@@ -254,7 +254,7 @@ function Sales() {
           ]} />
         </div>
       )}
-      <p className="p-3 text-xs text-zinc-400">Sold = number of pieces sold in the period. In stock = on the shelf now. * Profit only for products that have a cost price. With a brand or category chosen, all its items are listed, also those not sold.</p>
+      <p className="p-3 text-xs text-zinc-400">Sold = number of pieces sold in the period. In stock = on the shelf now. * Profit = sales − real cost (the invoice price with its share of VAT, delivery, discounts… of the purchase order), only for products that have a cost price. With a brand or category chosen, all its items are listed, also those not sold.</p>
     </>
   );
 }

@@ -177,7 +177,7 @@ reports.get('/purchases/export', requireStaff('manager'), async (c) => {
 reports.get('/dead-stock', requireStaff('manager'), async (c) => {
   const days = Number(c.req.query('days')) || 90;
   return c.json(await query(`
-    select p.id, p.name, p.sku, p.stock_quantity, p.purchase_price::float8 cost, (p.stock_quantity * p.purchase_price)::float8 value,
+    select p.id, p.name, p.sku, p.stock_quantity, (p.purchase_price * coalesce(p.cost_factor, 1))::float8 cost, (p.stock_quantity * p.purchase_price * coalesce(p.cost_factor, 1))::float8 value,
       (select max(o.created_at) from order_items oi join orders o on o.id = oi.order_id where oi.product_id = p.id) last_sold
     from products p where p.status = 'publish' and p.manage_stock and p.stock_quantity > 0
       and not exists (select 1 from order_items oi join orders o on o.id = oi.order_id where oi.product_id = p.id and o.created_at > now() - make_interval(days => $1::int))

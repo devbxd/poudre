@@ -67,7 +67,7 @@ export async function priceLines(t, items, { allowOverride = false } = {}) {
       if (!it.variation_id) fail(400, `Please choose an option for "${p.name}"`);
       const [v] = await t.query('select * from variations where id = $1 and product_id = $2', [it.variation_id, p.id]);
       if (!v) fail(400, `Option not found for "${p.name}"`);
-      src = { ...v, regular_price: v.regular_price ?? p.regular_price, purchase_price: v.purchase_price ?? p.purchase_price };
+      src = { ...v, regular_price: v.regular_price ?? p.regular_price, purchase_price: v.purchase_price ?? p.purchase_price, cost_factor: v.cost_factor ?? p.cost_factor };
       const opts = (typeof v.attributes === 'string' ? JSON.parse(v.attributes) : v.attributes).map((a) => a.option).filter(Boolean);
       if (opts.length) name = `${p.name} - ${opts.join(', ')}`;
     }
@@ -75,7 +75,8 @@ export async function priceLines(t, items, { allowOverride = false } = {}) {
     const price = allowOverride && it.price !== undefined && it.price !== null ? money(it.price) : dbPrice;
     lines.push({
       product_id: p.id, variation_id: p.type === 'variable' ? Number(it.variation_id) : null, name, sku: src.sku || p.sku,
-      quantity: qty, price, regular, on_sale: on_sale || price < regular, purchase_price: money(src.purchase_price),
+      // real cost: the invoice price with its share of VAT, delivery, discounts… of the purchase order (cost_factor)
+      quantity: qty, price, regular, on_sale: on_sale || price < regular, purchase_price: src.purchase_price == null ? null : money(src.purchase_price * (Number(src.cost_factor) || 1)),
       subtotal: money(price * qty), category_ids: (p.category_ids || []).map(Number),
       manage_stock: src.manage_stock, stock_quantity: src.stock_quantity, stock_status: src.stock_status, backorders: src.backorders,
       line_discount: money(it.discount) || 0,

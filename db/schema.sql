@@ -439,3 +439,6 @@ create trigger variations_touch before update on variations for each row execute
 alter table customers add column if not exists date_of_birth date;
 alter table customers add column if not exists dob_set_at timestamptz;
 alter table customers add column if not exists birthday_used_year int;
+-- real cost of goods: invoice total ÷ products of the last purchase order (VAT, delivery, discounts…); cost × this = real cost
+alter table products add column if not exists cost_factor numeric;
+alter table variations add column if not exists cost_factor numeric;
