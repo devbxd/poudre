@@ -137,7 +137,7 @@ export default function PurchaseOrderEdit() {
           <div className="overflow-x-auto">
           <table className="w-full min-w-[620px] text-left">
             <thead className="border-b border-zinc-200 text-xs text-zinc-500"><tr>
-              <th className="px-4 py-2 font-medium">Product</th><th className="px-1.5 py-2 text-right font-medium">Qty</th><th className="px-1.5 py-2 text-right font-medium">Unit cost</th><th className="px-1.5 py-2 text-right font-medium" title="Unit cost with its share of the VAT, delivery, discounts… of this invoice">Real cost</th>
+              <th className="px-4 py-2 font-medium">Product</th><th className="px-1.5 py-2 text-right font-medium">Qty</th><th className="px-1.5 py-2 text-right font-medium">Unit cost</th><th className="px-1.5 py-2 text-right font-medium" title="Unit cost with its share of the VAT, delivery, discounts… of this invoice">Cost</th>
               <th className="px-1.5 py-2 text-right font-medium">In stock</th><th className="px-1.5 py-2 text-right font-medium">Received</th><th className="px-1.5 py-2 text-right font-medium">Total</th><th /></tr></thead>
             <tbody>
               {po.items.map((it, i) => {
@@ -192,8 +192,8 @@ export default function PurchaseOrderEdit() {
           <div className="flex justify-between border-t border-zinc-200 px-4 py-3 text-base font-semibold"><span>Total</span><span className="num">{money(total)}</span></div>
           {po.items.length > 0 && factor !== 1 && (
             <div className="border-t border-zinc-200 bg-zinc-50 px-4 py-2 text-[13px] text-zinc-700">
-              <b>Real cost</b> = unit cost {addedPct > 0 ? '+' : '−'} <b>{Math.abs(addedPct)}%</b>: the VAT and the other lines ({money(total - subtotal)} in all) are shared over the items by their price.
-              Each line's <b>Total</b> includes it too (the small grey number is without), so the lines add up to the invoice total. The reports use this real cost for the <b>profit</b>.
+              <b>Cost</b> = unit cost {addedPct > 0 ? '+' : '−'} <b>{Math.abs(addedPct)}%</b>: the VAT and the other lines ({money(total - subtotal)} in all) are shared over the items by their price.
+              Each line's <b>Total</b> includes it too (the small grey number is without), so the lines add up to the invoice total. The reports use this cost for the <b>profit</b>.
             </div>
           )}
           {['draft', 'ordered'].includes(po.status) && po.items.length > 0 && (
