@@ -12,12 +12,12 @@ import { onNetlify } from './site/files.js';
 import { site, searchPage } from './site/routes.js';
 import { shopApi, wcAjax } from './site/shop-api.js';
 import { notFound } from './site/pages.js';
-import { scope, refreshCopy, copyMissing, setCopySource } from './snapshot.js';
+import { scope, refreshCopy, copyMissing, setCopySource, noteCatalogChange } from './snapshot.js';
 import { db, takePendingWrites } from './db.js';
 
 export const app = new Hono();
 
-if (!onNetlify()) setCopySource((text, params) => db().then((d) => d.query(text, params)));
+if (!onNetlify() && !process.env.SNAPSHOT_OFF) setCopySource((text, params) => db().then((d) => d.query(text, params)));
 
 // Robots looping on shop links pile up options (?view=a&view=b&view=c…): each such page took the server a minute and
 // slowed the shop for everyone. A page link never repeats an option, so these get a quick "not found".
@@ -44,10 +44,14 @@ app.use('/api/*', async (c, next) => {
   lastMark = Date.now();
   import('node:fs/promises').then((fs) => fs.mkdir('data', { recursive: true }).then(() => fs.writeFile('data/last-staff-activity', String(lastMark)))).catch(() => {});
 });
+// SNAPSHOT_OFF=1 (the database runs on this same machine since 2026-11-20): no copy, every page reads the database;
+// only the catalogue version the POS checks every minute is kept, in memory.
+const NO_COPY = !!process.env.SNAPSHOT_OFF;
 app.use('*', async (c, next) => {
-  const store = { useCopy: !c.req.path.startsWith('/api/') || COPY_API.has(c.req.path), changes: { tables: new Set(), stockOnly: true, deleted: false } };
+  const store = { useCopy: !NO_COPY && (!c.req.path.startsWith('/api/') || COPY_API.has(c.req.path)), changes: { tables: new Set(), stockOnly: true, deleted: false } };
   await scope.run(store, () => next());
   const changes = store.changes.tables.size ? store.changes : takePendingWrites();
+  if (NO_COPY) { if (changes) noteCatalogChange(changes); return; }
   const needs = changes || (store.useCopy && copyMissing());
   if (!needs) return;
   const job = refreshCopy((text, params) => db().then((d) => d.query(text, params)), changes || undefined)

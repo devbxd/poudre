@@ -223,8 +223,16 @@ export async function copyDb() {
   return local;
 }
 
+// Without a copy (SNAPSHOT_OFF): the versions live in memory, from the writes the requests made (a restart = new version)
+const memory = { catalog: Date.now(), any: Date.now() };
+export function noteCatalogChange(changes) {
+  memory.any = Date.now();
+  if (!changes.stockOnly) memory.catalog = memory.any;
+}
+
 /** Version of the catalogue (prices, names, products…) — changes only when something else than stock moved */
 export async function catalogVersion() {
+  if (process.env.SNAPSHOT_OFF) return memory;
   const meta = await readMeta().catch(() => null);
   return meta ? { catalog: meta.catalog_version, any: meta.version } : null;
 }
