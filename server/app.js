@@ -21,13 +21,47 @@ if (!onNetlify() && !process.env.SNAPSHOT_OFF) setCopySource((text, params) => d
 
 // Robots looping on shop links pile up options (?view=a&view=b&view=c…): each such page took the server a minute and
 // slowed the shop for everyone. A page link never repeats an option, so these get a quick "not found".
+// The 2026-11-23 attack sent category pages with 5 to 20 random brands in one filter (?filter_brand=chanel,nike,…):
+// every address new, so nothing cached and a heavy search each time. A shopper ticks a few brands, not ten.
+const MAX_FILTER_VALUES = 3;
 app.use('*', async (c, next) => {
   const q = new URL(c.req.url).searchParams;
   const keys = [...q.keys()].filter((k) => !k.endsWith('[]'));
-  if (c.req.method === 'GET' && !c.req.path.startsWith('/api/') && (new Set(keys).size < keys.length || c.req.url.length > 800)) {
+  const crowdedFilter = [...q.entries()].some(([k, v]) => k.startsWith('filter_') && v.split(',').filter(Boolean).length > MAX_FILTER_VALUES);
+  if (c.req.method === 'GET' && !c.req.path.startsWith('/api/') && (new Set(keys).size < keys.length || c.req.url.length > 800 || crowdedFilter)) {
     return c.text('Not found', 404, { 'Cache-Control': 'public, max-age=86400' });
   }
   return next();
+});
+
+// Visitors' pages take turns, PAGE_SLOTS at a time, so a flood of them can never slow the dashboard and the POS
+// (/api is not in the line) nor exhaust the database. Beyond MAX_WAITING in line, or after WAIT_MS, a short "busy"
+// answer that the visitor's browser simply retries.
+const PAGE_SLOTS = 4;
+const MAX_WAITING = 40;
+const WAIT_MS = 10000;
+let pagesRunning = 0;
+const pageLine = [];
+const busy = (c) => c.text('The shop is very busy, please try again in a few seconds.', 503, { 'Retry-After': '5', 'Cache-Control': 'no-store' });
+app.use('*', async (c, next) => {
+  if (c.req.path.startsWith('/api/') || c.req.path.startsWith('/wp-content/') || c.req.method !== 'GET') return next();
+  if (pagesRunning >= PAGE_SLOTS) {
+    if (pageLine.length >= MAX_WAITING) return busy(c);
+    const gotSlot = await new Promise((resolve) => {
+      const entry = { resolve, timer: setTimeout(() => { pageLine.splice(pageLine.indexOf(entry), 1); resolve(false); }, WAIT_MS) };
+      pageLine.push(entry);
+    });
+    if (!gotSlot) return busy(c);
+  } else {
+    pagesRunning++;
+  }
+  try {
+    return await next();
+  } finally {
+    // hand the slot straight to the next page in line, or free it
+    const nextInLine = pageLine.shift();
+    if (nextInLine) { clearTimeout(nextInLine.timer); nextInLine.resolve(true); } else pagesRunning--;
+  }
 });
 
 // Catalogue copy (server/snapshot.js): website pages and the POS catalogue read it instead of waking the database.
