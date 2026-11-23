@@ -86,6 +86,20 @@
 })();
 </script>
 <script>
+/* Browser pass (see server/app.js): worked out quietly once a week, so filters, sorting and search open straight away
+   instead of showing the short "Loading…" check. */
+(function(){
+  if(/(?:^|;\s*)pdr_pass=/.test(document.cookie)||!window.crypto||!crypto.subtle||!window.TextEncoder)return;
+  setTimeout(async function(){
+    var day=Math.floor(Date.now()/864e5),enc=new TextEncoder();
+    for(var n=0;n<200000;n++){
+      var h=new Uint8Array(await crypto.subtle.digest('SHA-256',enc.encode('poudre:'+day+':'+n)));
+      if(h[0]===0&&h[1]<16){document.cookie='pdr_pass='+day+':'+n+'; path=/; max-age=604800; samesite=lax; secure';return;}
+    }
+  },1500);
+})();
+</script>
+<script>
 /* Products with several choices (design + size…): the photo follows the first choice right away (WooCommerce only
    changed it once every list was chosen). Also in quick view / quick shop windows opened later. The other lists
    already keep only the values that exist. */

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { auth } from './auth.js';
@@ -32,6 +33,42 @@ app.use('*', async (c, next) => {
     return c.text('Not found', 404, { 'Cache-Control': 'public, max-age=86400' });
   }
   return next();
+});
+
+// Browser check on the costly addresses only (shop filters, sorting, price range, search): they skip every cache and
+// make the database search, which is what the 2026-11-23 robots hammered. Every page of the site works out, in the
+// background, a small proof that it runs in a real browser (site-extras.html) and keeps it 7 days in the "pdr_pass"
+// cookie; a visitor arriving straight on such an address gets a blank page that does the same in a fraction of a second
+// and reloads. Robots that do not run scripts stop there. Proof: sha256("poudre:<day>:<n>") starting with "000".
+const COSTLY = new Set(['orderby', 'min_price', 'max_price', 'rating_filter', 's']);
+const PASS_DAYS = 7;
+const today = () => Math.floor(Date.now() / 864e5);
+function hasPass(c) {
+  const m = /(?:^|;\s*)pdr_pass=(\d{4,6}):(\d{1,9})(?:;|$)/.exec(c.req.header('cookie') || '');
+  if (!m) return false;
+  const day = Number(m[1]);
+  if (day > today() + 1 || today() - day > PASS_DAYS) return false;
+  return createHash('sha256').update(`poudre:${m[1]}:${m[2]}`).digest('hex').startsWith('000');
+}
+const CHECK_PAGE = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Poudre Beauty</title></head>
+<body style="font-family:system-ui,sans-serif;display:grid;place-items:center;min-height:90vh;color:#555"><p id="m">Loading…</p>
+<script>(async () => {
+  const day = Math.floor(Date.now() / 864e5), enc = new TextEncoder();
+  for (let n = 0; ; n++) {
+    const h = new Uint8Array(await crypto.subtle.digest('SHA-256', enc.encode('poudre:' + day + ':' + n)));
+    if (h[0] === 0 && h[1] < 16) { document.cookie = 'pdr_pass=' + day + ':' + n + '; path=/; max-age=${PASS_DAYS * 86400}; samesite=lax; secure'; break; }
+  }
+  let tries = 0;
+  try { tries = Number(sessionStorage.getItem('pdr_tries') || 0); sessionStorage.setItem('pdr_tries', tries + 1); } catch (e) {}
+  if (tries > 2) { document.getElementById('m').textContent = 'Please allow cookies for poudrebeauty.com, then reload the page.'; return; }
+  location.reload();
+})();</script><noscript>Please turn on JavaScript to see this page.</noscript></body></html>`;
+app.use('*', async (c, next) => {
+  if (c.req.method !== 'GET' || c.req.path.startsWith('/api/') || c.req.path.startsWith('/wp-content/')) return next();
+  const q = new URL(c.req.url).searchParams;
+  if (q.has('wc-ajax') || ![...q.keys()].some((k) => k.startsWith('filter_') || COSTLY.has(k))) return next();
+  if (hasPass(c)) return next();
+  return c.html(CHECK_PAGE, 200, { 'Cache-Control': 'no-store, private', 'X-Robots-Tag': 'noindex' });
 });
 
 // Visitors' pages take turns, PAGE_SLOTS at a time, so a flood of them can never slow the dashboard and the POS
