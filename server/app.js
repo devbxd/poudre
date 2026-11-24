@@ -20,6 +20,32 @@ export const app = new Hono();
 
 if (!onNetlify() && !process.env.SNAPSHOT_OFF) setCopySource((text, params) => db().then((d) => d.query(text, params)));
 
+// Per-visitor limits. Only Cloudflare can reach this server (firewall), so CF-Connecting-IP is the visitor's real
+// address. Pages: a person opens a few a minute, a robot hundreds. Staff login: a few tries a minute, so passwords
+// cannot be guessed in a loop. Over the limit: "too many requests" for the rest of the minute.
+const LIMITS = { page: 120, login: 10 };
+const hits = new Map(); // "kind ip" -> { n, until }
+setInterval(() => { const now = Date.now(); for (const [k, v] of hits) if (v.until < now) hits.delete(k); }, 60e3).unref?.();
+function overLimit(kind, ip) {
+  if (!ip) return false;
+  const key = `${kind} ${ip}`;
+  const now = Date.now();
+  const h = hits.get(key);
+  if (!h || h.until < now) { if (hits.size < 200000) hits.set(key, { n: 1, until: now + 60e3 }); return false; }
+  return ++h.n > LIMITS[kind];
+}
+app.use('*', async (c, next) => {
+  const ip = c.req.header('cf-connecting-ip');
+  const path = c.req.path;
+  const kind = path === '/api/auth/login' || path === '/my-account/' ? (c.req.method === 'POST' ? 'login' : null)
+    : c.req.method === 'GET' && !path.startsWith('/api/') && !path.startsWith('/wp-content/') && !path.startsWith('/wp-includes/') ? 'page' : null;
+  if (kind && overLimit(kind, ip)) {
+    return kind === 'login' ? c.json({ error: 'Too many tries. Please wait one minute and try again.' }, 429, { 'Retry-After': '60' })
+      : c.text('Too many requests. Please wait a minute.', 429, { 'Retry-After': '60', 'Cache-Control': 'no-store' });
+  }
+  return next();
+});
+
 // Robots looping on shop links pile up options (?view=a&view=b&view=c…): each such page took the server a minute and
 // slowed the shop for everyone. A page link never repeats an option, so these get a quick "not found".
 // The 2026-11-23 attack sent category pages with 5 to 20 random brands in one filter (?filter_brand=chanel,nike,…):
