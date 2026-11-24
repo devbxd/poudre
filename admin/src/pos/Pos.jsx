@@ -341,6 +341,10 @@ export default function Pos() {
     const t = setInterval(sync, 20000);
     return () => { window.removeEventListener('online', up); window.removeEventListener('offline', down); clearInterval(t); };
   }, [sync]);
+  // tells the version check (main.jsx) not to reload the till in the middle of a sale
+  useEffect(() => {
+    window.__poudreBusy = cart.length > 0 || paying || !!picker || customOpen || discountOpen;
+  }, [cart.length, paying, picker, customOpen, discountOpen]);
   const loadSession = useCallback(() => api.get('/pos/session').then(setSession).catch(() => setSession(null)), []);
   useEffect(() => { loadCatalog(); loadSession(); }, [loadCatalog, loadSession]);
   useEffect(() => { setLimit(60); }, [q, cat]);

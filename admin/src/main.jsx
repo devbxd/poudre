@@ -89,3 +89,28 @@ createRoot(document.getElementById('root')).render(
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   window.addEventListener('load', () => navigator.serviceWorker.register('/dashboard/sw.js', { scope: '/dashboard/' }).catch(() => {}));
 }
+
+// New version published: the till stays open for weeks, so it kept running old code. Every 5 minutes the app compares
+// its own script with the one the server now serves. The POS reloads by itself between sales (window.__poudreBusy
+// is set while a sale is in progress); other pages show a bar with a Reload button, so a form being typed is not lost.
+const ownScript = () => [...document.scripts].map((s) => s.getAttribute('src') || '').find((s) => /\/dashboard\/assets\/index-[^/]+\.js$/.test(s));
+let updateBar = null;
+async function checkForUpdate() {
+  const mine = ownScript();
+  if (!mine || !navigator.onLine) return;
+  try {
+    const html = await (await fetch('/dashboard/', { cache: 'no-store' })).text();
+    const served = (html.match(/\/dashboard\/assets\/index-[^"']+\.js/) || [])[0];
+    if (!served || served === mine) return;
+    if (location.pathname.startsWith('/dashboard/pos') && !window.__poudreBusy) { location.reload(); return; }
+    if (updateBar) return;
+    updateBar = document.createElement('div');
+    updateBar.setAttribute('role', 'status');
+    updateBar.style.cssText = 'position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:9999;display:flex;gap:12px;align-items:center;background:#18181b;color:#fff;padding:10px 12px 10px 16px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.25);font:500 14px system-ui,sans-serif';
+    updateBar.innerHTML = '<span>A new version of the dashboard is ready.</span><button type="button" style="background:#fff;color:#18181b;border:0;border-radius:6px;padding:6px 12px;font:600 13px system-ui,sans-serif;cursor:pointer">Reload</button>';
+    updateBar.querySelector('button').addEventListener('click', () => location.reload());
+    document.body.appendChild(updateBar);
+  } catch { /* offline or server busy: try again later */ }
+}
+setInterval(checkForUpdate, 5 * 60e3);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkForUpdate(); });
