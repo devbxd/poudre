@@ -38,11 +38,12 @@ function Images({ images, onChange }) {
             <div key={`${img.url}-${i}`} className={cx('group relative aspect-square overflow-hidden rounded-md border bg-zinc-50', i === 0 ? 'col-span-2 row-span-2 border-zinc-300' : 'border-zinc-200')}>
               <img src={sized(img.url, 500)} alt={img.alt} className="h-full w-full object-cover" />
               {i === 0 && <span className="absolute left-1.5 top-1.5 rounded bg-white/90 px-1.5 text-xs font-medium">Main</span>}
-              <div className="absolute inset-x-0 bottom-0 flex justify-center gap-1 bg-gradient-to-t from-black/50 p-1.5 opacity-0 transition group-hover:opacity-100">
-                {i > 0 && <button title="Make main image" onClick={() => onChange([img, ...images.filter((_, j) => j !== i)])} className="rounded bg-white p-1"><Star size={13} /></button>}
-                {i > 0 && <button title="Move left" onClick={() => move(i, -1)} className="rounded bg-white p-1"><ChevronLeft size={13} /></button>}
-                {i < images.length - 1 && <button title="Move right" onClick={() => move(i, 1)} className="rounded bg-white p-1"><ChevronRight size={13} /></button>}
-                <button title="Remove" onClick={() => onChange(images.filter((_, j) => j !== i))} className="rounded bg-white p-1 text-red-600"><Trash2 size={13} /></button>
+              {/* with a mouse the buttons show on hover; on a phone (no hover) they are always there, and bigger */}
+              <div className="absolute inset-x-0 bottom-0 flex justify-center gap-1.5 bg-gradient-to-t from-black/50 p-1.5 transition focus-within:opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100">
+                {i > 0 && <button type="button" title="Make main image" aria-label="Make main image" onClick={() => onChange([img, ...images.filter((_, j) => j !== i)])} className="rounded bg-white p-2 [@media(hover:hover)]:p-1"><Star size={15} /></button>}
+                {i > 0 && <button type="button" title="Move left" aria-label="Move left" onClick={() => move(i, -1)} className="rounded bg-white p-2 [@media(hover:hover)]:p-1"><ChevronLeft size={15} /></button>}
+                {i < images.length - 1 && <button type="button" title="Move right" aria-label="Move right" onClick={() => move(i, 1)} className="rounded bg-white p-2 [@media(hover:hover)]:p-1"><ChevronRight size={15} /></button>}
+                <button type="button" title="Remove" aria-label="Remove this photo" onClick={() => onChange(images.filter((_, j) => j !== i))} className="rounded bg-white p-2 text-red-600 [@media(hover:hover)]:p-1"><Trash2 size={15} /></button>
               </div>
             </div>
           ))}
