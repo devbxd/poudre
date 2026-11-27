@@ -6,6 +6,7 @@ import { esc, fill } from './html.js';
 import { cached, categories, productsByIds } from './data.js';
 import { productCard } from './product-card.js';
 import { attributeTaxonomies } from './variations.js';
+import { slugify } from '../lib.js';
 
 const PER_PAGE = 32;
 const json = (v) => (typeof v === 'string' ? JSON.parse(v) : v);
@@ -114,11 +115,15 @@ export async function queryCatalog(q) {
   const beforePrice = list;
   const taxonomies = await attributeTaxonomies();
   const sizeTax = [...taxonomies.values()].find((t) => t.slug === 'pa_size');
-  const sizeOf = (p) => p.attributes.filter((a) => Number(a.id) === sizeTax?.id).flatMap((a) => a.options);
-  if (q.filter_size && sizeTax) {
-    const wanted = q.filter_size.split(',');
-    const names = sizeTax.terms.filter((t) => wanted.includes(t.slug)).map((t) => t.name);
-    list = list.filter((p) => sizeOf(p).some((o) => names.includes(o)));
+  // sizes come from the shop-wide "Size" list (imported from WooCommerce) and from a product's own "Size" option
+  // (products made in the dashboard: "38-39 | 40-41"), so a size only typed on a product shows in the filter too
+  const isSize = (a) => (sizeTax && Number(a.id) === sizeTax.id) || /^\s*(size|sizes|taille)\s*$/i.test(String(a.name || ''));
+  const sizeOf = (p) => p.attributes.filter(isSize).flatMap((a) => a.options || []);
+  const termSlug = new Map((sizeTax?.terms || []).map((t) => [t.name, t.slug]));
+  const sizeSlug = (name) => termSlug.get(name) || slugify(name);
+  if (q.filter_size) {
+    const wanted = new Set(q.filter_size.split(','));
+    list = list.filter((p) => sizeOf(p).some((o) => wanted.has(sizeSlug(o))));
   }
   if (q.min_price != null || q.max_price != null) {
     const lo = Number(q.min_price ?? 0), hi = Number(q.max_price ?? Infinity);
@@ -135,7 +140,7 @@ export async function queryCatalog(q) {
   return {
     total, pages, page, orderby, products: await productsByIds(ids),
     priceRange: prices.length ? [Math.floor(Math.min(...prices) / 10) * 10, Math.ceil(Math.max(...prices) / 10) * 10] : [0, 0],
-    sizes: sizeTax ? sizeTax.terms.filter((t) => sizeNames.has(t.name)).sort((a, b) => byName(a.name, b.name)) : [],
+    sizes: [...new Map([...sizeNames].map((name) => [sizeSlug(name), { name, slug: sizeSlug(name) }])).values()].sort((a, b) => byName(a.name, b.name)),
   };
 }
 
